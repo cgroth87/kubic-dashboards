@@ -794,6 +794,10 @@
 
     <!-- Quarterly Tab -->
     <div id="quarterly" class="tab-content">
+      <div class="chart-title">Commission by Quarter</div>
+      <div class="chart-container">
+        <canvas id="quarterlyChart"></canvas>
+      </div>
       <div class="table-container">
         <table id="quarterlyTable">
           <thead>
@@ -1655,8 +1659,6 @@
     function updateChart(id, config) {
       const canvas = document.getElementById(id);
       if (!canvas) return;
-      const container = canvas.parentElement;
-      if (!container || container.offsetHeight === 0) return;
       if (charts[id]) { charts[id].destroy(); charts[id] = null; }
       canvas.removeAttribute('width');
       canvas.removeAttribute('height');
