@@ -1615,7 +1615,7 @@
       for (const row of filteredData) {
         const year = yearType === 'fy' ? row.fyYear : row.cyYear;
         const qtr = yearType === 'fy' ? row.fyQuarter : row.cyQuarter;
-        const key = `${year}-${qtr}`;
+        const key = year + '-' + qtr;
         if (!quarterMap.has(key)) {
           quarterMap.set(key, {year, quarter: qtr, commission: 0, loads: 0});
         }
@@ -1627,19 +1627,49 @@
       const years = Array.from(new Set(Array.from(quarterMap.values()).map(q => q.year))).sort().reverse();
       const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
 
+      // Render table
       const tbody = document.querySelector('#quarterlyTable tbody');
-      tbody.innerHTML = years.map(year => {
-        let yearTotal = 0;
-        let cells = '';
-        for (const q of quarters) {
-          const key = `${year}-${q}`;
+      if (tbody) {
+        tbody.innerHTML = years.map(year => {
+          let yearTotal = 0;
+          let cells = '';
+          for (const q of quarters) {
+            const key = year + '-' + q;
+            const data = quarterMap.get(key);
+            const comm = data ? data.commission : 0;
+            yearTotal += comm;
+            cells += '<td class="text-right">' + (comm > 0 ? '$' + comm.toLocaleString('en-US', {minimumFractionDigits: 0}) : '-') + '</td>';
+          }
+          return '<tr><td><strong>' + year + '</strong></td>' + cells + '<td class="text-right accent-primary"><strong>$' + yearTotal.toLocaleString('en-US', {minimumFractionDigits: 0}) + '</strong></td></tr>';
+        }).join('');
+      }
+
+      // Render grouped bar chart
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#6366f1'];
+      const datasets = years.map((year, idx) => ({
+        label: String(year),
+        data: quarters.map(q => {
+          const key = year + '-' + q;
           const data = quarterMap.get(key);
-          const comm = data ? data.commission : 0;
-          yearTotal += comm;
-          cells += `<td class="text-right">${comm > 0 ? '$' + comm.toLocaleString('en-US', {minimumFractionDigits: 0}) : '-'}</td>`;
+          return data ? data.commission : 0;
+        }),
+        backgroundColor: colors[idx % colors.length],
+        borderRadius: 4
+      }));
+
+      updateChart('quarterlyChart', {
+        type: 'bar',
+        data: { labels: quarters, datasets: datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: true, position: 'top', labels: { color: '#8b8fa3' } } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#8b8fa3' } },
+            y: { beginAtZero: true, grid: { color: 'rgba(42,46,63,0.5)' }, ticks: { color: '#8b8fa3' } }
+          }
         }
-        return `<tr><td><strong>${year}</strong></td>${cells}<td class="text-right accent-primary"><strong>$${yearTotal.toLocaleString('en-US', {minimumFractionDigits: 0})}</strong></td></tr>`;
-      }).join('');
+      });
     }
 
     function switchTab(tabName) {
