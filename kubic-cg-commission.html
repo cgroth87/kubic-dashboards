@@ -1607,7 +1607,7 @@
 
     function renderQuarterlyTab() {
       const quarterMap = new Map();
-      for (const row of allData) {
+      for (const row of filteredData) {
         const year = yearType === 'fy' ? row.fyYear : row.cyYear;
         const qtr = yearType === 'fy' ? row.fyQuarter : row.cyQuarter;
         const key = `${year}-${qtr}`;
@@ -1642,18 +1642,28 @@
       document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
       document.getElementById(tabName).classList.add('active');
       event.target.classList.add('active');
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (tabName === 'quarterly') renderQuarterlyTab();
+          if (tabName === 'overview') renderOverviewTab();
+          if (tabName === 'customers') renderCustomersTab();
+          if (tabName === 'comparison') renderComparisonTab();
+        }, 50);
+      });
     }
 
     function updateChart(id, config) {
-      const ctx = document.getElementById(id);
-      if (!ctx) return;
-
-      if (charts[id]) {
-        charts[id].destroy();
-      }
-
-      ctx.style.maxHeight = '100%';
-      charts[id] = new Chart(ctx, config);
+      const canvas = document.getElementById(id);
+      if (!canvas) return;
+      const container = canvas.parentElement;
+      if (!container || container.offsetHeight === 0) return;
+      if (charts[id]) { charts[id].destroy(); charts[id] = null; }
+      canvas.removeAttribute('width');
+      canvas.removeAttribute('height');
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.maxHeight = '100%';
+      charts[id] = new Chart(canvas, config);
     }
 
     function updateLastUpdated() {
