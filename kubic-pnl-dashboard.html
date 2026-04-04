@@ -169,6 +169,22 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background
 </style>
 </head>
 <body>
+<div id="passwordOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#0f1117;z-index:10000;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#1a1d27;padding:40px;border-radius:16px;border:1px solid #2a2e3f;text-align:center;max-width:400px;width:90%;">
+    <div style="width:60px;height:60px;background:linear-gradient(135deg,#4f8cff,#a855f7);border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:24px;color:#fff;margin:0 auto 20px;">K</div>
+    <h2 style="color:#e4e6ef;margin-bottom:8px;font-size:20px;">Kubic P&L Dashboard</h2>
+    <p style="color:#8b8fa3;margin-bottom:24px;font-size:14px;">Enter password to access the dashboard</p>
+    <input id="pwdInput" type="password" placeholder="Password" style="width:100%;padding:12px 16px;background:#22263a;border:1px solid #2a2e3f;color:#e4e6ef;border-radius:8px;font-size:15px;margin-bottom:12px;box-sizing:border-box;" onkeydown="if(event.key==='Enter')checkPwd()">
+    <button onclick="checkPwd()" style="width:100%;padding:12px;background:#4f8cff;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">Access Dashboard</button>
+    <p id="pwdError" style="color:#ef4444;margin-top:12px;font-size:13px;display:none;">Incorrect password</p>
+  </div>
+</div>
+<script>
+async function hashPwd(pwd){const e=new TextEncoder().encode(pwd);const h=await crypto.subtle.digest('SHA-256',e);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function checkPwd(){const p=document.getElementById('pwdInput').value;const h=await hashPwd(p);if(h==='d2d6670dcc41061954b2c3eab115b77f2dc279c74b972003749eb5a9cb194ea2'){document.getElementById('passwordOverlay').style.display='none';sessionStorage.setItem('kubic_auth','true');}else{document.getElementById('pwdError').style.display='block';document.getElementById('pwdInput').value='';}}
+if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOMContentLoaded',()=>{document.getElementById('passwordOverlay').style.display='none';});}
+</script>
+
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
