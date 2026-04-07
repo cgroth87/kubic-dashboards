@@ -708,6 +708,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       <button class="tab-button" onclick="switchTab('customers')">By Customer</button>
       <button class="tab-button" onclick="switchTab('comparison')">FY Comparison</button>
       <button class="tab-button" onclick="switchTab('quarterly')">Quarterly View</button>
+      <button class="tab-button" onclick="switchTab('manage')">Manage Customers</button>
     </div>
 
     <!-- Tab Content -->
@@ -834,6 +835,27 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         </table>
       </div>
     </div>
+    <div id="manage" class="tab-content">
+      <div class="card">
+        <h2>Manage CG Customers</h2>
+        <p style="color:#666;font-size:14px">Edit the CG customer list used for booking matching. Changes are saved in your browser only (localStorage).</p>
+        <div id="manageStatus" style="display:none;padding:10px;margin:10px 0;border-radius:4px;"></div>
+        <div style="margin:10px 0;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="tab-button" onclick="addCgCustomer()">+ Add Customer</button>
+          <button class="tab-button" onclick="exportCgCustomers()">Export JSON</button>
+          <button class="tab-button" onclick="resetCgCustomers()">Reset to Default</button>
+          <button class="tab-button" onclick="reapplyMatching()">Re-apply Matching</button>
+        </div>
+        <div style="overflow:auto;max-height:500px">
+          <table id="manageTable" class="data-table"><thead><tr><th>Code</th><th>Name</th><th>Alt</th><th>Alt2</th><th>Loads</th><th>Revenue</th><th>Action</th></tr></thead><tbody></tbody></table>
+        </div>
+        <h3 style="margin-top:24px">Unmatched Bookings</h3>
+        <p style="color:#666;font-size:13px">Sheet customers that don't currently match any CG customer. Click "+ Add" to add them as new CG customers.</p>
+        <div style="overflow:auto;max-height:300px">
+          <table id="unmatchedTable" class="data-table"><thead><tr><th>Sheet Customer</th><th>Loads</th><th>Revenue</th><th>Action</th></tr></thead><tbody><tr><td colspan="4" class="text-center loading">Click Re-apply Matching to scan</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -942,6 +964,22 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       {code:'CG005', name:'Verge Safety Barriers'},
       {code:'CG095', name:'Vic Cans'}
     ];
+    // ===== Manage Customers: localStorage override =====
+    let CG_CUSTOMERS_RUNTIME = (function(){
+      try {
+        const o = localStorage.getItem('kubic_cg_override');
+        if (o) { const p = JSON.parse(o); if (Array.isArray(p)) return p; }
+      } catch(e) {}
+      return CG_CUSTOMERS.slice();
+    })();
+    function saveCGOverride() {
+      try { localStorage.setItem('kubic_cg_override', JSON.stringify(CG_CUSTOMERS_RUNTIME)); } catch(e) {}
+    }
+    function resetCGOverride() {
+      try { localStorage.removeItem('kubic_cg_override'); } catch(e) {}
+      CG_CUSTOMERS_RUNTIME = CG_CUSTOMERS.slice();
+    }
+
 
     const SHEET_ID = '1EDU9_oq-hix7KyeKjpWfAuP00_AfofBSHeF-vsHfZOk';
     const TABS = ['2026', '2025', '2024', '2023', '2022', '2018 - 2021'];
@@ -1158,7 +1196,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       const COMMON_WORDS = new Set(['SUPPLY','FREIGHT','TRANSPORT','TRANSPORTS','LOGISTICS','EXPRESS','GLOBAL','NATIONAL','AUSTRALIAN','AUSTRALIA','AUS','GROUP','SERVICES','SOLUTIONS','PTY','LTD','THE','AND','CO','COMPANY','COMPANIES','INTERNATIONAL','BUSINESS','SAFETY','BARRIERS','SAF','DIGITAL','INDUSTRIES','CHAINS','ACTIVE','HOLDINGS','CONSULTING','CONSULTANTS','TRADING','TRADERS','PEOPLE','OFLOAD']);
       const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const wordRe = w => new RegExp('\\b' + esc(w) + '\\b');
-      for (const cg of CG_CUSTOMERS) {
+          for (const cg of CG_CUSTOMERS_RUNTIME) { {
         const cgName = cg.name.toUpperCase();
         const cgAlt = cg.alt ? cg.alt.toUpperCase() : null;
         const cgAlt2 = cg.alt2 ? cg.alt2.toUpperCase() : null;
@@ -1726,7 +1764,121 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       });
     }
 
-    function switchTab(tabName) {
+    function renderManageTab() {
+      const tbody = document.querySelector('#manageTable tbody');
+      // Aggregate per cgCode from allData
+      const stats = {};
+      (window.allData||[]).forEach(r => {
+        if (!r.cgCode) return;
+        if (!stats[r.cgCode]) stats[r.cgCode] = {loads:0, revenue:0};
+        stats[r.cgCode].loads++;
+        stats[r.cgCode].revenue += (r.revenue||0);
+      });
+      tbody.innerHTML = CG_CUSTOMERS_RUNTIME.map((c,i) => {
+        const s = stats[c.code] || {loads:0,revenue:0};
+        return '<tr>' +
+          '<td><input data-i="'+i+'" data-f="code" value="'+(c.code||'').replace(/"/g,'&quot;')+'" style="width:80px"></td>' +
+          '<td><input data-i="'+i+'" data-f="name" value="'+(c.name||'').replace(/"/g,'&quot;')+'" style="width:200px"></td>' +
+          '<td><input data-i="'+i+'" data-f="alt" value="'+(c.alt||'').replace(/"/g,'&quot;')+'" style="width:160px"></td>' +
+          '<td><input data-i="'+i+'" data-f="alt2" value="'+(c.alt2||'').replace(/"/g,'&quot;')+'" style="width:160px"></td>' +
+          '<td>'+s.loads+'</td>' +
+          '<td>$'+s.revenue.toLocaleString('en-AU',{maximumFractionDigits:0})+'</td>' +
+          '<td><button onclick="deleteCgCustomer('+i+')">Delete</button></td>' +
+          '</tr>';
+      }).join('');
+      tbody.querySelectorAll('input').forEach(inp => {
+        inp.addEventListener('change', e => {
+          const i = +e.target.dataset.i, f = e.target.dataset.f;
+          CG_CUSTOMERS_RUNTIME[i][f] = e.target.value.trim();
+          if (!CG_CUSTOMERS_RUNTIME[i][f]) delete CG_CUSTOMERS_RUNTIME[i][f];
+          saveCGOverride();
+          showManageStatus('Saved. Click "Re-apply Matching" to update dashboards.', 'info');
+        });
+      });
+      refreshUnmatched();
+    }
+    function addCgCustomer() {
+      const code = prompt('CG Code (e.g. CG999):');
+      if (!code) return;
+      const name = prompt('Customer Name:');
+      if (!name) return;
+      CG_CUSTOMERS_RUNTIME.push({code:code.trim(), name:name.trim()});
+      saveCGOverride();
+      renderManageTab();
+      showManageStatus('Added. Click "Re-apply Matching" to update.', 'info');
+    }
+    function deleteCgCustomer(i) {
+      if (!confirm('Delete '+CG_CUSTOMERS_RUNTIME[i].name+'?')) return;
+      CG_CUSTOMERS_RUNTIME.splice(i,1);
+      saveCGOverride();
+      renderManageTab();
+      showManageStatus('Deleted. Click "Re-apply Matching" to update.', 'info');
+    }
+    function exportCgCustomers() {
+      const json = JSON.stringify(CG_CUSTOMERS_RUNTIME, null, 2);
+      const blob = new Blob([json], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'cg_customers.json'; a.click();
+      URL.revokeObjectURL(url);
+    }
+    function resetCgCustomers() {
+      if (!confirm('Reset to default CG customer list? This discards your edits.')) return;
+      resetCGOverride();
+      renderManageTab();
+      showManageStatus('Reset. Click "Re-apply Matching" to update.', 'info');
+    }
+    function reapplyMatching() {
+      showManageStatus('Re-matching... please wait', 'info');
+      // Re-run match on existing allData
+      (window.allData||[]).forEach(r => {
+        const m = matchCGCustomer(r.customer);
+        if (m) { r.cgCode = m.code; r.cgName = m.name; }
+        else { r.cgCode = null; r.cgName = null; }
+      });
+      // Re-render all tabs
+      if (typeof renderOverviewTab === 'function') renderOverviewTab();
+      if (typeof renderCustomersTab === 'function') renderCustomersTab();
+      if (typeof renderQuarterlyTab === 'function') renderQuarterlyTab();
+      if (typeof renderComparisonTab === 'function') renderComparisonTab();
+      renderManageTab();
+      showManageStatus('Done. All tabs updated.', 'success');
+    }
+    function showManageStatus(msg, type) {
+      const el = document.getElementById('manageStatus');
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.background = type==='success' ? '#d4edda' : (type==='error'?'#f8d7da':'#d1ecf1');
+      el.style.color = type==='success' ? '#155724' : (type==='error'?'#721c24':'#0c5460');
+      setTimeout(()=>{ el.style.display='none'; }, 4000);
+    }
+    function refreshUnmatched() {
+      const tbody = document.querySelector('#unmatchedTable tbody');
+      const um = {};
+      (window.allData||[]).forEach(r => {
+        if (r.cgCode) return;
+        const k = r.customer || '(blank)';
+        if (!um[k]) um[k] = {loads:0, revenue:0};
+        um[k].loads++;
+        um[k].revenue += (r.revenue||0);
+      });
+      const arr = Object.entries(um).sort((a,b)=>b[1].revenue-a[1].revenue);
+      if (!arr.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-center">No unmatched bookings</td></tr>'; return; }
+      tbody.innerHTML = arr.map(([name,s]) =>
+        '<tr><td>'+name.replace(/</g,'&lt;')+'</td><td>'+s.loads+'</td><td>$'+s.revenue.toLocaleString('en-AU',{maximumFractionDigits:0})+'</td>' +
+        '<td><button onclick="addUnmatchedAsNew(\''+name.replace(/'/g,"\\'")+'\')">+ Add</button></td></tr>'
+      ).join('');
+    }
+    function addUnmatchedAsNew(name) {
+      const code = prompt('CG Code for "'+name+'":');
+      if (!code) return;
+      CG_CUSTOMERS_RUNTIME.push({code:code.trim(), name:name});
+      saveCGOverride();
+      reapplyMatching();
+    }
+
+
+        function switchTab(tabName) {
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
       document.getElementById(tabName).classList.add('active');
@@ -1737,6 +1889,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
           if (tabName === 'overview') renderOverviewTab();
           if (tabName === 'customers') renderCustomersTab();
           if (tabName === 'comparison') renderComparisonTab();
+          if (tabName === 'manage') renderManageTab();
         }, 50);
       });
     }
