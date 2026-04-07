@@ -1196,7 +1196,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       const COMMON_WORDS = new Set(['SUPPLY','FREIGHT','TRANSPORT','TRANSPORTS','LOGISTICS','EXPRESS','GLOBAL','NATIONAL','AUSTRALIAN','AUSTRALIA','AUS','GROUP','SERVICES','SOLUTIONS','PTY','LTD','THE','AND','CO','COMPANY','COMPANIES','INTERNATIONAL','BUSINESS','SAFETY','BARRIERS','SAF','DIGITAL','INDUSTRIES','CHAINS','ACTIVE','HOLDINGS','CONSULTING','CONSULTANTS','TRADING','TRADERS','PEOPLE','OFLOAD']);
       const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const wordRe = w => new RegExp('\\b' + esc(w) + '\\b');
-          for (const cg of CG_CUSTOMERS_RUNTIME) { {
+          for (const cg of CG_CUSTOMERS_RUNTIME) {
         const cgName = cg.name.toUpperCase();
         const cgAlt = cg.alt ? cg.alt.toUpperCase() : null;
         const cgAlt2 = cg.alt2 ? cg.alt2.toUpperCase() : null;
