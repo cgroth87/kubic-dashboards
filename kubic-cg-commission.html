@@ -1170,7 +1170,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         if (cgAlt && cgAlt.split(' ').length >= 2 && norm.includes(cgAlt)) return cg;
         if (cgAlt2 && cgAlt2.split(' ').length >= 2 && norm.includes(cgAlt2)) return cg;
         const tryUniqueWord = name => {
-          const words = name.split(' ').filter(w => w.length >= 5 && !COMMON_WORDS.has(w));
+          const words = name.split(' ').filter(w => w.length >= 4 && !COMMON_WORDS.has(w));
           if (words.length === 1) return wordRe(words[0]).test(norm);
           return false;
         };
