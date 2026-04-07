@@ -1153,27 +1153,30 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     // Match customer to CG customer — bidirectional fuzzy matching
     function matchCGCustomer(sheetCustomer) {
       if (!sheetCustomer) return null;
-      const norm = sheetCustomer.toUpperCase().trim().replace(/^RCTI\s*[-–]\s*/, '').replace(/\s+/g, ' ');
-
+      const norm = sheetCustomer.toUpperCase().trim().replace(/^RCTI\s*[-\u2013]\s*/, '').replace(/\s+/g, ' ');
+      const COMMON_WORDS = new Set(['SUPPLY','FREIGHT','TRANSPORT','TRANSPORTS','LOGISTICS','EXPRESS','GLOBAL','NATIONAL','AUSTRALIAN','AUSTRALIA','AUS','GROUP','SERVICES','SOLUTIONS','PTY','LTD','THE','AND','CO','COMPANY','COMPANIES','INTERNATIONAL','BUSINESS','SAFETY','BARRIERS','SAF','DIGITAL','INDUSTRIES','CHAINS','ACTIVE','HOLDINGS','CONSULTING','CONSULTANTS','TRADING','TRADERS','PEOPLE','OFLOAD']);
+      const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wordRe = w => new RegExp('\\b' + esc(w) + '\\b');
       for (const cg of CG_CUSTOMERS) {
         const cgName = cg.name.toUpperCase();
         const cgAlt = cg.alt ? cg.alt.toUpperCase() : null;
         const cgAlt2 = cg.alt2 ? cg.alt2.toUpperCase() : null;
         const cgCode = cg.code.toUpperCase();
-
-        // Check if sheet name contains CG name OR CG name contains sheet name
-        if (norm.includes(cgName) || cgName.includes(norm)) return cg;
-        if (cgAlt && (norm.includes(cgAlt) || cgAlt.includes(norm))) return cg;
-        if (cgAlt2 && (norm.includes(cgAlt2) || cgAlt2.includes(norm))) return cg;
-        // Check CG code in the customer string
-        if (norm.includes(cgCode)) return cg;
-        // Check first significant word match (for short names like "KANDU" vs "Kandu Freight")
-        const cgFirstWord = cgName.split(' ')[0];
-        if (cgFirstWord.length >= 4 && norm.includes(cgFirstWord)) return cg;
-        if (cgAlt) {
-          const altFirst = cgAlt.split(' ')[0];
-          if (altFirst.length >= 4 && norm.includes(altFirst)) return cg;
-        }
+        if (norm === cgName) return cg;
+        if (cgAlt && norm === cgAlt) return cg;
+        if (cgAlt2 && norm === cgAlt2) return cg;
+        if (wordRe(cgCode).test(norm)) return cg;
+        if (cgName.split(' ').length >= 2 && norm.includes(cgName)) return cg;
+        if (cgAlt && cgAlt.split(' ').length >= 2 && norm.includes(cgAlt)) return cg;
+        if (cgAlt2 && cgAlt2.split(' ').length >= 2 && norm.includes(cgAlt2)) return cg;
+        const tryUniqueWord = name => {
+          const words = name.split(' ').filter(w => w.length >= 5 && !COMMON_WORDS.has(w));
+          if (words.length === 1) return wordRe(words[0]).test(norm);
+          return false;
+        };
+        if (tryUniqueWord(cgName)) return cg;
+        if (cgAlt && tryUniqueWord(cgAlt)) return cg;
+        if (cgAlt2 && tryUniqueWord(cgAlt2)) return cg;
       }
       return null;
     }
