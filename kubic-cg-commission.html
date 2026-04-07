@@ -819,7 +819,8 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         <table id="quarterlyTable">
           <thead>
             <tr>
-              <th>FY Year</th>
+              <th>Year</th>
+              <th>Metric</th>
               <th class="text-right">Q1</th>
               <th class="text-right">Q2</th>
               <th class="text-right">Q3</th>
@@ -828,7 +829,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
             </tr>
           </thead>
           <tbody>
-            <tr><td colspan="6" class="text-center loading">Loading data...</td></tr>
+            <tr><td colspan="7" class="text-center loading">Loading data...</td></tr>
           </tbody>
         </table>
       </div>
@@ -1524,8 +1525,8 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         c.commission += row.commission;
       }
 
-      const total = Array.from(custMap.values()).reduce((sum, c) => sum + c.commission, 0);
-      const custs = Array.from(custMap.values()).sort((a, b) => b.commission - a.commission);
+      const custs = Array.from(custMap.values()).sort((a,b) => b.commission - a.commission);
+      const total = custs.reduce((s,c) => s + c.commission, 0);
 
       // Table
       const tbody = document.querySelector('#customersTable tbody');
@@ -1554,7 +1555,22 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
           indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
-          plugins: {legend: {display: false}},
+          plugins: {
+            legend: {display: false},
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const c = top15[ctx.dataIndex];
+                  const fmt = n => '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                  return [
+                    'Commission: ' + fmt(c.commission),
+                    'Revenue: ' + fmt(c.revenue),
+                    'Loads: ' + c.loads.toLocaleString()
+                  ];
+                }
+              }
+            }
+          },
           scales: {x: {beginAtZero: true}}
         }
       });
@@ -1636,30 +1652,35 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         const qtr = yearType === 'fy' ? row.fyQuarter : row.cyQuarter;
         const key = year + '-' + qtr;
         if (!quarterMap.has(key)) {
-          quarterMap.set(key, {year, quarter: qtr, commission: 0, loads: 0});
+          quarterMap.set(key, {year, quarter: qtr, commission: 0, revenue: 0, loads: 0});
         }
         const m = quarterMap.get(key);
         m.commission += row.commission;
+        m.revenue += row.revenue;
         m.loads++;
       }
-
       const years = Array.from(new Set(Array.from(quarterMap.values()).map(q => q.year))).sort().reverse();
       const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
 
-      // Render table
+      // Build multi-metric table: rows = (year, metric)
+      const fmt0 = n => '$' + Math.round(n).toLocaleString('en-US');
+      const fmt2 = n => '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
       const tbody = document.querySelector('#quarterlyTable tbody');
       if (tbody) {
         tbody.innerHTML = years.map(year => {
-          let yearTotal = 0;
-          let cells = '';
-          for (const q of quarters) {
-            const key = year + '-' + q;
-            const data = quarterMap.get(key);
-            const comm = data ? data.commission : 0;
-            yearTotal += comm;
-            cells += '<td class="text-right">' + (comm > 0 ? '$' + comm.toLocaleString('en-US', {minimumFractionDigits: 0}) : '-') + '</td>';
-          }
-          return '<tr><td><strong>' + year + '</strong></td>' + cells + '<td class="text-right accent-primary"><strong>$' + yearTotal.toLocaleString('en-US', {minimumFractionDigits: 0}) + '</strong></td></tr>';
+          const qd = quarters.map(q => quarterMap.get(year + '-' + q) || {commission: 0, revenue: 0, loads: 0});
+          const totLoads = qd.reduce((s,d) => s + d.loads, 0);
+          const totRev = qd.reduce((s,d) => s + d.revenue, 0);
+          const totComm = qd.reduce((s,d) => s + d.commission, 0);
+          const cellLoads = qd.map(d => '<td class="text-right">' + (d.loads ? d.loads.toLocaleString() : '-') + '</td>').join('');
+          const cellRev = qd.map(d => '<td class="text-right">' + (d.revenue ? fmt0(d.revenue) : '-') + '</td>').join('');
+          const cellComm = qd.map(d => '<td class="text-right accent-primary">' + (d.commission ? fmt0(d.commission) : '-') + '</td>').join('');
+          const cellAvg = qd.map(d => '<td class="text-right">' + (d.loads ? fmt2(d.commission / d.loads) : '-') + '</td>').join('');
+          return '<tr class="year-group"><td rowspan="4"><strong>' + year + '</strong></td>' +
+                 '<td>Loads</td>' + cellLoads + '<td class="text-right"><strong>' + totLoads.toLocaleString() + '</strong></td></tr>' +
+                 '<tr><td>Revenue</td>' + cellRev + '<td class="text-right"><strong>' + fmt0(totRev) + '</strong></td></tr>' +
+                 '<tr><td><strong>Commission (1.5%)</strong></td>' + cellComm + '<td class="text-right accent-primary"><strong>' + fmt0(totComm) + '</strong></td></tr>' +
+                 '<tr><td>Avg Comm/Load</td>' + cellAvg + '<td class="text-right">' + (totLoads ? fmt2(totComm / totLoads) : '-') + '</td></tr>';
         }).join('');
       }
 
@@ -1668,21 +1689,35 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       const datasets = years.map((year, idx) => ({
         label: String(year),
         data: quarters.map(q => {
-          const key = year + '-' + q;
-          const data = quarterMap.get(key);
+          const data = quarterMap.get(year + '-' + q);
           return data ? data.commission : 0;
         }),
         backgroundColor: colors[idx % colors.length],
         borderRadius: 4
       }));
-
       updateChart('quarterlyChart', {
         type: 'bar',
         data: { labels: quarters, datasets: datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { display: true, position: 'top', labels: { color: '#8b8fa3' } } },
+          plugins: {
+            legend: { display: true, position: 'top', labels: { color: '#8b8fa3' } },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const year = ctx.dataset.label;
+                  const q = ctx.label;
+                  const d = quarterMap.get(year + '-' + q) || {commission: 0, revenue: 0, loads: 0};
+                  return [
+                    'Commission: ' + fmt0(d.commission),
+                    'Revenue: ' + fmt0(d.revenue),
+                    'Loads: ' + d.loads.toLocaleString()
+                  ];
+                }
+              }
+            }
+          },
           scales: {
             x: { grid: { display: false }, ticks: { color: '#8b8fa3' } },
             y: { beginAtZero: true, grid: { color: 'rgba(42,46,63,0.5)' }, ticks: { color: '#8b8fa3' } }
