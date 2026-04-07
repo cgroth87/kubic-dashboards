@@ -843,11 +843,14 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         <div style="margin:10px 0;display:flex;gap:8px;flex-wrap:wrap">
           <button class="tab-button" onclick="addCgCustomer()">+ Add Customer</button>
           <button class="tab-button" onclick="exportCgCustomers()">Export JSON</button>
+          <button class="tab-button" onclick="exportCgCustomersCsv()">Export CSV</button>
+          <button class="tab-button" onclick="document.getElementById('cgCsvInput').click()">Import CSV</button>
+          <input type="file" id="cgCsvInput" accept=".csv,text/csv" style="display:none" onchange="importCgCustomersCsv(event)">
           <button class="tab-button" onclick="resetCgCustomers()">Reset to Default</button>
           <button class="tab-button" onclick="reapplyMatching()">Re-apply Matching</button>
         </div>
         <div style="overflow:auto;max-height:500px">
-          <table id="manageTable" class="data-table"><thead><tr><th>Code</th><th>Name</th><th>Alt</th><th>Alt2</th><th>Loads</th><th>Revenue</th><th>Action</th></tr></thead><tbody></tbody></table>
+          <table id="manageTable" class="data-table"><thead><tr><th style="cursor:pointer;user-select:none" onclick="sortManage('code')">Code <span id="sortInd_code"></span></th><th style="cursor:pointer;user-select:none" onclick="sortManage('name')">Name <span id="sortInd_name"></span></th><th style="cursor:pointer;user-select:none" onclick="sortManage('alt')">Alt <span id="sortInd_alt"></span></th><th style="cursor:pointer;user-select:none" onclick="sortManage('alt2')">Alt2 <span id="sortInd_alt2"></span></th><th style="cursor:pointer;user-select:none" onclick="sortManage('loads')">Loads <span id="sortInd_loads"></span></th><th style="cursor:pointer;user-select:none" onclick="sortManage('revenue')">Revenue <span id="sortInd_revenue"></span></th><th>Action</th></tr></thead><tbody></tbody></table>
         </div>
         <h3 style="margin-top:24px">Unmatched Bookings</h3>
         <p style="color:#666;font-size:13px">Sheet customers that don't currently match any CG customer. Click "+ Add" to add them as new CG customers.</p>
@@ -1766,7 +1769,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
 
     function renderManageTab() {
       const tbody = document.querySelector('#manageTable tbody');
-      // Aggregate per cgCode from allData
+      if (!window.__manageSort) window.__manageSort = {key:'code', dir:1};
       const stats = {};
       (window.allData||[]).forEach(r => {
         if (!r.cgCode) return;
@@ -1774,16 +1777,34 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         stats[r.cgCode].loads++;
         stats[r.cgCode].revenue += (r.revenue||0);
       });
-      tbody.innerHTML = CG_CUSTOMERS_RUNTIME.map((c,i) => {
+      // Build rows with original index and stats
+      const rows = CG_CUSTOMERS_RUNTIME.map((c, i) => {
         const s = stats[c.code] || {loads:0,revenue:0};
+        return {orig:i, code:c.code||'', name:c.name||'', alt:c.alt||'', alt2:c.alt2||'', loads:s.loads, revenue:s.revenue};
+      });
+      const {key, dir} = window.__manageSort;
+      rows.sort((a,b) => {
+        let x = a[key], y = b[key];
+        if (typeof x === 'string') { x = x.toLowerCase(); y = y.toLowerCase(); }
+        if (x < y) return -1*dir;
+        if (x > y) return 1*dir;
+        return 0;
+      });
+      // Update indicators
+      ['code','name','alt','alt2','loads','revenue'].forEach(k => {
+        const el = document.getElementById('sortInd_'+k);
+        if (el) el.textContent = (k===key) ? (dir===1?'\u25B2':'\u25BC') : '';
+      });
+      const esc = v => String(v).replace(/"/g,'&quot;');
+      tbody.innerHTML = rows.map(r => {
         return '<tr>' +
-          '<td><input data-i="'+i+'" data-f="code" value="'+(c.code||'').replace(/"/g,'&quot;')+'" style="width:80px"></td>' +
-          '<td><input data-i="'+i+'" data-f="name" value="'+(c.name||'').replace(/"/g,'&quot;')+'" style="width:200px"></td>' +
-          '<td><input data-i="'+i+'" data-f="alt" value="'+(c.alt||'').replace(/"/g,'&quot;')+'" style="width:160px"></td>' +
-          '<td><input data-i="'+i+'" data-f="alt2" value="'+(c.alt2||'').replace(/"/g,'&quot;')+'" style="width:160px"></td>' +
-          '<td>'+s.loads+'</td>' +
-          '<td>$'+s.revenue.toLocaleString('en-AU',{maximumFractionDigits:0})+'</td>' +
-          '<td><button onclick="deleteCgCustomer('+i+')">Delete</button></td>' +
+          '<td><input data-i="'+r.orig+'" data-f="code" value="'+esc(r.code)+'" style="width:80px"></td>' +
+          '<td><input data-i="'+r.orig+'" data-f="name" value="'+esc(r.name)+'" style="width:200px"></td>' +
+          '<td><input data-i="'+r.orig+'" data-f="alt" value="'+esc(r.alt)+'" style="width:160px"></td>' +
+          '<td><input data-i="'+r.orig+'" data-f="alt2" value="'+esc(r.alt2)+'" style="width:160px"></td>' +
+          '<td>'+r.loads+'</td>' +
+          '<td>$'+r.revenue.toLocaleString('en-AU',{maximumFractionDigits:0})+'</td>' +
+          '<td><button onclick="deleteCgCustomer('+r.orig+')">Delete</button></td>' +
           '</tr>';
       }).join('');
       tbody.querySelectorAll('input').forEach(inp => {
@@ -1797,7 +1818,13 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       });
       refreshUnmatched();
     }
-    function addCgCustomer() {
+    function sortManage(key) {
+      if (!window.__manageSort) window.__manageSort = {key, dir:1};
+      else if (window.__manageSort.key === key) window.__manageSort.dir *= -1;
+      else window.__manageSort = {key, dir:1};
+      renderManageTab();
+    }
+        function addCgCustomer() {
       const code = prompt('CG Code (e.g. CG999):');
       if (!code) return;
       const name = prompt('Customer Name:');
@@ -1822,7 +1849,83 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       a.href = url; a.download = 'cg_customers.json'; a.click();
       URL.revokeObjectURL(url);
     }
-    function resetCgCustomers() {
+    function exportCgCustomersCsv() {
+      const esc = v => {
+        if (v == null) return '';
+        const s = String(v);
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g,'""') + '"';
+        return s;
+      };
+      const lines = ['code,name,alt,alt2'];
+      CG_CUSTOMERS_RUNTIME.forEach(c => {
+        lines.push([esc(c.code), esc(c.name), esc(c.alt||''), esc(c.alt2||'')].join(','));
+      });
+      const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'cg_customers.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
+    function importCgCustomersCsv(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const text = e.target.result;
+          // Simple CSV parser
+          const parseCsv = str => {
+            const rows = [];
+            let row = [], field = '', inQ = false;
+            for (let i = 0; i < str.length; i++) {
+              const c = str[i];
+              if (inQ) {
+                if (c === '"' && str[i+1] === '"') { field += '"'; i++; }
+                else if (c === '"') inQ = false;
+                else field += c;
+              } else {
+                if (c === '"') inQ = true;
+                else if (c === ',') { row.push(field); field = ''; }
+                else if (c === '\n' || c === '\r') {
+                  if (field.length || row.length) { row.push(field); rows.push(row); row = []; field = ''; }
+                  if (c === '\r' && str[i+1] === '\n') i++;
+                } else field += c;
+              }
+            }
+            if (field.length || row.length) { row.push(field); rows.push(row); }
+            return rows;
+          };
+          const rows = parseCsv(text);
+          if (!rows.length) { showManageStatus('Empty CSV', 'error'); return; }
+          const header = rows[0].map(h => h.trim().toLowerCase());
+          const idxCode = header.indexOf('code');
+          const idxName = header.indexOf('name');
+          const idxAlt = header.indexOf('alt');
+          const idxAlt2 = header.indexOf('alt2');
+          if (idxCode < 0 || idxName < 0) { showManageStatus('CSV must have code and name columns', 'error'); return; }
+          if (!confirm('Replace current CG customer list with '+(rows.length-1)+' rows from CSV?')) { ev.target.value=''; return; }
+          const next = [];
+          for (let i = 1; i < rows.length; i++) {
+            const r = rows[i];
+            if (!r[idxCode] && !r[idxName]) continue;
+            const obj = {code: (r[idxCode]||'').trim(), name: (r[idxName]||'').trim()};
+            if (idxAlt >= 0 && r[idxAlt] && r[idxAlt].trim()) obj.alt = r[idxAlt].trim();
+            if (idxAlt2 >= 0 && r[idxAlt2] && r[idxAlt2].trim()) obj.alt2 = r[idxAlt2].trim();
+            next.push(obj);
+          }
+          CG_CUSTOMERS_RUNTIME.length = 0;
+          next.forEach(n => CG_CUSTOMERS_RUNTIME.push(n));
+          saveCGOverride();
+          renderManageTab();
+          showManageStatus('Imported '+next.length+' customers. Click "Re-apply Matching" to update.', 'success');
+        } catch(err) {
+          showManageStatus('Import failed: '+err.message, 'error');
+        }
+        ev.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+        function resetCgCustomers() {
       if (!confirm('Reset to default CG customer list? This discards your edits.')) return;
       resetCGOverride();
       renderManageTab();
