@@ -709,6 +709,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       <button class="tab-button" onclick="switchTab('comparison')">FY Comparison</button>
       <button class="tab-button" onclick="switchTab('quarterly')">Quarterly View</button>
       <button class="tab-button" onclick="switchTab('manage')">Manage Customers</button>
+      <button class="tab-button" onclick="switchTab('insights')">Insights</button>
     </div>
 
     <!-- Tab Content -->
@@ -857,6 +858,23 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         <div style="overflow:auto;max-height:300px">
           <table id="unmatchedTable" class="data-table"><thead><tr><th style="cursor:pointer;user-select:none" onclick="sortUnmatched('customer')">Sheet Customer <span id="umInd_customer"></span></th><th style="cursor:pointer;user-select:none" onclick="sortUnmatched('loads')">Loads <span id="umInd_loads"></span></th><th style="cursor:pointer;user-select:none" onclick="sortUnmatched('revenue')">Revenue <span id="umInd_revenue"></span></th><th>Action</th></tr></thead><tbody><tr><td colspan="4" class="text-center loading">Click Re-apply Matching to scan</td></tr></tbody></table>
         </div>
+      </div>
+    </div>
+
+    <div id="insights" class="tab-content">
+      <div class="card">
+        <h2>Analyst Insights</h2>
+        <p style="color:#666;font-size:14px">Automated analysis across your CG customer base to help you keep volume continuous and growing. Recomputed from live data every time you open this tab. Respects your current FY/CY filter.</p>
+        <div style="margin:10px 0">
+          <label style="font-size:13px;color:#666">Compare window: </label>
+          <select id="insightWindow" onchange="renderInsightsTab()" style="padding:4px 8px">
+            <option value="30">Last 30 days vs prior 30</option>
+            <option value="60" selected>Last 60 days vs prior 60</option>
+            <option value="90">Last 90 days vs prior 90</option>
+          </select>
+        </div>
+        <div id="insightsKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0"></div>
+        <div id="insightsContent"></div>
       </div>
     </div>
   </div>
@@ -2018,6 +2036,88 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     }
 
 
+    
+    function renderInsightsTab() {
+      const src = (typeof allData !== 'undefined' ? allData : []);
+      const kpis = document.getElementById('insightsKpis');
+      const content = document.getElementById('insightsContent');
+      if (!src.length) { content.innerHTML = '<p style="color:#888">No data loaded yet.</p>'; kpis.innerHTML = ''; return; }
+      const windowDays = parseInt(document.getElementById('insightWindow').value) || 60;
+      const now = new Date();
+      const msDay = 86400000;
+      const cutoffA = new Date(now.getTime() - windowDays*msDay);
+      const cutoffB = new Date(now.getTime() - 2*windowDays*msDay);
+      // Aggregate per customer
+      const map = {};
+      src.forEach(r => {
+        if (!r.cgCode || !r.date) return;
+        if (!map[r.cgCode]) map[r.cgCode] = {code:r.cgCode, name:r.cgName||r.cgCode, curr:0, prev:0, currRev:0, prevRev:0, total:0, totalRev:0, lastDate:null, firstDate:null};
+        const m = map[r.cgCode];
+        m.total++; m.totalRev += (r.revenue||0);
+        if (!m.lastDate || r.date > m.lastDate) m.lastDate = r.date;
+        if (!m.firstDate || r.date < m.firstDate) m.firstDate = r.date;
+        if (r.date >= cutoffA) { m.curr++; m.currRev += (r.revenue||0); }
+        else if (r.date >= cutoffB) { m.prev++; m.prevRev += (r.revenue||0); }
+      });
+      const rows = Object.values(map);
+      // KPIs
+      const totalCustomers = rows.length;
+      const activeNow = rows.filter(r => r.curr > 0).length;
+      const dormant = rows.filter(r => r.lastDate && (now - r.lastDate)/msDay > windowDays).length;
+      const totalLoadsCurr = rows.reduce((s,r)=>s+r.curr,0);
+      const totalLoadsPrev = rows.reduce((s,r)=>s+r.prev,0);
+      const totalRevCurr = rows.reduce((s,r)=>s+r.currRev,0);
+      const totalRevPrev = rows.reduce((s,r)=>s+r.prevRev,0);
+      const pctChange = (a,b) => b>0 ? ((a-b)/b*100) : (a>0?100:0);
+      const volDelta = pctChange(totalLoadsCurr, totalLoadsPrev);
+      const revDelta = pctChange(totalRevCurr, totalRevPrev);
+      const fmt$ = v => '$'+Math.round(v).toLocaleString('en-AU');
+      const fmtPct = v => (v>=0?'+':'')+v.toFixed(1)+'%';
+      const clr = v => v>=0 ? '#10b981' : '#ef4444';
+      kpis.innerHTML =
+        '<div style="padding:12px;background:#1e293b;border-radius:6px"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase">Active Customers</div><div style="font-size:22px;font-weight:bold">'+activeNow+' <span style="font-size:12px;color:#94a3b8">/ '+totalCustomers+'</span></div></div>' +
+        '<div style="padding:12px;background:#1e293b;border-radius:6px"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase">Dormant (>'+windowDays+'d)</div><div style="font-size:22px;font-weight:bold;color:#ef4444">'+dormant+'</div></div>' +
+        '<div style="padding:12px;background:#1e293b;border-radius:6px"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase">Volume vs Prior</div><div style="font-size:22px;font-weight:bold;color:'+clr(volDelta)+'">'+fmtPct(volDelta)+'</div><div style="font-size:11px;color:#94a3b8">'+totalLoadsCurr+' vs '+totalLoadsPrev+' loads</div></div>' +
+        '<div style="padding:12px;background:#1e293b;border-radius:6px"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase">Revenue vs Prior</div><div style="font-size:22px;font-weight:bold;color:'+clr(revDelta)+'">'+fmtPct(revDelta)+'</div><div style="font-size:11px;color:#94a3b8">'+fmt$(totalRevCurr)+' vs '+fmt$(totalRevPrev)+'</div></div>';
+      // Analyst sections
+      const sections = [];
+      // 1. At-risk: had volume in prev window, dropped >=30% in current
+      const atRisk = rows.filter(r => r.prev >= 3 && pctChange(r.curr, r.prev) <= -30).map(r => ({...r, delta: pctChange(r.curr, r.prev)})).sort((a,b) => a.delta - b.delta);
+      sections.push({title:'\ud83d\udea8 At-Risk Customers', subtitle:'Previously active, volume down 30%+ in current window. Call them this week.', rows: atRisk.slice(0,15), cols:['Customer','Prev Loads','Curr Loads','Change','Last Load','Action'], build: r => [r.name, r.prev, r.curr, '<span style="color:'+clr(r.delta)+'">'+fmtPct(r.delta)+'</span>', r.lastDate?r.lastDate.toISOString().slice(0,10):'-', '<em>Reach out - check pipeline</em>']});
+      // 2. Dormant
+      const dormantRows = rows.filter(r => r.lastDate && (now - r.lastDate)/msDay > windowDays && r.total >= 2).map(r => ({...r, daysSince: Math.round((now - r.lastDate)/msDay)})).sort((a,b) => a.daysSince - b.daysSince);
+      sections.push({title:'\u23f0 Dormant Customers', subtitle:'Have traded historically but nothing in the last '+windowDays+' days. Re-engage.', rows: dormantRows.slice(0,15), cols:['Customer','Total Loads','Last Load','Days Since','Lifetime Rev','Action'], build: r => [r.name, r.total, r.lastDate.toISOString().slice(0,10), r.daysSince, fmt$(r.totalRev), '<em>Win-back call</em>']});
+      // 3. Rising stars
+      const rising = rows.filter(r => r.curr >= 3 && pctChange(r.curr, r.prev) >= 30).map(r => ({...r, delta: pctChange(r.curr, r.prev)})).sort((a,b) => b.delta - a.delta);
+      sections.push({title:'\ud83d\ude80 Rising Stars', subtitle:'Volume growing 30%+. Lock in capacity and explore expansion.', rows: rising.slice(0,15), cols:['Customer','Prev Loads','Curr Loads','Change','Curr Revenue','Action'], build: r => [r.name, r.prev, r.curr, '<span style="color:'+clr(r.delta)+'">'+fmtPct(r.delta)+'</span>', fmt$(r.currRev), '<em>Ask for more lanes / rate lock</em>']});
+      // 4. New customers (first load in current window)
+      const newCust = rows.filter(r => r.firstDate && r.firstDate >= cutoffA).sort((a,b) => b.curr - a.curr);
+      sections.push({title:'\u2728 New Customers', subtitle:'First load in the current window. Nurture to ensure they repeat.', rows: newCust.slice(0,15), cols:['Customer','Loads','Revenue','First Load','Action'], build: r => [r.name, r.curr, fmt$(r.currRev), r.firstDate.toISOString().slice(0,10), '<em>Schedule follow-up, ask for commitments</em>']});
+      // 5. Concentration risk
+      const sorted = rows.slice().sort((a,b) => b.totalRev - a.totalRev);
+      const totalAll = sorted.reduce((s,r)=>s+r.totalRev,0);
+      let cum = 0;
+      const top = sorted.slice(0,10).map(r => { cum += r.totalRev; return {...r, pct: totalAll>0 ? r.totalRev/totalAll*100 : 0, cumPct: totalAll>0 ? cum/totalAll*100 : 0}; });
+      const top5Pct = top.slice(0,5).reduce((s,r)=>s+r.pct,0);
+      sections.push({title:'\u2696\ufe0f Concentration Risk', subtitle:'Top 5 customers = '+top5Pct.toFixed(1)+'% of lifetime revenue. Diversify if over 60%.', rows: top, cols:['Rank','Customer','Lifetime Rev','% of Total','Cumulative %','Curr Trend'], build: (r,i) => [i+1, r.name, fmt$(r.totalRev), r.pct.toFixed(1)+'%', r.cumPct.toFixed(1)+'%', r.curr>0 ? '<span style="color:#10b981">Active</span>' : '<span style="color:#ef4444">Silent</span>']});
+      // 6. Lane insight (no lane data)
+      sections.push({title:'\ud83d\udee3\ufe0f Lane Targeting', subtitle:'Lane-level analysis not yet available', rows: [], cols:[], build: r=>[], note: 'No origin/destination columns found in the source sheet. To enable lane targeting, add Origin and Destination columns to your booking sheet and let me know which columns they live in — I will wire them into the dashboard and surface top lanes, under-served lanes, and per-customer lane mix here.'});
+      // Render sections
+      content.innerHTML = sections.map((s,si) => {
+        let html = '<div style="margin:24px 0;padding:16px;background:#111827;border-radius:8px;border:1px solid #1f2937">';
+        html += '<h3 style="margin:0 0 4px 0">'+s.title+'</h3>';
+        html += '<div style="color:#94a3b8;font-size:13px;margin-bottom:10px">'+s.subtitle+'</div>';
+        if (s.note) { html += '<div style="padding:10px;background:#1e293b;border-radius:4px;color:#cbd5e1;font-size:13px">'+s.note+'</div>'; }
+        else if (!s.rows.length) { html += '<div style="color:#64748b;font-style:italic">Nothing flagged in this category right now \ud83c\udf89</div>'; }
+        else {
+          html += '<table class="data-table" style="width:100%;font-size:13px"><thead><tr>' + s.cols.map(c => '<th>'+c+'</th>').join('') + '</tr></thead><tbody>';
+          html += s.rows.map((r,i) => '<tr>'+s.build(r,i).map(v => '<td>'+v+'</td>').join('')+'</tr>').join('');
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+        return html;
+      }).join('');
+    }
         function switchTab(tabName) {
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
@@ -2030,6 +2130,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
           if (tabName === 'customers') renderCustomersTab();
           if (tabName === 'comparison') renderComparisonTab();
           if (tabName === 'manage') renderManageTab();
+          if (tabName === 'insights') renderInsightsTab();
         }, 50);
       });
     }
