@@ -1000,6 +1000,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     }
 
     let allData = [];
+    let unmatchedRows = [];
     let filteredData = [];
     let yearType = 'fy';
     let charts = {};
@@ -1291,10 +1292,8 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
           // Parse customer and match to CG
           const customerVal = (c[0]?.v || '').toString().trim();
           const cgCustomer = matchCGCustomer(customerVal);
-          if (!cgCustomer) return null; // Not a CG customer, skip
-
           const revenue = parseFloat(c[2]?.v) || 0;
-          if (revenue === 0) return null;
+          if (!cgCustomer) { unmatchedRows.push({customer: customerVal, date: dt, revenue: revenue}); return null; }
 
           const month = dt.getMonth();
           return {
@@ -1321,6 +1320,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     // Load all data from all sheets
     async function loadData() {
       try {
+      unmatchedRows = [];
         const promises = TABS.map(t => fetchSheetTab(t));
         const results = await Promise.all(promises);
         allData = results.flat().sort((a,b) => a.date - b.date);
@@ -1933,19 +1933,38 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     }
     function reapplyMatching() {
       showManageStatus('Re-matching... please wait', 'info');
-      // Re-run match on existing allData
-      (window.allData||[]).forEach(r => {
+      // Re-match rows already in allData (may unmatch and move out)
+      const keep = [];
+      allData.forEach(r => {
         const m = matchCGCustomer(r.customer);
-        if (m) { r.cgCode = m.code; r.cgName = m.name; }
-        else { r.cgCode = null; r.cgName = null; }
+        if (m) { r.cgCode = m.code; r.cgName = m.name; keep.push(r); }
+        else { unmatchedRows.push({customer: r.customer, date: r.date, revenue: r.revenue}); }
       });
-      // Re-render all tabs
-      if (typeof renderOverviewTab === 'function') renderOverviewTab();
-      if (typeof renderCustomersTab === 'function') renderCustomersTab();
-      if (typeof renderQuarterlyTab === 'function') renderQuarterlyTab();
-      if (typeof renderComparisonTab === 'function') renderComparisonTab();
+      allData.length = 0;
+      keep.forEach(r => allData.push(r));
+      // Try matching unmatchedRows — move matched ones into allData
+      const stillUnmatched = [];
+      unmatchedRows.forEach(u => {
+        const m = matchCGCustomer(u.customer);
+        if (m && u.date) {
+          const monthIdx = u.date.getMonth();
+          allData.push({
+            customer: u.customer, cgCode: m.code, cgName: m.name,
+            date: u.date,
+            fyYear: getFYLabel(u.date), cyYear: getCYLabel(u.date),
+            fyQuarter: getFYQuarter(monthIdx), cyQuarter: getCYQuarter(monthIdx),
+            month: monthIdx+1, monthIdx: monthIdx,
+            revenue: u.revenue||0, commission: (u.revenue||0)*0.015
+          });
+        } else {
+          stillUnmatched.push(u);
+        }
+      });
+      unmatchedRows.length = 0;
+      stillUnmatched.forEach(u => unmatchedRows.push(u));
+      applyFilters();
       renderManageTab();
-      showManageStatus('Done. All tabs updated.', 'success');
+      showManageStatus('Done. allData='+allData.length+', unmatched='+unmatchedRows.length, 'success');
     }
     function showManageStatus(msg, type) {
       const el = document.getElementById('manageStatus');
@@ -1958,14 +1977,13 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     function refreshUnmatched() {
       const tbody = document.querySelector('#unmatchedTable tbody');
       const um = {};
-      (window.allData||[]).forEach(r => {
-        if (r.cgCode) return;
+      (unmatchedRows||[]).forEach(r => {
         const k = r.customer || '(blank)';
         if (!um[k]) um[k] = {loads:0, revenue:0};
         um[k].loads++;
         um[k].revenue += (r.revenue||0);
       });
-      const arr = Object.entries(um).sort((a,b)=>b[1].revenue-a[1].revenue);
+      const arr = Object.entries(um).sort((a,b)=>b[1].loads-a[1].loads);
       if (!arr.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-center">No unmatched bookings</td></tr>'; return; }
       tbody.innerHTML = arr.map(([name,s]) =>
         '<tr><td>'+name.replace(/</g,'&lt;')+'</td><td>'+s.loads+'</td><td>$'+s.revenue.toLocaleString('en-AU',{maximumFractionDigits:0})+'</td>' +
