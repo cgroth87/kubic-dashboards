@@ -2053,38 +2053,45 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       URL.revokeObjectURL(url);
     }
     function handleDblExport(e) {
-      const canvas = e.target.closest('canvas');
-      const kpi = e.target.closest('.kpi-card, .kpi, [class*="kpi"]');
-      const row = e.target.closest('tr');
-      const chartContainer = e.target.closest('.chart-container, .card');
-      if (!canvas && !kpi && !row && !chartContainer) return;
-      let rows = (window.filteredData && window.filteredData.length) ? window.filteredData : (window.allData||[]);
+      const tgt = e.target.closest('canvas, .kpi-card, .kpi, .card, .chart-container, table');
+      if (!tgt) return;
+      const src = (typeof filteredData !== 'undefined' && filteredData.length) ? filteredData : (typeof allData !== 'undefined' ? allData : []);
+      if (!src.length) { alert('No data loaded yet'); return; }
+      let rows = src;
       let label = 'all';
-      // If double-click on a chart, try to get the specific element
+      const canvas = e.target.closest('canvas');
       if (canvas && window.Chart) {
         const chart = Chart.getChart(canvas);
         if (chart) {
           const pts = chart.getElementsAtEventForMode(e, 'nearest', {intersect:true}, true);
           if (pts && pts.length) {
             const pt = pts[0];
-            const lbl = chart.data.labels[pt.index];
-            label = String(lbl).replace(/[^a-z0-9]+/gi,'_');
-            // Filter rows by label heuristically
-            const src = rows;
-            rows = src.filter(r => {
-              const s = String(lbl);
-              if (r.month === s) return true;
-              if (r.cgName === s || r.customer === s) return true;
-              if (r.fyYear === s || r.cyYear === s) return true;
-              if (String(r.fyQuarter) === s || String(r.cyQuarter) === s) return true;
-              if ((r.fyYear+' '+r.fyQuarter) === s) return true;
+            const lbl = String(chart.data.labels[pt.index]);
+            label = lbl.replace(/[^a-z0-9]+/gi,'_');
+            const qMatch = lbl.match(/Q([1-4])/i);
+            const yMatch = lbl.match(/(FY|CY)?\s*(20\d\d)/i);
+            const filtered = src.filter(r => {
+              if (r.month === lbl) return true;
+              if (r.cgName === lbl || r.customer === lbl) return true;
+              if (r.fyYear === lbl || r.cyYear === lbl) return true;
+              if (String(r.fyQuarter) === lbl) return true;
+              if (qMatch) {
+                const q = 'Q'+qMatch[1];
+                if (yMatch) {
+                  const yr = yMatch[2];
+                  if ((r.fyYear||'').endsWith(yr) && r.fyQuarter === q) return true;
+                  if ((r.cyYear||'').endsWith(yr) && r.cyQuarter === q) return true;
+                } else {
+                  if (r.fyQuarter === q || r.cyQuarter === q) return true;
+                }
+              }
               return false;
             });
-            if (!rows.length) rows = src; // fallback
+            if (filtered.length) rows = filtered;
           }
         }
       }
-      if (!confirm('Export '+rows.length+' rows (one per load) to CSV?')) return;
+      if (!confirm('Export '+rows.length+' rows (one per load) to CSV?\n\nLabel: '+label)) return;
       exportRowsCsv(rows, 'kubic_export_'+label+'_'+Date.now()+'.csv');
     }
     document.addEventListener('dblclick', handleDblExport);
