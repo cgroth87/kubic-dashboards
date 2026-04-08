@@ -855,7 +855,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         <h3 style="margin-top:24px">Unmatched Bookings</h3>
         <p style="color:#666;font-size:13px">Sheet customers that don't currently match any CG customer. Click "+ Add" to add them as new CG customers.</p>
         <div style="overflow:auto;max-height:300px">
-          <table id="unmatchedTable" class="data-table"><thead><tr><th>Sheet Customer</th><th>Loads</th><th>Revenue</th><th>Action</th></tr></thead><tbody><tr><td colspan="4" class="text-center loading">Click Re-apply Matching to scan</td></tr></tbody></table>
+          <table id="unmatchedTable" class="data-table"><thead><tr><th style="cursor:pointer;user-select:none" onclick="sortUnmatched('customer')">Sheet Customer <span id="umInd_customer"></span></th><th style="cursor:pointer;user-select:none" onclick="sortUnmatched('loads')">Loads <span id="umInd_loads"></span></th><th style="cursor:pointer;user-select:none" onclick="sortUnmatched('revenue')">Revenue <span id="umInd_revenue"></span></th><th>Action</th></tr></thead><tbody><tr><td colspan="4" class="text-center loading">Click Re-apply Matching to scan</td></tr></tbody></table>
         </div>
       </div>
     </div>
@@ -1771,7 +1771,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       const tbody = document.querySelector('#manageTable tbody');
       if (!window.__manageSort) window.__manageSort = {key:'code', dir:1};
       const stats = {};
-      (window.allData||[]).forEach(r => {
+      (typeof allData !== "undefined" ? allData : []).forEach(r => {
         if (!r.cgCode) return;
         if (!stats[r.cgCode]) stats[r.cgCode] = {loads:0, revenue:0};
         stats[r.cgCode].loads++;
@@ -1976,19 +1976,38 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     }
     function refreshUnmatched() {
       const tbody = document.querySelector('#unmatchedTable tbody');
+      if (!window.__umSort) window.__umSort = {key:'loads', dir:-1};
       const um = {};
-      (unmatchedRows||[]).forEach(r => {
+      (typeof unmatchedRows !== 'undefined' ? unmatchedRows : []).forEach(r => {
         const k = r.customer || '(blank)';
-        if (!um[k]) um[k] = {loads:0, revenue:0};
+        if (!um[k]) um[k] = {customer:k, loads:0, revenue:0};
         um[k].loads++;
         um[k].revenue += (r.revenue||0);
       });
-      const arr = Object.entries(um).sort((a,b)=>b[1].loads-a[1].loads);
+      const arr = Object.values(um);
+      const {key, dir} = window.__umSort;
+      arr.sort((a,b) => {
+        let x = a[key], y = b[key];
+        if (typeof x === 'string') { x = x.toLowerCase(); y = y.toLowerCase(); }
+        if (x < y) return -1*dir;
+        if (x > y) return 1*dir;
+        return 0;
+      });
+      ['customer','loads','revenue'].forEach(k => {
+        const el = document.getElementById('umInd_'+k);
+        if (el) el.textContent = (k===key) ? (dir===1?'\u25B2':'\u25BC') : '';
+      });
       if (!arr.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-center">No unmatched bookings</td></tr>'; return; }
-      tbody.innerHTML = arr.map(([name,s]) =>
-        '<tr><td>'+name.replace(/</g,'&lt;')+'</td><td>'+s.loads+'</td><td>$'+s.revenue.toLocaleString('en-AU',{maximumFractionDigits:0})+'</td>' +
-        '<td><button onclick="addUnmatchedAsNew(\''+name.replace(/'/g,"\\'")+'\')">+ Add</button></td></tr>'
+      tbody.innerHTML = arr.map(s =>
+        '<tr><td>'+s.customer.replace(/</g,'&lt;')+'</td><td>'+s.loads+'</td><td>$'+s.revenue.toLocaleString('en-AU',{maximumFractionDigits:0})+'</td>' +
+        '<td><button onclick="addUnmatchedAsNew(\''+s.customer.replace(/'/g,"\\'")+'\')">+ Add</button></td></tr>'
       ).join('');
+    }
+    function sortUnmatched(key) {
+      if (!window.__umSort) window.__umSort = {key, dir:1};
+      else if (window.__umSort.key === key) window.__umSort.dir *= -1;
+      else window.__umSort = {key, dir: key==='customer'?1:-1};
+      refreshUnmatched();
     }
     function addUnmatchedAsNew(name) {
       const code = prompt('CG Code for "'+name+'":');
