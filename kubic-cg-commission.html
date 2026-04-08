@@ -2027,6 +2027,68 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       autoRefreshInterval = setInterval(() => loadData(), 5 * 60 * 1000);
     }
 
+    // ===== Double-click export =====
+    function exportRowsCsv(rows, filename) {
+      if (!rows || !rows.length) { alert('No data to export'); return; }
+      const esc = v => {
+        if (v == null) return '';
+        const s = String(v);
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g,'""') + '"';
+        return s;
+      };
+      const headers = ['Date','Customer','CG Code','CG Name','FY','FY Quarter','CY','CY Quarter','Month','Revenue','Commission'];
+      const lines = [headers.join(',')];
+      rows.forEach(r => {
+        const dt = r.date instanceof Date ? r.date.toISOString().slice(0,10) : (r.date||'');
+        lines.push([
+          esc(dt), esc(r.customer), esc(r.cgCode||''), esc(r.cgName||''),
+          esc(r.fyYear||''), esc(r.fyQuarter||''), esc(r.cyYear||''), esc(r.cyQuarter||''),
+          esc(r.month||''), esc(r.revenue||0), esc(r.commission||0)
+        ].join(','));
+      });
+      const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+    function handleDblExport(e) {
+      const canvas = e.target.closest('canvas');
+      const kpi = e.target.closest('.kpi-card, .kpi, [class*="kpi"]');
+      const row = e.target.closest('tr');
+      const chartContainer = e.target.closest('.chart-container, .card');
+      if (!canvas && !kpi && !row && !chartContainer) return;
+      let rows = (window.filteredData && window.filteredData.length) ? window.filteredData : (window.allData||[]);
+      let label = 'all';
+      // If double-click on a chart, try to get the specific element
+      if (canvas && window.Chart) {
+        const chart = Chart.getChart(canvas);
+        if (chart) {
+          const pts = chart.getElementsAtEventForMode(e, 'nearest', {intersect:true}, true);
+          if (pts && pts.length) {
+            const pt = pts[0];
+            const lbl = chart.data.labels[pt.index];
+            label = String(lbl).replace(/[^a-z0-9]+/gi,'_');
+            // Filter rows by label heuristically
+            const src = rows;
+            rows = src.filter(r => {
+              const s = String(lbl);
+              if (r.month === s) return true;
+              if (r.cgName === s || r.customer === s) return true;
+              if (r.fyYear === s || r.cyYear === s) return true;
+              if (String(r.fyQuarter) === s || String(r.cyQuarter) === s) return true;
+              if ((r.fyYear+' '+r.fyQuarter) === s) return true;
+              return false;
+            });
+            if (!rows.length) rows = src; // fallback
+          }
+        }
+      }
+      if (!confirm('Export '+rows.length+' rows (one per load) to CSV?')) return;
+      exportRowsCsv(rows, 'kubic_export_'+label+'_'+Date.now()+'.csv');
+    }
+    document.addEventListener('dblclick', handleDblExport);
+
     // Initialize
     loadData();
   </script>
