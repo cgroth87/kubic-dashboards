@@ -1214,6 +1214,47 @@ function updatePnL() {
   html += `<td class="fy-total">${formatCurrency(avgCostTotal)}</td></tr>`;
 
   html += '</tbody>';
+  // --- Extra monthly KPI rows ---
+  (function(){
+    const HOL = new Set(['2022-01-03','2022-01-26','2022-03-14','2022-04-15','2022-04-16','2022-04-17','2022-04-18','2022-04-25','2022-06-13','2022-09-23','2022-09-30','2022-11-01','2022-12-25','2022-12-26','2022-12-27','2023-01-02','2023-01-26','2023-03-13','2023-04-07','2023-04-08','2023-04-09','2023-04-10','2023-04-25','2023-06-12','2023-09-22','2023-09-29','2023-11-07','2023-12-25','2023-12-26','2024-01-01','2024-01-26','2024-03-11','2024-03-29','2024-03-30','2024-03-31','2024-04-01','2024-04-25','2024-06-10','2024-09-27','2024-11-05','2024-12-25','2024-12-26','2025-01-01','2025-01-27','2025-03-10','2025-04-18','2025-04-19','2025-04-20','2025-04-21','2025-04-25','2025-06-09','2025-09-26','2025-11-04','2025-12-25','2025-12-26','2026-01-01','2026-01-26','2026-03-09','2026-04-03','2026-04-04','2026-04-05','2026-04-06','2026-04-25','2026-06-08','2026-09-25','2026-11-03','2026-12-25','2026-12-28']);
+    const pad=n=>String(n).padStart(2,'0');
+    const isBiz=(y,mo,dm)=>{const dt=new Date(y,mo,dm);const w=dt.getDay();if(w===0||w===6)return false;return !HOL.has(y+'-'+pad(mo+1)+'-'+pad(dm));};
+    const bizDaysInMonth=(y,mo)=>{const last=new Date(y,mo+1,0).getDate();let n=0;for(let d=1;d<=last;d++)if(isBiz(y,mo,d))n++;return n;};
+    const monthYears={}, monthActiveCust={}, monthActiveDays={};
+    filteredData.forEach(r=>{if(!r.date)return;const mo=r.date.getMonth();const y=r.date.getFullYear();monthYears[mo]=y;(monthActiveCust[mo]=monthActiveCust[mo]||new Set()).add(r.customer);(monthActiveDays[mo]=monthActiveDays[mo]||new Set()).add(y+'-'+pad(mo+1)+'-'+pad(r.date.getDate()));});
+    const bizPerMonth = monthOrder.map(mo=>{const y=monthYears[mo]; return y?bizDaysInMonth(y,mo):0;});
+    const activeCustPerMonth = monthOrder.map(mo=>(monthActiveCust[mo]||new Set()).size);
+    const activeDaysPerMonth = monthOrder.map(mo=>(monthActiveDays[mo]||new Set()).size);
+    const totalBiz=bizPerMonth.reduce((a,b)=>a+b,0);
+    const totalActiveDays=activeDaysPerMonth.reduce((a,b)=>a+b,0);
+    const totalLoads=metrics.reduce((s,m)=>s+m.loads,0);
+    const allCust=new Set();filteredData.forEach(r=>{if(r.customer)allCust.add(r.customer);});
+
+    html += '<tr><td>Loads / Business Day</td>';
+    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?(m.loads/bizPerMonth[i]).toFixed(1):'—')+'</td>';});
+    html += '<td class="total">'+(totalBiz?(totalLoads/totalBiz).toFixed(1):'—')+'</td></tr>';
+
+    html += '<tr><td>Revenue / Business Day</td>';
+    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?formatCurrency(m.rev/bizPerMonth[i]):'—')+'</td>';});
+    html += '<td class="total">'+(totalBiz?formatCurrency(totals.rev/totalBiz):'—')+'</td></tr>';
+
+    html += '<tr><td>Profit / Business Day</td>';
+    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?formatCurrency(m.profit/bizPerMonth[i]):'—')+'</td>';});
+    html += '<td class="total">'+(totalBiz?formatCurrency(totals.profit/totalBiz):'—')+'</td></tr>';
+
+    html += '<tr><td>Ops Utilisation</td>';
+    metrics.forEach((m,i)=>{const u=bizPerMonth[i]?Math.min(100,Math.round(activeDaysPerMonth[i]/bizPerMonth[i]*100)):0;html+='<td>'+(bizPerMonth[i]?u+'%':'—')+'</td>';});
+    const totU=totalBiz?Math.min(100,Math.round(totalActiveDays/totalBiz*100)):0;
+    html += '<td class="total">'+(totalBiz?totU+'%':'—')+'</td></tr>';
+
+    html += '<tr><td>Active Customers</td>';
+    activeCustPerMonth.forEach(n=>{html+='<td>'+(n||'—')+'</td>';});
+    html += '<td class="total">'+allCust.size+'</td></tr>';
+
+    html += '<tr><td>Business Days</td>';
+    bizPerMonth.forEach(n=>{html+='<td>'+(n||'—')+'</td>';});
+    html += '<td class="total">'+totalBiz+'</td></tr>';
+  })();
   document.getElementById('pnlTable').innerHTML = html;
 
   const yearVal = document.getElementById('filterYear').value;
