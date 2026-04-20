@@ -451,7 +451,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="activeCust" checked> Active Customers</label>
       <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="bizDays"> Business Days</label>
     </div>
-    <div id="allFyContainer" style="max-height:80vh;overflow-y:auto;"></div>
+    <div id="allFyTable" style="max-height:80vh;overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -1470,211 +1470,7 @@ function updateLaneTab() {
 // ALL FY OVERVIEW TAB
 // ============================================================
 function updateAllFYTab() {
-  // Group ALL data (not filtered by year/quarter/month) by FY, but respect customer/lane/carrier filters
-  const fyData = {};
-  const allYears = new Set();
-
-  // First pass: get all FY years present in allData
-  allData.forEach(d => {
-    const fy = getFY(d.date);
-    allYears.add(fy);
-  });
-
-  const years = Array.from(allYears).sort((a,b) => a-b);
-
-  // Second pass: group filtered data by FY (respecting customer/lane/carrier filters)
-  const customer = document.getElementById('filterCustomer').value;
-  const lane = document.getElementById('filterLane').value;
-  const carrier = document.getElementById('filterCarrier').value;
-
-  allData.forEach(d => {
-    // Apply customer/lane/carrier filters (but ignore year/quarter/month)
-    if (customer && d.customer !== customer) return;
-    if (lane && getLane(d) !== lane) return;
-    if (carrier && d.carrier !== carrier) return;
-
-    const fy = getFY(d.date);
-    if (!fyData[fy]) fyData[fy] = { rev:0, cost:0, profit:0, loads:0 };
-    fyData[fy].rev += d.revenue;
-    fyData[fy].cost += d.cost;
-    fyData[fy].profit += d.profit;
-    fyData[fy].loads++;
-  });
-
-  // Build summary table
-  const metrics = ['Total Loads', 'Total Revenue', 'Total Cost', 'Gross Profit', 'Margin %', 'Profit per Load', 'Avg Revenue per Load', 'YoY Revenue Growth %', 'YoY Profit Growth %'];
-  let html = '<thead><tr><th>Metric</th>';
-  years.forEach(y => html += `<th>FY${y}</th>`);
-  html += '</tr></thead><tbody>';
-
-  // Helper function to find best/worst value
-  function getHighlight(metricName, values) {
-    const numValues = values.filter(v => v !== null && v !== undefined && !isNaN(v));
-    if (numValues.length === 0) return { best: -1, worst: -1 };
-    const maxVal = Math.max(...numValues);
-    const minVal = Math.min(...numValues);
-    const best = values.indexOf(maxVal);
-    const worst = values.indexOf(minVal);
-    return { best, worst };
-  }
-
-  // Loads row
-  let loadsVals = years.map(y => fyData[y] ? fyData[y].loads : 0);
-  let hl = getHighlight('Loads', loadsVals);
-  html += '<tr><td>Total Loads</td>';
-  years.forEach((y, idx) => {
-    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
-    html += `<td class="${cls}">${loadsVals[idx] || 0}</td>`;
-  });
-  html += '</tr>';
-
-  // Revenue row
-  let revVals = years.map(y => fyData[y] ? fyData[y].rev : 0);
-  hl = getHighlight('Revenue', revVals);
-  html += '<tr class="total-row"><td>Total Revenue</td>';
-  years.forEach((y, idx) => {
-    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
-    html += `<td class="${cls}">${revVals[idx] ? formatCurrency(revVals[idx]) : '$0'}</td>`;
-  });
-  html += '</tr>';
-
-  // Cost row
-  let costVals = years.map(y => fyData[y] ? fyData[y].cost : 0);
-  hl = getHighlight('Cost', costVals);
-  html += '<tr><td>Total Cost</td>';
-  years.forEach((y, idx) => {
-    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
-    html += `<td class="${cls}">${costVals[idx] ? formatCurrency(costVals[idx]) : '$0'}</td>`;
-  });
-  html += '</tr>';
-
-  // Profit row
-  let profitVals = years.map(y => fyData[y] ? fyData[y].profit : 0);
-  hl = getHighlight('Profit', profitVals);
-  html += '<tr class="profit-row"><td>Gross Profit</td>';
-  years.forEach((y, idx) => {
-    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
-    const rowCls = profitVals[idx] < 0 ? 'negative' : '';
-    html += `<td class="${cls} ${rowCls}">${profitVals[idx] ? formatCurrency(profitVals[idx]) : '$0'}</td>`;
-  });
-  html += '</tr>';
-
-  // Margin % row
-  let marginVals = years.map(y => fyData[y] && fyData[y].rev > 0 ? (fyData[y].profit / fyData[y].rev * 100) : 0);
-  hl = getHighlight('Margin', marginVals);
-  html += '<tr class="margin-row"><td>Margin %</td>';
-  years.forEach((y, idx) => {
-    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
-    html += `<td class="${cls}">${marginVals[idx].toFixed(1)}%</td>`;
-  });
-  html += '</tr>';
-
-  // Profit per Load row
-  let pplVals = years.map(y => fyData[y] && fyData[y].loads > 0 ? fyData[y].profit / fyData[y].loads : 0);
-  hl = getHighlight('PPL', pplVals);
-  html += '<tr><td>Profit per Load</td>';
-  years.forEach((y, idx) => {
-    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
-    html += `<td class="${cls}">${pplVals[idx] ? formatCurrency(pplVals[idx]) : '$0'}</td>`;
-  });
-  html += '</tr>';
-
-  // Avg Revenue per Load
-  let arpVals = years.map(y => fyData[y] && fyData[y].loads > 0 ? fyData[y].rev / fyData[y].loads : 0);
-  hl = getHighlight('ARP', arpVals);
-  html += '<tr><td>Avg Revenue per Load</td>';
-  years.forEach((y, idx) => {
-    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
-    html += `<td class="${cls}">${arpVals[idx] ? formatCurrency(arpVals[idx]) : '$0'}</td>`;
-  });
-  html += '</tr>';
-
-  // YoY Revenue Growth
-  let revGrowthVals = years.map((y, idx) => {
-    if (idx === 0) return null;
-    const prev = revVals[idx - 1];
-    const curr = revVals[idx];
-    return prev > 0 ? ((curr - prev) / prev * 100) : 0;
-  });
-  hl = getHighlight('RevGrowth', revGrowthVals);
-  html += '<tr><td>YoY Revenue Growth %</td>';
-  years.forEach((y, idx) => {
-    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
-    if (revGrowthVals[idx] === null) {
-      html += `<td class="${cls}">—</td>`;
-    } else {
-      const sign = revGrowthVals[idx] >= 0 ? '+' : '';
-      html += `<td class="${cls}">${sign}${revGrowthVals[idx].toFixed(1)}%</td>`;
-    }
-  });
-  html += '</tr>';
-
-  // YoY Profit Growth
-  let profitGrowthVals = years.map((y, idx) => {
-    if (idx === 0) return null;
-    const prev = profitVals[idx - 1];
-    const curr = profitVals[idx];
-    return prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
-  });
-  hl = getHighlight('ProfitGrowth', profitGrowthVals);
-  html += '<tr><td>YoY Profit Growth %</td>';
-  years.forEach((y, idx) => {
-    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
-    if (profitGrowthVals[idx] === null) {
-      html += `<td class="${cls}">—</td>`;
-    } else {
-      const sign = profitGrowthVals[idx] >= 0 ? '+' : '';
-      html += `<td class="${cls}">${sign}${profitGrowthVals[idx].toFixed(1)}%</td>`;
-    }
-  });
-  html += '</tr>';
-
-  html += '</tbody>';
-  document.getElementById('allFyTable').innerHTML = html;
-
-  // Chart 1: Revenue, Cost, Profit trend
-  updateOrCreateChart('chartAllFyRevCostProfit', {
-    type:'line', data: {
-      labels: years.map(y => 'FY' + y),
-      datasets: [
-        { label:'Revenue', data:revVals, borderColor:'var(--accent)', backgroundColor:'rgba(79,140,255,0.1)', borderWidth:2, tension:0.3, fill:true },
-        { label:'Cost', data:costVals, borderColor:'var(--amber)', backgroundColor:'rgba(245,158,11,0.05)', borderWidth:2, tension:0.3 },
-        { label:'Profit', data:profitVals, borderColor:'var(--green)', backgroundColor:'rgba(34,197,94,0.1)', borderWidth:2, tension:0.3 }
-      ]
-    }, options: chartOpts('$')
-  });
-
-  // Chart 2: Loads per FY
-  updateOrCreateChart('chartAllFyLoads', {
-    type:'bar', data: {
-      labels: years.map(y => 'FY' + y),
-      datasets: [
-        { label:'Loads', data:loadsVals, backgroundColor:'rgba(6,182,212,0.7)', borderRadius:4 }
-      ]
-    }, options: chartOpts('')
-  });
-
-  // Chart 3: Margin trend
-  updateOrCreateChart('chartAllFyMargin', {
-    type:'line', data: {
-      labels: years.map(y => 'FY' + y),
-      datasets: [
-        { label:'Margin %', data:marginVals, borderColor:'var(--purple)', backgroundColor:'rgba(168,85,247,0.1)', borderWidth:2.5, tension:0.3, fill:true, pointRadius:5, pointBackgroundColor:'var(--purple)' }
-      ]
-    }, options: chartOpts('%')
-  });
-
-  // Chart 4: YoY Growth comparison
-  const yoyLabels = years.slice(1).map((y, idx) => 'FY' + y);
-  updateOrCreateChart('chartAllFyGrowth', {
-    type:'bar', data: {
-      labels: yoyLabels,
-      datasets: [
-        { label:'Revenue Growth %', data:revGrowthVals.slice(1), backgroundColor:'rgba(79,140,255,0.7)', borderRadius:4 },
-        { label:'Profit Growth %', data:profitGrowthVals.slice(1), backgroundColor:'rgba(34,197,94,0.7)', borderRadius:4 }
-      ]
-    }, options: { ...chartOpts('%'), scales: { y: { ...chartOpts('%').scales.y } } }
-  });
+  if (typeof renderAllFYSnippet === 'function') renderAllFYSnippet();
 }
 
 // ============================================================
@@ -1829,7 +1625,7 @@ function updateOrCreateChart(canvasId, config) {
 // ============================================================
 
 function renderAllFYSnippet() {
-  const container = document.getElementById('allFyContainer');
+  const container = document.getElementById('allFyTable');
   if (!container) return;
   const toggles = {};
   document.querySelectorAll('.fy-row-toggle').forEach(cb => { toggles[cb.value] = cb.checked; });
