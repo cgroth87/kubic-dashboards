@@ -434,32 +434,24 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
 
   <!-- TAB: ALL FY OVERVIEW -->
   <div class="tab-content" id="tab-allfyoverview">
-    <div class="card">
-      <div class="card-title">All Financial Years Comparison</div>
-      <div class="pnl-scroll">
-        <table class="pnl-table" id="allFyTable"></table>
-      </div>
+    <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <span style="color:var(--text-dim);font-size:13px;margin-right:8px;">Show rows:</span>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="loads" checked> # of Loads</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="revenue" checked> Revenue</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="cost" checked> Cost</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="profit" checked> Gross Profit</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="margin" checked> Margin %</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="profitPerLoad"> Profit/Load</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="revPerLoad"> Avg Rev/Load</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="costPerLoad"> Avg Cost/Load</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="loadsBizDay" checked> Loads/Biz Day</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="revBizDay"> Rev/Biz Day</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="profitBizDay"> Profit/Biz Day</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="utilisation"> Ops Utilisation</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="activeCust" checked> Active Customers</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="bizDays"> Business Days</label>
     </div>
-    <div class="grid-2" style="margin-top: 20px;">
-      <div class="card">
-        <div class="card-title">Revenue, Cost & Profit Trend</div>
-        <div class="chart-container"><canvas id="chartAllFyRevCostProfit"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Loads per FY</div>
-        <div class="chart-container"><canvas id="chartAllFyLoads"></canvas></div>
-      </div>
-    </div>
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-title">Margin % Trend Across All FYs</div>
-        <div class="chart-container"><canvas id="chartAllFyMargin"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-title">YoY Growth Comparison</div>
-        <div class="chart-container"><canvas id="chartAllFyGrowth"></canvas></div>
-      </div>
-    </div>
+    <div id="allFyContainer" style="max-height:80vh;overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -1835,6 +1827,93 @@ function updateOrCreateChart(canvasId, config) {
 // ============================================================
 // TAB SWITCHING
 // ============================================================
+
+function renderAllFYSnippet() {
+  const container = document.getElementById('allFyContainer');
+  if (!container) return;
+  const toggles = {};
+  document.querySelectorAll('.fy-row-toggle').forEach(cb => { toggles[cb.value] = cb.checked; });
+
+  const HOL = new Set(['2022-01-03','2022-01-26','2022-03-14','2022-04-15','2022-04-16','2022-04-17','2022-04-18','2022-04-25','2022-06-13','2022-09-23','2022-09-30','2022-11-01','2022-12-25','2022-12-26','2022-12-27','2023-01-02','2023-01-26','2023-03-13','2023-04-07','2023-04-08','2023-04-09','2023-04-10','2023-04-25','2023-06-12','2023-09-22','2023-09-29','2023-11-07','2023-12-25','2023-12-26','2024-01-01','2024-01-26','2024-03-11','2024-03-29','2024-03-30','2024-03-31','2024-04-01','2024-04-25','2024-06-10','2024-09-27','2024-11-05','2024-12-25','2024-12-26','2025-01-01','2025-01-27','2025-03-10','2025-04-18','2025-04-19','2025-04-20','2025-04-21','2025-04-25','2025-06-09','2025-09-26','2025-11-04','2025-12-25','2025-12-26','2026-01-01','2026-01-26','2026-03-09','2026-04-03','2026-04-04','2026-04-05','2026-04-06','2026-04-25','2026-06-08','2026-09-25','2026-11-03','2026-12-25','2026-12-28']);
+  const pad = n => String(n).padStart(2,'0');
+  const isBiz = (y,mo,dm) => { const dt=new Date(y,mo,dm); const w=dt.getDay(); if(w===0||w===6)return false; return !HOL.has(y+'-'+pad(mo+1)+'-'+pad(dm)); };
+  const bizDaysInMonth = (y,mo) => { const last=new Date(y,mo+1,0).getDate(); let n=0; for(let d=1;d<=last;d++) if(isBiz(y,mo,d)) n++; return n; };
+
+  const fyMonths = [6,7,8,9,10,11,0,1,2,3,4,5];
+  const mLabels = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
+  const fmtC = n => { if(n==null||isNaN(n)) return '—'; const a=Math.abs(n); return (n<0?'-':'')+'$'+(a>=1e6?(a/1e6).toFixed(2)+'M':a>=1e3?(a/1e3).toFixed(1)+'K':Math.round(a)); };
+
+  // Group allData by FY
+  const fyMap = {};
+  allData.forEach(r => {
+    if (!r.date) return;
+    const mo = r.date.getMonth(), y = r.date.getFullYear();
+    const fy = mo >= 6 ? y + 1 : y;
+    if (!fyMap[fy]) fyMap[fy] = [];
+    fyMap[fy].push(r);
+  });
+  const fyKeys = Object.keys(fyMap).map(Number).sort((a,b) => b - a);
+  if (!fyKeys.length) { container.innerHTML = '<p style="color:var(--text-dim)">No data loaded</p>'; return; }
+
+  let out = '';
+  fyKeys.forEach(fy => {
+    const rows = fyMap[fy];
+    // Per-month metrics
+    const mData = fyMonths.map((mo,mi) => {
+      const calY = mo >= 6 ? fy - 1 : fy;
+      const mRows = rows.filter(r => r.date.getMonth() === mo);
+      const loads = mRows.length;
+      const rev = mRows.reduce((s,r) => s + (r.revenue||0), 0);
+      const cost = mRows.reduce((s,r) => s + (r.cost||0), 0);
+      const profit = rev - cost;
+      const margin = rev ? (profit/rev*100) : 0;
+      const biz = bizDaysInMonth(calY, mo);
+      const custSet = new Set(mRows.map(r=>r.customer));
+      const daySet = new Set(mRows.map(r=>r.date.toISOString().slice(0,10)));
+      return {loads,rev,cost,profit,margin,biz,cust:custSet.size,activeDays:daySet.size,calY,mo};
+    });
+    const tot = {loads:0,rev:0,cost:0,biz:0,cust:new Set(),activeDays:new Set()};
+    rows.forEach(r=>{tot.loads++;tot.rev+=(r.revenue||0);tot.cost+=(r.cost||0);tot.cust.add(r.customer);tot.activeDays.add(r.date.toISOString().slice(0,10));});
+    mData.forEach(m=>{tot.biz+=m.biz;});
+    tot.profit=tot.rev-tot.cost;
+    tot.margin=tot.rev?(tot.profit/tot.rev*100):0;
+
+    out += '<div class="card" style="margin-bottom:20px;"><div class="card-title" style="padding:12px 16px;font-size:16px;font-weight:700;">FY' + fy + ' — ' + tot.loads + ' loads | ' + fmtC(tot.rev) + ' revenue | ' + tot.margin.toFixed(1) + '% margin</div>';
+    out += '<div style="overflow-x:auto;"><table class="pnl-table"><thead><tr><th>Metric</th>';
+    mLabels.forEach(l => { out += '<th>' + l + '</th>'; });
+    out += '<th>FY Total</th></tr></thead><tbody>';
+
+    const addRow = (label,vals,totVal,cls) => {
+      out += '<tr' + (cls?' class="'+cls+'"':'') + '><td>' + label + '</td>';
+      vals.forEach(v => { out += '<td>' + v + '</td>'; });
+      out += '<td class="total">' + totVal + '</td></tr>';
+    };
+
+    if(toggles.loads) addRow('# of Loads', mData.map(m=>m.loads||''), tot.loads);
+    if(toggles.revenue) addRow('Revenue', mData.map(m=>m.rev?fmtC(m.rev):''), fmtC(tot.rev), 'total-row');
+    if(toggles.cost) addRow('Cost', mData.map(m=>m.cost?fmtC(m.cost):''), fmtC(tot.cost));
+    if(toggles.profit) addRow('Gross Profit', mData.map(m=>m.loads?fmtC(m.profit):''), fmtC(tot.profit), 'highlight-cell good');
+    if(toggles.margin) addRow('Margin %', mData.map(m=>m.loads?m.margin.toFixed(1)+'%':''), tot.margin.toFixed(1)+'%');
+    if(toggles.profitPerLoad) addRow('Profit / Load', mData.map(m=>m.loads?fmtC(m.profit/m.loads):''), tot.loads?fmtC(tot.profit/tot.loads):'—');
+    if(toggles.revPerLoad) addRow('Avg Rev / Load', mData.map(m=>m.loads?fmtC(m.rev/m.loads):''), tot.loads?fmtC(tot.rev/tot.loads):'—');
+    if(toggles.costPerLoad) addRow('Avg Cost / Load', mData.map(m=>m.loads?fmtC(m.cost/m.loads):''), tot.loads?fmtC(tot.cost/tot.loads):'—');
+    if(toggles.loadsBizDay) addRow('Loads / Biz Day', mData.map(m=>m.biz?(m.loads/m.biz).toFixed(1):'—'), tot.biz?(tot.loads/tot.biz).toFixed(1):'—');
+    if(toggles.revBizDay) addRow('Rev / Biz Day', mData.map(m=>m.biz?fmtC(m.rev/m.biz):'—'), tot.biz?fmtC(tot.rev/tot.biz):'—');
+    if(toggles.profitBizDay) addRow('Profit / Biz Day', mData.map(m=>m.biz?fmtC(m.profit/m.biz):'—'), tot.biz?fmtC(tot.profit/tot.biz):'—');
+    if(toggles.utilisation) addRow('Ops Utilisation', mData.map(m=>m.biz?Math.min(100,Math.round(m.activeDays/m.biz*100))+'%':'—'), tot.biz?Math.min(100,Math.round(tot.activeDays.size/tot.biz*100))+'%':'—');
+    if(toggles.activeCust) addRow('Active Customers', mData.map(m=>m.cust||''), tot.cust.size);
+    if(toggles.bizDays) addRow('Business Days', mData.map(m=>m.biz||''), tot.biz);
+
+    out += '</tbody></table></div></div>';
+  });
+  container.innerHTML = out;
+
+  // Wire toggle listeners
+  document.querySelectorAll('.fy-row-toggle').forEach(cb => {
+    cb.onchange = renderAllFYSnippet;
+  });
+}
+
 function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
@@ -1842,6 +1921,7 @@ function switchTab(tabId) {
   event.target.classList.add('active');
   // Resize charts when switching tabs
   setTimeout(() => { Object.values(charts).forEach(c => c.resize()); }, 100);
+  if (tabId === 'allfyoverview') renderAllFYSnippet();
 }
 
 // ============================================================
