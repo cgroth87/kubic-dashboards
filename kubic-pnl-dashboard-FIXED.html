@@ -1,0 +1,1946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kubic Transport â Interstate & Linehaul P&L Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --card: #1a1d27;
+  --card-alt: #22263a;
+  --border: #2a2e3f;
+  --text: #e4e6ef;
+  --text-dim: #8b8fa3;
+  --accent: #4f8cff;
+  --green: #22c55e;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --purple: #a855f7;
+  --cyan: #06b6d4;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height:100vh; }
+
+/* HEADER */
+.header { background: linear-gradient(135deg, #1a1d27 0%, #1e2942 100%); padding: 18px 28px; display:flex; align-items:center; justify-content:space-between; border-bottom: 1px solid var(--border); position:sticky; top:0; z-index:100; }
+.header-left { display:flex; align-items:center; gap:14px; }
+.logo { width:42px; height:42px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; color:#fff; }
+.header h1 { font-size:20px; font-weight:700; letter-spacing:-0.3px; }
+.header h1 span { color: var(--accent); }
+.header-sub { font-size:12px; color: var(--text-dim); margin-top:2px; }
+.header-right { display:flex; align-items:center; gap:12px; }
+.live-badge { display:flex; align-items:center; gap:6px; background: rgba(34,197,94,0.12); color: var(--green); padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600; }
+.live-dot { width:8px; height:8px; background: var(--green); border-radius:50%; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.refresh-btn { background: var(--card-alt); border:1px solid var(--border); color: var(--text); padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:6px; transition: all 0.2s; }
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+.last-updated { font-size:11px; color: var(--text-dim); }
+
+/* FILTERS */
+.filters-bar { background: var(--card); padding:14px 28px; border-bottom:1px solid var(--border); display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.filter-group { display:flex; align-items:center; gap:6px; position:relative; }
+.filter-group label { font-size:11px; color: var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; white-space:nowrap; }
+.filter-group select, .filter-group input { background: var(--card-alt); border:1px solid var(--border); color: var(--text); padding:7px 12px; border-radius:6px; font-size:13px; cursor:pointer; min-width:120px; }
+.filter-group select:focus, .filter-group input:focus { outline:none; border-color: var(--accent); }
+.filter-sep { width:1px; height:28px; background: var(--border); margin:0 4px; }
+.filter-reset { background: none; border: 1px solid var(--border); color: var(--text-dim); padding:7px 14px; border-radius:6px; cursor:pointer; font-size:12px; }
+.filter-reset:hover { border-color: var(--red); color: var(--red); }
+.view-toggle { display:flex; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+.view-toggle button { background: var(--card-alt); border:none; color: var(--text-dim); padding:7px 16px; cursor:pointer; font-size:12px; font-weight:600; transition: all 0.2s; }
+.view-toggle button.active { background: var(--accent); color:#fff; }
+
+/* MULTI-SELECT */
+.multi-select { position:relative; min-width:140px; }
+.multi-select-btn { background: var(--card-alt); border:1px solid var(--border); color: var(--text); padding:7px 12px; border-radius:6px; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; transition: all 0.2s; white-space:nowrap; }
+.multi-select-btn:hover { border-color: var(--accent); }
+.multi-select-btn:focus { outline:none; border-color: var(--accent); }
+.multi-select-btn.open { border-color: var(--accent); }
+.multi-select-badge { display:inline-flex; align-items:center; justify-content:center; background: var(--accent); color:#fff; border-radius:12px; font-size:11px; font-weight:700; padding:2px 8px; min-width:20px; }
+.multi-select-dropdown { position:absolute; top:100%; left:0; z-index:200; background: var(--card); border:1px solid var(--border); border-radius:8px; margin-top:4px; min-width:220px; box-shadow:0 8px 24px rgba(0,0,0,0.4); display:none; flex-direction:column; max-height:350px; overflow:hidden; }
+.multi-select-dropdown.open { display:flex; }
+.multi-select-search { padding:8px 12px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.multi-select-search input { width:100%; background: var(--card-alt); border:1px solid var(--border); color: var(--text); padding:6px 10px; border-radius:4px; font-size:12px; box-sizing:border-box; }
+.multi-select-search input:focus { outline:none; border-color: var(--accent); }
+.multi-select-actions { padding:6px 8px; border-bottom:1px solid var(--border); display:flex; gap:4px; flex-shrink:0; }
+.multi-select-actions button { flex:1; background: none; border:1px solid var(--border); color: var(--text-dim); padding:5px 8px; border-radius:4px; font-size:11px; cursor:pointer; transition: all 0.2s; }
+.multi-select-actions button:hover { border-color: var(--accent); color: var(--accent); }
+.multi-select-options { overflow-y:auto; flex:1; padding:4px 0; }
+.multi-select-option { display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; transition: background 0.15s; white-space:nowrap; }
+.multi-select-option:hover { background: rgba(79,140,255,0.08); }
+.multi-select-option input[type=checkbox] { flex-shrink:0; accent-color: var(--accent); cursor:pointer; }
+.multi-select-option label { flex:1; cursor:pointer; font-size:12px; }
+.multi-select-empty { padding:12px; text-align:center; color: var(--text-dim); font-size:12px; }
+
+/* LAYOUT */
+.main { padding:20px 28px; }
+.grid-4 { display:grid; grid-template-columns: repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:20px; }
+.grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; margin-bottom:20px; }
+
+/* KPI CARDS */
+.kpi { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
+.kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+.kpi.revenue::before { background: linear-gradient(90deg, var(--accent), var(--cyan)); }
+.kpi.cost::before { background: linear-gradient(90deg, var(--amber), var(--red)); }
+.kpi.profit::before { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+.kpi.margin::before { background: linear-gradient(90deg, var(--purple), var(--accent)); }
+.kpi-label { font-size:11px; color: var(--text-dim); text-transform:uppercase; letter-spacing:0.6px; font-weight:600; margin-bottom:8px; }
+.kpi-value { font-size:28px; font-weight:800; letter-spacing:-0.5px; }
+.kpi-value.positive { color: var(--green); }
+.kpi-value.negative { color: var(--red); }
+.kpi-sub { font-size:12px; color: var(--text-dim); margin-top:6px; display:flex; align-items:center; gap:4px; }
+.kpi-sub .up { color: var(--green); }
+.kpi-sub .down { color: var(--red); }
+
+/* CARDS / SECTIONS */
+.card { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; }
+.card-title { font-size:14px; font-weight:700; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; }
+.card-title .badge { font-size:11px; background: var(--card-alt); padding:3px 10px; border-radius:12px; color: var(--text-dim); font-weight:500; }
+
+/* P&L TABLE */
+.pnl-scroll { overflow-x:auto; margin-bottom:20px; }
+.pnl-table { width:100%; border-collapse:collapse; font-size:12px; min-width:1200px; }
+.pnl-table th { background: var(--card-alt); padding:10px 12px; text-align:right; font-weight:700; color: var(--text-dim); text-transform:uppercase; letter-spacing:0.4px; font-size:11px; border-bottom:2px solid var(--border); position:sticky; top:0; }
+.pnl-table th:first-child { text-align:left; min-width:180px; }
+.pnl-table td { padding:8px 12px; text-align:right; border-bottom:1px solid rgba(42,46,63,0.5); white-space:nowrap; }
+.pnl-table td:first-child { text-align:left; font-weight:600; color: var(--text); }
+.pnl-table tr.section-header td { background: rgba(79,140,255,0.08); font-weight:700; color: var(--accent); font-size:13px; padding:12px; border-bottom:2px solid var(--accent); }
+.pnl-table tr.total-row td { font-weight:800; border-top:2px solid var(--border); border-bottom:2px solid var(--border); background: rgba(34,38,58,0.5); }
+.pnl-table tr.profit-row td { color: var(--green); font-weight:700; }
+.pnl-table tr.profit-row.negative td { color: var(--red); }
+.pnl-table tr.margin-row td { color: var(--purple); font-weight:600; }
+.pnl-table tr:hover td { background: rgba(79,140,255,0.04); }
+.pnl-table .fy-total { background: rgba(168,85,247,0.08) !important; font-weight:800; }
+.pnl-table .highlight-cell { position:relative; }
+.pnl-table .highlight-cell.good { color: var(--green); }
+.pnl-table .highlight-cell.bad { color: var(--red); }
+
+/* ANALYSIS PANEL */
+.analysis-panel { background: linear-gradient(135deg, #1a2332 0%, #1e1a32 100%); border:1px solid var(--border); border-radius:12px; padding:20px; }
+.analysis-panel h3 { font-size:14px; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.analysis-panel h3::before { content:'ð'; }
+.insight { padding:12px 14px; background: rgba(255,255,255,0.03); border-radius:8px; margin-bottom:8px; border-left:3px solid var(--accent); font-size:13px; line-height:1.5; }
+.insight.warning { border-left-color: var(--amber); }
+.insight.danger { border-left-color: var(--red); }
+.insight.success { border-left-color: var(--green); }
+.insight-label { font-size:10px; text-transform:uppercase; letter-spacing:0.6px; font-weight:700; margin-bottom:4px; }
+.insight-label.warning { color: var(--amber); }
+.insight-label.danger { color: var(--red); }
+.insight-label.success { color: var(--green); }
+.insight-label.info { color: var(--accent); }
+
+/* CHARTS */
+.chart-container { position:relative; height:280px; }
+
+/* LOADING */
+.loading-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background: var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:1000; transition: opacity 0.5s; }
+.loading-overlay.hidden { opacity:0; pointer-events:none; }
+.spinner { width:48px; height:48px; border:4px solid var(--border); border-top-color: var(--accent); border-radius:50%; animation: spin 0.8s linear infinite; margin-bottom:16px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.loading-text { color: var(--text-dim); font-size:14px; }
+
+/* TABS */
+.tab-bar { display:flex; gap:0; margin-bottom:20px; border-bottom:2px solid var(--border); }
+.tab-bar button { background:none; border:none; color: var(--text-dim); padding:10px 20px; font-size:13px; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition: all 0.2s; }
+.tab-bar button.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-bar button:hover { color: var(--text); }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+/* RESPONSIVE */
+@media (max-width:1200px) { .grid-4 { grid-template-columns: repeat(2,1fr); } }
+@media (max-width:768px) { .grid-4,.grid-2,.grid-3 { grid-template-columns:1fr; } .filters-bar { padding:10px 16px; } .main { padding:14px 16px; } }
+
+/* Scrollbar */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Top customers/carriers table */
+.rank-table { width:100%; border-collapse:collapse; font-size:12px; }
+.rank-table th { text-align:left; padding:8px 10px; color: var(--text-dim); font-size:11px; text-transform:uppercase; letter-spacing:0.4px; border-bottom:1px solid var(--border); }
+.rank-table td { padding:8px 10px; border-bottom:1px solid rgba(42,46,63,0.4); }
+.rank-table tr:hover td { background: rgba(79,140,255,0.04); }
+.margin-bar { height:6px; border-radius:3px; background: var(--border); position:relative; overflow:hidden; min-width:60px; }
+.margin-bar-fill { height:100%; border-radius:3px; transition: width 0.5s; }
+</style>
+</head>
+<body>
+<div id="passwordOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#0f1117;z-index:10000;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#1a1d27;padding:40px;border-radius:16px;border:1px solid #2a2e3f;text-align:center;max-width:400px;width:90%;">
+    <div style="width:60px;height:60px;background:linear-gradient(135deg,#4f8cff,#a855f7);border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:24px;color:#fff;margin:0 auto 20px;">K</div>
+    <h2 style="color:#e4e6ef;margin-bottom:8px;font-size:20px;">Kubic P&L Dashboard</h2>
+    <p style="color:#8b8fa3;margin-bottom:24px;font-size:14px;">Enter password to access the dashboard</p>
+    <input id="pwdInput" type="password" placeholder="Password" style="width:100%;padding:12px 16px;background:#22263a;border:1px solid #2a2e3f;color:#e4e6ef;border-radius:8px;font-size:15px;margin-bottom:12px;box-sizing:border-box;" onkeydown="if(event.key==='Enter')checkPwd()">
+    <button onclick="checkPwd()" style="width:100%;padding:12px;background:#4f8cff;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">Access Dashboard</button>
+    <p id="pwdError" style="color:#ef4444;margin-top:12px;font-size:13px;display:none;">Incorrect password</p>
+  </div>
+</div>
+<script>
+async function hashPwd(pwd){const e=new TextEncoder().encode(pwd);const h=await crypto.subtle.digest('SHA-256',e);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function checkPwd(){const p=document.getElementById('pwdInput').value;const h=await hashPwd(p);if(h==='d2d6670dcc41061954b2c3eab115b77f2dc279c74b972003749eb5a9cb194ea2'){document.getElementById('passwordOverlay').style.display='none';sessionStorage.setItem('kubic_auth','true');}else{document.getElementById('pwdError').style.display='block';document.getElementById('pwdInput').value='';}}
+if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOMContentLoaded',()=>{document.getElementById('passwordOverlay').style.display='none';});}
+</script>
+
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading live data from Google Sheets...</div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo">K</div>
+    <div>
+      <h1>Kubic Transport â <span>Interstate & Linehaul P&L</span></h1>
+      <div class="header-sub">Directors Dashboard â Live from Google Sheets</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="last-updated" id="lastUpdated"></div>
+    <div class="live-badge"><div class="live-dot"></div>LIVE DATA</div>
+    <button class="refresh-btn" onclick="refreshData()">â» Refresh</button>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="filters-bar">
+  <div class="view-toggle" id="yearTypeToggle">
+    <button class="active" data-type="FY" onclick="setYearType('FY')">Financial Year</button>
+    <button data-type="CY" onclick="setYearType('CY')">Calendar Year</button>
+  </div>
+  <div class="filter-sep"></div>
+  <div class="filter-group">
+    <label>Year</label>
+    <div id="filterYear"></div>
+  </div>
+  <div class="filter-group">
+    <label>Quarter</label>
+    <div id="filterQuarter"></div>
+  </div>
+  <div class="filter-group">
+    <label>Month</label>
+    <div id="filterMonth"></div>
+  </div>
+  <div class="filter-sep"></div>
+  <div class="filter-group">
+    <label>Customer</label>
+    <div id="filterCustomer"></div>
+  </div>
+  <div class="filter-group">
+    <label>Lane</label>
+    <div id="filterLane"></div>
+  </div>
+  <div class="filter-group">
+    <label>Carrier</label>
+    <div id="filterCarrier"></div>
+  </div>
+  <div class="filter-sep"></div>
+  <button class="filter-reset" onclick="resetFilters()">â Reset Filters</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- KPI CARDS -->
+  <div class="grid-4" id="kpiCards">
+    <div class="kpi revenue">
+      <div class="kpi-label">Total Revenue</div>
+      <div class="kpi-value" id="kpiRevenue">â</div>
+      <div class="kpi-sub" id="kpiRevenueSub"></div>
+    </div>
+    <div class="kpi cost">
+      <div class="kpi-label">Total Cost</div>
+      <div class="kpi-value" id="kpiCost">â</div>
+      <div class="kpi-sub" id="kpiCostSub"></div>
+    </div>
+    <div class="kpi profit">
+      <div class="kpi-label">Net Profit</div>
+      <div class="kpi-value" id="kpiProfit">â</div>
+      <div class="kpi-sub" id="kpiProfitSub"></div>
+    </div>
+    <div class="kpi margin">
+      <div class="kpi-label">Avg Margin</div>
+      <div class="kpi-value" id="kpiMargin">â</div>
+      <div class="kpi-sub" id="kpiMarginSub"></div>
+    </div>
+  </div>
+
+  <!-- SECONDARY KPIs -->
+  <div class="grid-4">
+    <div class="kpi">
+      <div class="kpi-label">Total Loads</div>
+      <div class="kpi-value" id="kpiLoads">â</div>
+      <div class="kpi-sub" id="kpiLoadsSub"></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Avg Revenue / Load</div>
+      <div class="kpi-value" id="kpiRevPerLoad">â</div>
+      <div class="kpi-sub" id="kpiRevPerLoadSub"></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Avg Profit / Load</div>
+      <div class="kpi-value" id="kpiProfitPerLoad">â</div>
+      <div class="kpi-sub" id="kpiProfitPerLoadSub"></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Active Customers</div>
+      <div class="kpi-value" id="kpiCustomers">â</div>
+      <div class="kpi-sub" id="kpiCustomersSub"></div>
+    </div>
+      <div class="kpi">
+        <div class="kpi-label">Loads / Business Day</div>
+        <div class="kpi-value" id="kpiLoadsPerDay">â</div>
+        <div class="kpi-sub" id="kpiLoadsPerDaySub"><span>Excl weekends &amp; VIC holidays</span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Revenue / Business Day</div>
+        <div class="kpi-value" id="kpiRevPerDay">â</div>
+        <div class="kpi-sub" id="kpiRevPerDaySub"><span></span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Profit / Business Day</div>
+        <div class="kpi-value" id="kpiProfitPerDay">â</div>
+        <div class="kpi-sub" id="kpiProfitPerDaySub"><span></span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Ops Utilisation</div>
+        <div class="kpi-value" id="kpiUtilisation">â</div>
+        <div class="kpi-sub" id="kpiUtilisationSub"><span>Active / business days</span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Peak Day</div>
+        <div class="kpi-value" id="kpiPeakDay">â</div>
+        <div class="kpi-sub" id="kpiPeakDaySub"><span>Max loads in a day</span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Avg Loads / Active Day</div>
+        <div class="kpi-value" id="kpiLoadsPerActiveDay">â</div>
+        <div class="kpi-sub" id="kpiLoadsPerActiveDaySub"><span>Days with â¥1 load</span></div>
+      </div>
+  </div>
+
+  <!-- VIEW TABS -->
+  <div class="tab-bar">
+    <button class="active" onclick="switchTab('pnl')">P&L Statement</button>
+    <button onclick="switchTab('charts')">Charts & Trends</button>
+    <button onclick="switchTab('customers')">Customer Analysis</button>
+    <button onclick="switchTab('carriers')">Carrier Analysis</button>
+    <button onclick="switchTab('lanes')">Lane Analysis</button>
+    <button onclick="switchTab('allfyoverview')">All FY Overview</button>
+            <button class="tab-btn" onclick="switchTab('carriercompliance')">Carrier Compliance</button>
+  </div>
+
+  <!-- TAB: P&L -->
+  <div class="tab-content active" id="tab-pnl">
+    <div class="grid-2" style="grid-template-columns: 1fr 340px;">
+      <div class="card">
+        <div class="card-title">
+          <span id="pnlTitle">FY Profit & Loss Statement</span>
+          <span class="badge" id="pnlPeriod"></span>
+        </div>
+        <div class="pnl-scroll">
+          <table class="pnl-table" id="pnlTable"></table>
+        </div>
+      </div>
+      <div>
+        <div class="analysis-panel" id="analysisPanel">
+          <h3>Analysis Team Insights</h3>
+          <div id="insightsContainer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: CHARTS -->
+  <div class="tab-content" id="tab-charts">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Monthly Revenue vs Cost</div>
+        <div class="chart-container"><canvas id="chartRevCost"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Monthly Profit & Margin</div>
+        <div class="chart-container"><canvas id="chartProfitMargin"></canvas></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Loads per Month</div>
+        <div class="chart-container"><canvas id="chartLoads"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Profit per Load Trend</div>
+        <div class="chart-container"><canvas id="chartProfitPerLoad"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: CUSTOMERS -->
+  <div class="tab-content" id="tab-customers">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Top Customers by Revenue</div>
+        <div class="chart-container"><canvas id="chartTopCustomers"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Customer Margin Comparison</div>
+        <div class="chart-container"><canvas id="chartCustomerMargin"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Customer Breakdown <span class="badge" id="custBadge"></span></div>
+      <div class="pnl-scroll"><table class="rank-table" id="customerTable"></table></div>
+    </div>
+  </div>
+
+  <!-- TAB: CARRIERS -->
+  <div class="tab-content" id="tab-carriers">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Top Carriers by Cost</div>
+        <div class="chart-container"><canvas id="chartTopCarriers"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Carrier Margin Impact</div>
+        <div class="chart-container"><canvas id="chartCarrierMargin"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Carrier Breakdown <span class="badge" id="carrierBadge"></span></div>
+      <div class="pnl-scroll"><table class="rank-table" id="carrierTable"></table></div>
+    </div>
+  </div>
+
+  <!-- TAB: LANES -->
+  <div class="tab-content" id="tab-lanes">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Top Lanes by Volume</div>
+        <div class="chart-container"><canvas id="chartTopLanes"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Lane Margin Analysis</div>
+        <div class="chart-container"><canvas id="chartLaneMargin"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Lane Breakdown <span class="badge" id="laneBadge"></span></div>
+      <div class="pnl-scroll"><table class="rank-table" id="laneTable"></table></div>
+    </div>
+  </div>
+
+  <!-- TAB: ALL FY OVERVIEW -->
+  <div class="tab-content" id="tab-allfyoverview">
+    <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <span style="color:var(--text-dim);font-size:13px;margin-right:8px;">Show rows:</span>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="loads" checked> # of Loads</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="revenue" checked> Revenue</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="cost" checked> Cost</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="profit" checked> Gross Profit</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="margin" checked> Margin %</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="profitPerLoad"> Profit/Load</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="revPerLoad"> Avg Rev/Load</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="costPerLoad"> Avg Cost/Load</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="loadsBizDay" checked> Loads/Biz Day</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="revBizDay"> Rev/Biz Day</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="profitBizDay"> Profit/Biz Day</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="utilisation"> Ops Utilisation</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="activeCust" checked> Active Customers</label>
+      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="bizDays"> Business Days</label>
+    </div>
+    <div id="allFyTable" style="max-height:80vh;overflow-y:auto;"></div>
+  </div>
+
+        <!-- Carrier Compliance Tab -->
+        <div class="tab-content" id="tab-carriercompliance">
+          <h2 style="margin-bottom:8px;">Carrier Compliance — Tier Overview</h2>
+          <p style="color:#94a3b8;margin-bottom:16px;font-size:0.92em;">Carrier tiering based on utilisation frequency. Select a reference month to generate compliance tiers for portal updates.</p>
+          <div style="display:flex;gap:16px;align-items:center;margin-bottom:18px;flex-wrap:wrap;">
+            <label style="color:#cbd5e1;font-size:0.95em;">Reference Month:
+              <select id="complianceMonth" onchange="renderCarrierCompliance()" style="margin-left:6px;padding:6px 12px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:0.95em;"></select>
+            </label>
+            <label style="color:#cbd5e1;font-size:0.95em;">FY:
+              <select id="complianceFY" onchange="renderCarrierCompliance()" style="margin-left:6px;padding:6px 12px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:0.95em;"></select>
+            </label>
+            <button onclick="exportComplianceCSV()" style="padding:6px 16px;border-radius:6px;border:1px solid #3b82f6;background:#1e40af;color:#e2e8f0;cursor:pointer;font-size:0.9em;">Export CSV</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;" id="tierSummaryCards"></div>
+          <div style="overflow-x:auto;">
+            <table class="pnl-table" id="complianceTable" style="width:100%;font-size:0.88em;">
+              <thead><tr>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('carrier')">Carrier ▿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('tier')">Tier ▿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('loads')">Loads (Month) ▿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('totalLoads')">Loads (All Time) ▿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('activeDays')">Active Days ▿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('bizDays')">Biz Days Used</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('lastUsed')">Last Used ▿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('freq')">Frequency</th>
+                <th>Trend</th>
+              </tr></thead>
+              <tbody id="complianceBody"></tbody>
+            </table>
+          </div>
+        </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION
+// ============================================================
+const SHEET_ID = '1TjvR5ODYR0SjxgjrJ_CVi4FPpfHkG96-ih7f-QLq8sE';
+const TABS = ['2026','2025','2024','2023','2022','2018 - 2021'];
+
+// Column mappings per tab structure
+const COL_MAP = {
+  modern: { // 2023-2026: 30 cols
+    customer:'B', date:'C', pickupState:'I', deliveryState:'L', vehicle:'P',
+    revenue:'S', carrier:'U', cost:'X', profit:'AC', margin:'AD'
+  },
+  mid: { // 2022: 27 cols
+    customer:'B', date:'C', pickupState:'F', deliveryState:'I', vehicle:'M',
+    revenue:'P', carrier:'R', cost:'U', profit:'Z', margin:'AA'
+  },
+  legacy: { // 2018-2021: 28 cols
+    customer:'A', date:'B', pickupState:'E', deliveryState:'H', vehicle:'K',
+    revenue:'N', carrier:'Q', cost:'T', profit:'Y', margin:'Z'
+  }
+};
+
+function getColMap(tab) {
+  if (['2023','2024','2025','2026'].includes(tab)) return COL_MAP.modern;
+  if (tab === '2022') return COL_MAP.mid;
+  return COL_MAP.legacy;
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let allData = []; // Array of {customer,date,pickupState,deliveryState,vehicle,revenue,carrier,cost,profit,margin}
+let filteredData = [];
+let yearType = 'FY'; // FY or CY
+let charts = {};
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const FY_MONTH_ORDER = [6,7,8,9,10,11,0,1,2,3,4,5]; // Jul-Jun
+const CY_MONTH_ORDER = [0,1,2,3,4,5,6,7,8,9,10,11]; // Jan-Dec
+
+// ============================================================
+// DATA FETCHING
+// ============================================================
+function fetchViaJsonp(url) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'gvizCb_' + Math.random().toString(36).substr(2, 9);
+    const timeout = setTimeout(() => { delete window[cbName]; reject(new Error('Timeout')); }, 30000);
+    window[cbName] = function(response) {
+      clearTimeout(timeout);
+      delete window[cbName];
+      const script = document.querySelector(`script[data-cb="${cbName}"]`);
+      if (script) script.remove();
+      resolve(response);
+    };
+    const script = document.createElement('script');
+    script.setAttribute('data-cb', cbName);
+    script.src = url + `&tqx=responseHandler:${cbName};out:json`;
+    script.onerror = () => { clearTimeout(timeout); delete window[cbName]; script.remove(); reject(new Error('Script load error')); };
+    document.head.appendChild(script);
+  });
+}
+
+async function fetchViaFetch(url) {
+  const resp = await fetch(url + '&tqx=out:json');
+  const text = await resp.text();
+  const match = text.match(/google\.visualization\.Query\.setResponse\((.+)\);?\s*$/);
+  if (!match) throw new Error('No match in response');
+  return JSON.parse(match[1]);
+}
+
+async function fetchSheetData(tabName) {
+  const cm = getColMap(tabName);
+  const cols = `${cm.customer},${cm.date},${cm.pickupState},${cm.deliveryState},${cm.vehicle},${cm.revenue},${cm.carrier},${cm.cost},${cm.profit},${cm.margin}`;
+  const query = `select ${cols} where ${cm.date} is not null`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(tabName)}&tq=${encodeURIComponent(query)}&headers=1`;
+
+  try {
+    let json;
+    try {
+      json = await fetchViaJsonp(url);
+    } catch(jsonpErr) {
+      console.warn(`JSONP failed for ${tabName}, trying fetch:`, jsonpErr);
+      json = await fetchViaFetch(url);
+    }
+    if (json.status === 'error') return [];
+
+    return json.table.rows.map(r => {
+      const c = r.c;
+      if (!c || !c[1]) return null;
+      const dateVal = c[1]?.v;
+      let dt = null;
+      if (dateVal instanceof Date) {
+        dt = dateVal;
+      } else if (typeof dateVal === 'string' && dateVal.startsWith('Date(')) {
+        const parts = dateVal.match(/Date\((\d+),(\d+),(\d+)\)/);
+        if (parts) dt = new Date(+parts[1], +parts[2], +parts[3]);
+      } else if (typeof dateVal === 'string') {
+        dt = new Date(dateVal);
+      } else if (typeof dateVal === 'number') {
+        dt = new Date(dateVal);
+      }
+      if (!dt || isNaN(dt.getTime())) return null;
+
+      const rev = parseFloat(c[5]?.v) || 0;
+      const cost = parseFloat(c[7]?.v) || 0;
+      const profit = parseFloat(c[8]?.v) || (rev - cost);
+      const margin = c[9]?.v ? parseFloat(c[9].v) : (rev > 0 ? profit / rev : 0);
+
+      return {
+        customer: (c[0]?.v || 'Unknown').toString().trim(),
+        date: dt,
+        month: dt.getMonth(),
+        year: dt.getFullYear(),
+        pickupState: (c[2]?.v || '').toString().trim().toUpperCase(),
+        deliveryState: (c[3]?.v || '').toString().trim().toUpperCase(),
+        vehicle: (c[4]?.v || '').toString().trim(),
+        revenue: rev,
+        carrier: (c[6]?.v || 'Unknown').toString().trim(),
+        cost: cost,
+        profit: profit,
+        margin: margin
+      };
+    }).filter(Boolean);
+  } catch(e) {
+    console.error(`Error fetching ${tabName}:`, e);
+    return [];
+  }
+}
+
+async function loadAllData() {
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+  const loadStatus = {};
+  const promises = TABS.map(async t => {
+    const rows = await fetchSheetData(t);
+    loadStatus[t] = rows.length;
+    return rows;
+  });
+  const results = await Promise.all(promises);
+  allData = results.flat().sort((a,b) => a.date - b.date);
+
+  // Remove rows with zero revenue AND zero cost (empty/header rows)
+  allData = allData.filter(d => d.revenue !== 0 || d.cost !== 0);
+
+  console.log('Data loaded:', loadStatus, 'Total rows:', allData.length);
+
+  // Log year distribution for debugging
+  const yearDist = {};
+  allData.forEach(d => {
+    const fy = getFY(d.date);
+    const cy = d.year;
+    yearDist[`FY${fy}`] = (yearDist[`FY${fy}`] || 0) + 1;
+    yearDist[`CY${cy}`] = (yearDist[`CY${cy}`] || 0) + 1;
+  });
+  console.log('Year distribution:', yearDist);
+
+  createMultiSelects();
+  populateFilters();
+  applyFilters();
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  document.getElementById('lastUpdated').textContent = `Updated: ${new Date().toLocaleTimeString()} | ${allData.length.toLocaleString()} records loaded`;
+}
+
+// ============================================================
+// FILTERS
+// ============================================================
+function getFY(date) {
+  // Australian FY: Jul-Jun. FY2025 = Jul 2024 - Jun 2025
+  return date.getMonth() >= 6 ? date.getFullYear() + 1 : date.getFullYear();
+}
+
+function getFYQuarter(month) {
+  // FY Q1=Jul-Sep, Q2=Oct-Dec, Q3=Jan-Mar, Q4=Apr-Jun
+  if (month >= 6 && month <= 8) return 'Q1';
+  if (month >= 9 && month <= 11) return 'Q2';
+  if (month >= 0 && month <= 2) return 'Q3';
+  return 'Q4';
+}
+
+function getCYQuarter(month) {
+  if (month >= 0 && month <= 2) return 'Q1';
+  if (month >= 3 && month <= 5) return 'Q2';
+  if (month >= 6 && month <= 8) return 'Q3';
+  return 'Q4';
+}
+
+function getLane(d) {
+  return `${d.pickupState||'?'} â ${d.deliveryState||'?'}`;
+}
+
+// ============================================================
+// MULTI-SELECT COMPONENT
+// ============================================================
+class MultiSelect {
+  constructor(config) {
+    this.containerId = config.containerId;
+    this.placeholder = config.placeholder || 'All';
+    this.searchable = config.searchable || false;
+    this.onChange = config.onChange || (() => {});
+    this.options = [];
+    this.selected = [];
+    this.render();
+  }
+
+  setOptions(options) {
+    this.options = options;
+    this.selected = this.selected.filter(s => this.options.some(o => o.value === s));
+    this.updateDisplay();
+  }
+
+  getSelected() {
+    return this.selected;
+  }
+
+  setSelected(values) {
+    this.selected = values.filter(v => this.options.some(o => o.value === v));
+    this.updateDisplay();
+  }
+
+  clear() {
+    this.selected = [];
+    this.updateDisplay();
+  }
+
+  render() {
+    const container = document.getElementById(this.containerId);
+    container.innerHTML = `
+      <div class="multi-select">
+        <button class="multi-select-btn" data-action="toggle">
+          <span class="multi-select-label"></span>
+          <span class="multi-select-arrow">â¼</span>
+        </button>
+        <div class="multi-select-dropdown">
+          ${this.searchable ? '<div class="multi-select-search"><input type="text" placeholder="Search..." data-action="search"></div>' : ''}
+          <div class="multi-select-actions">
+            <button data-action="selectAll">Select All</button>
+            <button data-action="clearAll">Clear All</button>
+          </div>
+          <div class="multi-select-options"></div>
+        </div>
+      </div>
+    `;
+
+    const multi = container.querySelector('.multi-select');
+    const btn = container.querySelector('.multi-select-btn');
+    const dropdown = container.querySelector('.multi-select-dropdown');
+    const searchInput = container.querySelector('[data-action="search"]');
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle('open');
+      btn.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!multi.contains(e.target)) {
+        dropdown.classList.remove('open');
+        btn.classList.remove('open');
+      }
+    });
+
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        this.filterOptions(e.target.value);
+      });
+    }
+
+    container.querySelector('[data-action="selectAll"]').addEventListener('click', () => {
+      const visible = this.getVisibleOptions();
+      this.selected = [...new Set([...this.selected, ...visible.map(o => o.value)])];
+      this.updateDisplay();
+      this.onChange();
+    });
+
+    container.querySelector('[data-action="clearAll"]').addEventListener('click', () => {
+      this.selected = [];
+      this.updateDisplay();
+      this.onChange();
+    });
+
+    this.updateDisplay();
+  }
+
+  filterOptions(query) {
+    const optionsDiv = document.getElementById(this.containerId).querySelector('.multi-select-options');
+    const options = optionsDiv.querySelectorAll('.multi-select-option');
+    options.forEach(opt => {
+      const label = opt.textContent.toLowerCase();
+      opt.style.display = label.includes(query.toLowerCase()) ? '' : 'none';
+    });
+  }
+
+  getVisibleOptions() {
+    return this.options.filter(o => {
+      const opt = document.getElementById(this.containerId).querySelector(`.multi-select-option input[value="${o.value}"]`);
+      return !opt || opt.closest('.multi-select-option').style.display !== 'none';
+    });
+  }
+
+  updateDisplay() {
+    const container = document.getElementById(this.containerId);
+    const btn = container.querySelector('.multi-select-btn');
+    const optionsDiv = container.querySelector('.multi-select-options');
+
+    let labelText = this.placeholder;
+    if (this.selected.length > 0) {
+      if (this.selected.length <= 2) {
+        labelText = this.selected.map(v => this.options.find(o => o.value === v)?.label || v).join(', ');
+      } else {
+        labelText = `${this.selected.length} selected`;
+      }
+    }
+
+    const existingLabel = btn.querySelector('.multi-select-label');
+    if (existingLabel) {
+      existingLabel.textContent = labelText;
+    }
+
+    if (optionsDiv) {
+      if (this.options.length === 0) {
+        optionsDiv.innerHTML = '<div class="multi-select-empty">No options</div>';
+      } else {
+        optionsDiv.innerHTML = this.options.map(opt => `
+          <div class="multi-select-option">
+            <input type="checkbox" id="opt-${this.containerId}-${opt.value}" value="${opt.value}" ${this.selected.includes(opt.value) ? 'checked' : ''}>
+            <label for="opt-${this.containerId}-${opt.value}">${opt.label}</label>
+          </div>
+        `).join('');
+
+        optionsDiv.querySelectorAll('input[type=checkbox]').forEach(checkbox => {
+          checkbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+              this.selected.push(e.target.value);
+            } else {
+              this.selected = this.selected.filter(v => v !== e.target.value);
+            }
+            this.updateDisplay();
+            this.onChange();
+          });
+        });
+      }
+    }
+  }
+}
+
+// Global filter instances
+let filterInstances = {};
+
+function createMultiSelects() {
+  filterInstances.year = new MultiSelect({
+    containerId: 'filterYear',
+    placeholder: 'All Years',
+    searchable: false,
+    onChange: applyFilters
+  });
+
+  filterInstances.quarter = new MultiSelect({
+    containerId: 'filterQuarter',
+    placeholder: 'All Quarters',
+    searchable: false,
+    onChange: applyFilters
+  });
+
+  filterInstances.month = new MultiSelect({
+    containerId: 'filterMonth',
+    placeholder: 'All Months',
+    searchable: false,
+    onChange: applyFilters
+  });
+
+  filterInstances.customer = new MultiSelect({
+    containerId: 'filterCustomer',
+    placeholder: 'All Customers',
+    searchable: true,
+    onChange: applyFilters
+  });
+
+  filterInstances.lane = new MultiSelect({
+    containerId: 'filterLane',
+    placeholder: 'All Lanes',
+    searchable: true,
+    onChange: applyFilters
+  });
+
+  filterInstances.carrier = new MultiSelect({
+    containerId: 'filterCarrier',
+    placeholder: 'All Carriers',
+    searchable: true,
+    onChange: applyFilters
+  });
+}
+
+function populateFilters() {
+  // Years
+  const years = [...new Set(allData.map(d => yearType === 'FY' ? getFY(d.date) : d.year))].sort((a,b)=>b-a);
+  filterInstances.year.setOptions(years.map(y => ({
+    value: y.toString(),
+    label: `${yearType === 'FY' ? 'FY' : ''}${y}`
+  })));
+  if (years.length && filterInstances.year.getSelected().length === 0) {
+    filterInstances.year.setSelected([years[0].toString()]);
+  }
+
+  // Quarter options - all quarters always available
+  const quarterOptions = [
+    { value: 'Q1', label: 'Q1' },
+    { value: 'Q2', label: 'Q2' },
+    { value: 'Q3', label: 'Q3' },
+    { value: 'Q4', label: 'Q4' }
+  ];
+  filterInstances.quarter.setOptions(quarterOptions);
+
+  // Month options - all months always available
+  const monthOptions = [
+    { value: '0', label: 'January' },
+    { value: '1', label: 'February' },
+    { value: '2', label: 'March' },
+    { value: '3', label: 'April' },
+    { value: '4', label: 'May' },
+    { value: '5', label: 'June' },
+    { value: '6', label: 'July' },
+    { value: '7', label: 'August' },
+    { value: '8', label: 'September' },
+    { value: '9', label: 'October' },
+    { value: '10', label: 'November' },
+    { value: '11', label: 'December' }
+  ];
+  filterInstances.month.setOptions(monthOptions);
+
+  // Customers
+  const custs = [...new Set(allData.map(d => d.customer))].filter(c=>c&&c!=='Unknown').sort();
+  filterInstances.customer.setOptions(custs.map(c => ({ value: c, label: c })));
+
+  // Lanes
+  const lanes = [...new Set(allData.map(d => getLane(d)))].filter(l => !l.includes('?')).sort();
+  filterInstances.lane.setOptions(lanes.map(l => ({ value: l, label: l })));
+
+  // Carriers
+  const carriers = [...new Set(allData.map(d => d.carrier))].filter(c=>c&&c!=='Unknown').sort();
+  filterInstances.carrier.setOptions(carriers.map(c => ({ value: c, label: c })));
+}
+
+function applyFilters() {
+  // Get selected values from multi-selects
+  const selectedYears = filterInstances.year.getSelected();
+  const selectedQuarters = filterInstances.quarter.getSelected();
+  const selectedMonths = filterInstances.month.getSelected();
+  const selectedCustomers = filterInstances.customer.getSelected();
+  const selectedLanes = filterInstances.lane.getSelected();
+  const selectedCarriers = filterInstances.carrier.getSelected();
+
+  // Step 1: Filter by years
+  let subset = allData;
+  if (selectedYears.length > 0) {
+    subset = subset.filter(d => {
+      const dy = yearType === 'FY' ? getFY(d.date) : d.year;
+      return selectedYears.includes(dy.toString());
+    });
+  }
+
+  // Rebuild Quarter options based on years filter
+  const availableQuarters = new Set();
+  subset.forEach(d => {
+    const q = yearType === 'FY' ? getFYQuarter(d.month) : getCYQuarter(d.month);
+    availableQuarters.add(q);
+  });
+  const quarterOptions = [
+    { value: 'Q1', label: 'Q1' },
+    { value: 'Q2', label: 'Q2' },
+    { value: 'Q3', label: 'Q3' },
+    { value: 'Q4', label: 'Q4' }
+  ].filter(q => availableQuarters.has(q.value));
+  filterInstances.quarter.setOptions(quarterOptions);
+
+  // Step 2: Filter by quarters
+  if (selectedQuarters.length > 0) {
+    subset = subset.filter(d => {
+      const q = yearType === 'FY' ? getFYQuarter(d.month) : getCYQuarter(d.month);
+      return selectedQuarters.includes(q);
+    });
+  }
+
+  // Rebuild Month options based on years + quarters filter
+  const availableMonths = new Set();
+  subset.forEach(d => {
+    availableMonths.add(d.month.toString());
+  });
+  const allMonthOptions = [
+    { value: '0', label: 'January' },
+    { value: '1', label: 'February' },
+    { value: '2', label: 'March' },
+    { value: '3', label: 'April' },
+    { value: '4', label: 'May' },
+    { value: '5', label: 'June' },
+    { value: '6', label: 'July' },
+    { value: '7', label: 'August' },
+    { value: '8', label: 'September' },
+    { value: '9', label: 'October' },
+    { value: '10', label: 'November' },
+    { value: '11', label: 'December' }
+  ];
+  const monthOptions = allMonthOptions.filter(m => availableMonths.has(m.value));
+  filterInstances.month.setOptions(monthOptions);
+
+  // Step 3: Filter by months
+  if (selectedMonths.length > 0) {
+    subset = subset.filter(d => selectedMonths.includes(d.month.toString()));
+  }
+
+  // Rebuild Customer options based on year/quarter/month filter
+  const availableCustomers = new Set();
+  subset.forEach(d => {
+    if (d.customer && d.customer !== 'Unknown') availableCustomers.add(d.customer);
+  });
+  const custOptions = [...availableCustomers].sort().map(c => ({ value: c, label: c }));
+  filterInstances.customer.setOptions(custOptions);
+
+  // Step 4: Filter by customers
+  if (selectedCustomers.length > 0) {
+    subset = subset.filter(d => selectedCustomers.includes(d.customer));
+  }
+
+  // Rebuild Lane options based on year/quarter/month/customer filter
+  const availableLanes = new Set();
+  subset.forEach(d => {
+    const lane = getLane(d);
+    if (!lane.includes('?')) availableLanes.add(lane);
+  });
+  const laneOptions = [...availableLanes].sort().map(l => ({ value: l, label: l }));
+  filterInstances.lane.setOptions(laneOptions);
+
+  // Step 5: Filter by lanes
+  if (selectedLanes.length > 0) {
+    subset = subset.filter(d => selectedLanes.includes(getLane(d)));
+  }
+
+  // Rebuild Carrier options based on year/quarter/month/customer/lane filter
+  const availableCarriers = new Set();
+  subset.forEach(d => {
+    if (d.carrier && d.carrier !== 'Unknown') availableCarriers.add(d.carrier);
+  });
+  const carrierOptions = [...availableCarriers].sort().map(c => ({ value: c, label: c }));
+  filterInstances.carrier.setOptions(carrierOptions);
+
+  // Step 6: Filter by carriers - this is the final filteredData
+  if (selectedCarriers.length > 0) {
+    filteredData = subset.filter(d => selectedCarriers.includes(d.carrier));
+  } else {
+    filteredData = subset;
+  }
+
+  updateKPIs();
+  updatePnL();
+  updateCharts();
+  updateCustomerTab();
+  updateCarrierTab();
+  updateLaneTab();
+  updateAllFYTab();
+  generateInsights();
+}
+
+function setYearType(type) {
+  yearType = type;
+  document.querySelectorAll('#yearTypeToggle button').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+  document.getElementById('pnlTitle').textContent = type === 'FY' ? 'FY Profit & Loss Statement' : 'Calendar Year Profit & Loss Statement';
+  populateFilters();
+  applyFilters();
+}
+
+function resetFilters() {
+  filterInstances.quarter.clear();
+  filterInstances.month.clear();
+  filterInstances.customer.clear();
+  filterInstances.lane.clear();
+  filterInstances.carrier.clear();
+  applyFilters();
+}
+
+function refreshData() { loadAllData(); }
+
+// ============================================================
+// KPI CARDS
+// ============================================================
+function updateKPIs() {
+  const rev = filteredData.reduce((s,d) => s + d.revenue, 0);
+  const cost = filteredData.reduce((s,d) => s + d.cost, 0);
+  const profit = filteredData.reduce((s,d) => s + d.profit, 0);
+  const loads = filteredData.length;
+  const avgMargin = rev > 0 ? (profit / rev) * 100 : 0;
+  const uniqueCustomers = new Set(filteredData.map(d => d.customer)).size;
+
+  document.getElementById('kpiRevenue').textContent = formatCurrency(rev);
+  document.getElementById('kpiCost').textContent = formatCurrency(cost);
+
+  const profitEl = document.getElementById('kpiProfit');
+  profitEl.textContent = formatCurrency(profit);
+  profitEl.className = 'kpi-value ' + (profit >= 0 ? 'positive' : 'negative');
+
+  document.getElementById('kpiMargin').textContent = avgMargin.toFixed(1) + '%';
+  document.getElementById('kpiMargin').className = 'kpi-value ' + (avgMargin >= 10 ? 'positive' : avgMargin >= 5 ? '' : 'negative');
+
+  document.getElementById('kpiLoads').textContent = loads.toLocaleString();
+  document.getElementById('kpiRevPerLoad').textContent = loads > 0 ? formatCurrency(rev / loads) : 'â';
+  document.getElementById('kpiProfitPerLoad').textContent = loads > 0 ? formatCurrency(profit / loads) : 'â';
+  document.getElementById('kpiCustomers').textContent = uniqueCustomers;
+
+  // Sub text with loads context
+  document.getElementById('kpiRevenueSub').innerHTML = `<span>${loads} total loads</span>`;
+  document.getElementById('kpiProfitSub').innerHTML = profit >= 0 ? `<span class="up">â² Profitable</span>` : `<span class="down">â¼ Loss-making</span>`;
+  document.getElementById('kpiMarginSub').innerHTML = avgMargin >= 10 ? `<span class="up">â² Healthy</span>` : avgMargin >= 5 ? `<span>Moderate</span>` : `<span class="down">â¼ Below target</span>`;
+
+  // --- Daily ops metrics (business-day excl VIC+national holidays) ---
+  (function(){
+    const HOL = new Set([
+      '2022-01-03','2022-01-26','2022-03-14','2022-04-15','2022-04-16','2022-04-17','2022-04-18','2022-04-25','2022-06-13','2022-09-23','2022-09-30','2022-11-01','2022-12-25','2022-12-26','2022-12-27',
+      '2023-01-02','2023-01-26','2023-03-13','2023-04-07','2023-04-08','2023-04-09','2023-04-10','2023-04-25','2023-06-12','2023-09-22','2023-09-29','2023-11-07','2023-12-25','2023-12-26',
+      '2024-01-01','2024-01-26','2024-03-11','2024-03-29','2024-03-30','2024-03-31','2024-04-01','2024-04-25','2024-06-10','2024-09-27','2024-11-05','2024-12-25','2024-12-26',
+      '2025-01-01','2025-01-27','2025-03-10','2025-04-18','2025-04-19','2025-04-20','2025-04-21','2025-04-25','2025-06-09','2025-09-26','2025-11-04','2025-12-25','2025-12-26',
+      '2026-01-01','2026-01-26','2026-03-09','2026-04-03','2026-04-04','2026-04-05','2026-04-06','2026-04-25','2026-06-08','2026-09-25','2026-11-03','2026-12-25','2026-12-28'
+    ]);
+    const _ids=['kpiLoadsPerDay','kpiRevPerDay','kpiProfitPerDay','kpiUtilisation','kpiPeakDay','kpiLoadsPerActiveDay'];
+    if (!filteredData || !filteredData.length) { _ids.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='â';}); return; }
+    let min=null,max=null;
+    const dayLoads={};
+    filteredData.forEach(d=>{
+      if(!d.date) return;
+      if(!min||d.date<min) min=d.date;
+      if(!max||d.date>max) max=d.date;
+      const k=d.date.getFullYear()+'-'+String(d.date.getMonth()+1).padStart(2,'0')+'-'+String(d.date.getDate()).padStart(2,'0');
+      dayLoads[k]=(dayLoads[k]||0)+1;
+    });
+    if(!min){ _ids.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='â';}); return; }
+    const isBiz=dt=>{const w=dt.getDay();if(w===0||w===6)return false;const k=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');return !HOL.has(k);};
+    let bizDays=0;
+    const cur=new Date(min.getFullYear(),min.getMonth(),min.getDate());
+    const endD=new Date(max.getFullYear(),max.getMonth(),max.getDate());
+    while(cur<=endD){if(isBiz(cur))bizDays++;cur.setDate(cur.getDate()+1);}
+    const activeDays=Object.keys(dayLoads).length;
+    const peakDay=Object.entries(dayLoads).reduce((a,b)=>b[1]>a[1]?b:a,['',0]);
+    const loadsPerBiz=bizDays?filteredData.length/bizDays:0;
+    const revPerBiz=bizDays?rev/bizDays:0;
+    const profitPerBiz=bizDays?(rev-cost)/bizDays:0;
+    const util=bizDays?activeDays/bizDays:0;
+    const loadsPerActive=activeDays?filteredData.length/activeDays:0;
+    const fmt$=n=>'$'+(Math.abs(n)>=1e6?(n/1e6).toFixed(2)+'M':Math.abs(n)>=1e3?(n/1e3).toFixed(1)+'K':Math.round(n));
+    const set=(id,v,sub)=>{const e=document.getElementById(id);if(e)e.textContent=v;if(sub!=null){const s=document.getElementById(id+'Sub');if(s)s.innerHTML='<span>'+sub+'</span>';}};
+    set('kpiLoadsPerDay', loadsPerBiz.toFixed(1), bizDays+' business days');
+    set('kpiRevPerDay', fmt$(revPerBiz));
+    set('kpiProfitPerDay', fmt$(profitPerBiz));
+    set('kpiUtilisation', (util*100).toFixed(0)+'%', activeDays+' of '+bizDays+' days active');
+    set('kpiPeakDay', peakDay[1]+' loads', peakDay[0]);
+    set('kpiLoadsPerActiveDay', loadsPerActive.toFixed(1));
+  })();
+}
+
+// ============================================================
+// P&L TABLE (Replicating PDF format)
+// ============================================================
+function updatePnL() {
+  const monthOrder = yearType === 'FY' ? FY_MONTH_ORDER : CY_MONTH_ORDER;
+  const monthLabels = monthOrder.map(m => MONTH_NAMES[m]);
+
+  // Group data by month
+  const byMonth = {};
+  monthOrder.forEach(m => { byMonth[m] = []; });
+  filteredData.forEach(d => {
+    if (byMonth[d.month] !== undefined) byMonth[d.month].push(d);
+  });
+
+  let html = '<thead><tr><th>Metric</th>';
+  monthLabels.forEach(m => html += `<th>${m}</th>`);
+  html += '<th class="fy-total">' + (yearType==='FY'?'FY':'CY') + ' Total</th></tr></thead><tbody>';
+
+  // Calculate metrics per month
+  const metrics = monthOrder.map(m => {
+    const rows = byMonth[m];
+    const rev = rows.reduce((s,d) => s + d.revenue, 0);
+    const cost = rows.reduce((s,d) => s + d.cost, 0);
+    const profit = rows.reduce((s,d) => s + d.profit, 0);
+    const loads = rows.length;
+    const margin = rev > 0 ? (profit / rev * 100) : 0;
+    const profitPerLoad = loads > 0 ? profit / loads : 0;
+    return { rev, cost, profit, loads, margin, profitPerLoad };
+  });
+
+  const totals = {
+    rev: metrics.reduce((s,m) => s + m.rev, 0),
+    cost: metrics.reduce((s,m) => s + m.cost, 0),
+    profit: metrics.reduce((s,m) => s + m.profit, 0),
+    loads: metrics.reduce((s,m) => s + m.loads, 0),
+  };
+  totals.margin = totals.rev > 0 ? (totals.profit / totals.rev * 100) : 0;
+  totals.profitPerLoad = totals.loads > 0 ? totals.profit / totals.loads : 0;
+
+  // Rows: # of Loads
+  html += '<tr><td># of Loads</td>';
+  metrics.forEach(m => html += `<td>${m.loads || ''}</td>`);
+  html += `<td class="fy-total">${totals.loads}</td></tr>`;
+
+  // Revenue
+  html += '<tr class="total-row"><td>Revenue (Charge to Client)</td>';
+  metrics.forEach(m => html += `<td>${m.rev ? formatCurrency(m.rev) : ''}</td>`);
+  html += `<td class="fy-total">${formatCurrency(totals.rev)}</td></tr>`;
+
+  // Cost
+  html += '<tr><td>Cost (Carrier Charges)</td>';
+  metrics.forEach(m => html += `<td>${m.cost ? formatCurrency(m.cost) : ''}</td>`);
+  html += `<td class="fy-total">${formatCurrency(totals.cost)}</td></tr>`;
+
+  // Gross Profit
+  const profitClass = totals.profit >= 0 ? 'profit-row' : 'profit-row negative';
+  html += `<tr class="${profitClass}"><td>Gross Profit</td>`;
+  metrics.forEach(m => {
+    const cls = m.profit < 0 ? 'highlight-cell bad' : 'highlight-cell good';
+    html += `<td class="${cls}">${m.rev ? formatCurrency(m.profit) : ''}</td>`;
+  });
+  html += `<td class="fy-total">${formatCurrency(totals.profit)}</td></tr>`;
+
+  // Margin %
+  html += '<tr class="margin-row"><td>Margin %</td>';
+  metrics.forEach(m => {
+    const cls = m.margin < 5 ? 'highlight-cell bad' : m.margin >= 10 ? 'highlight-cell good' : '';
+    html += `<td class="${cls}">${m.rev ? m.margin.toFixed(1) + '%' : ''}</td>`;
+  });
+  html += `<td class="fy-total">${totals.margin.toFixed(1)}%</td></tr>`;
+
+  // Margin per Load
+  html += '<tr><td>Profit per Load</td>';
+  metrics.forEach(m => {
+    html += `<td>${m.loads ? formatCurrency(m.profitPerLoad) : ''}</td>`;
+  });
+  html += `<td class="fy-total">${formatCurrency(totals.profitPerLoad)}</td></tr>`;
+
+  // Avg Revenue per Load
+  html += '<tr><td>Avg Revenue / Load</td>';
+  metrics.forEach(m => {
+    const avg = m.loads > 0 ? m.rev / m.loads : 0;
+    html += `<td>${m.loads ? formatCurrency(avg) : ''}</td>`;
+  });
+  const avgRevTotal = totals.loads > 0 ? totals.rev / totals.loads : 0;
+  html += `<td class="fy-total">${formatCurrency(avgRevTotal)}</td></tr>`;
+
+  // Avg Cost per Load
+  html += '<tr><td>Avg Cost / Load</td>';
+  metrics.forEach(m => {
+    const avg = m.loads > 0 ? m.cost / m.loads : 0;
+    html += `<td>${m.loads ? formatCurrency(avg) : ''}</td>`;
+  });
+  const avgCostTotal = totals.loads > 0 ? totals.cost / totals.loads : 0;
+  html += `<td class="fy-total">${formatCurrency(avgCostTotal)}</td></tr>`;
+
+  html += '</tbody>';
+  // --- Extra monthly KPI rows ---
+  (function(){
+    const HOL = new Set(['2022-01-03','2022-01-26','2022-03-14','2022-04-15','2022-04-16','2022-04-17','2022-04-18','2022-04-25','2022-06-13','2022-09-23','2022-09-30','2022-11-01','2022-12-25','2022-12-26','2022-12-27','2023-01-02','2023-01-26','2023-03-13','2023-04-07','2023-04-08','2023-04-09','2023-04-10','2023-04-25','2023-06-12','2023-09-22','2023-09-29','2023-11-07','2023-12-25','2023-12-26','2024-01-01','2024-01-26','2024-03-11','2024-03-29','2024-03-30','2024-03-31','2024-04-01','2024-04-25','2024-06-10','2024-09-27','2024-11-05','2024-12-25','2024-12-26','2025-01-01','2025-01-27','2025-03-10','2025-04-18','2025-04-19','2025-04-20','2025-04-21','2025-04-25','2025-06-09','2025-09-26','2025-11-04','2025-12-25','2025-12-26','2026-01-01','2026-01-26','2026-03-09','2026-04-03','2026-04-04','2026-04-05','2026-04-06','2026-04-25','2026-06-08','2026-09-25','2026-11-03','2026-12-25','2026-12-28']);
+    const pad=n=>String(n).padStart(2,'0');
+    const isBiz=(y,mo,dm)=>{const dt=new Date(y,mo,dm);const w=dt.getDay();if(w===0||w===6)return false;return !HOL.has(y+'-'+pad(mo+1)+'-'+pad(dm));};
+    const bizDaysInMonth=(y,mo)=>{const last=new Date(y,mo+1,0).getDate();let n=0;for(let d=1;d<=last;d++)if(isBiz(y,mo,d))n++;return n;};
+    const monthYears={}, monthActiveCust={}, monthActiveDays={};
+    filteredData.forEach(r=>{if(!r.date)return;const mo=r.date.getMonth();const y=r.date.getFullYear();monthYears[mo]=y;(monthActiveCust[mo]=monthActiveCust[mo]||new Set()).add(r.customer);(monthActiveDays[mo]=monthActiveDays[mo]||new Set()).add(y+'-'+pad(mo+1)+'-'+pad(r.date.getDate()));});
+    const bizPerMonth = monthOrder.map(mo=>{const y=monthYears[mo]; return y?bizDaysInMonth(y,mo):0;});
+    const activeCustPerMonth = monthOrder.map(mo=>(monthActiveCust[mo]||new Set()).size);
+    const activeDaysPerMonth = monthOrder.map(mo=>(monthActiveDays[mo]||new Set()).size);
+    const totalBiz=bizPerMonth.reduce((a,b)=>a+b,0);
+    const totalActiveDays=activeDaysPerMonth.reduce((a,b)=>a+b,0);
+    const totalLoads=metrics.reduce((s,m)=>s+m.loads,0);
+    const allCust=new Set();filteredData.forEach(r=>{if(r.customer)allCust.add(r.customer);});
+
+    html += '<tr><td>Loads / Business Day</td>';
+    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?(m.loads/bizPerMonth[i]).toFixed(1):'â')+'</td>';});
+    html += '<td class="total">'+(totalBiz?(totalLoads/totalBiz).toFixed(1):'â')+'</td></tr>';
+
+    html += '<tr><td>Revenue / Business Day</td>';
+    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?formatCurrency(m.rev/bizPerMonth[i]):'â')+'</td>';});
+    html += '<td class="total">'+(totalBiz?formatCurrency(totals.rev/totalBiz):'â')+'</td></tr>';
+
+    html += '<tr><td>Profit / Business Day</td>';
+    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?formatCurrency(m.profit/bizPerMonth[i]):'â')+'</td>';});
+    html += '<td class="total">'+(totalBiz?formatCurrency(totals.profit/totalBiz):'â')+'</td></tr>';
+
+    html += '<tr><td>Ops Utilisation</td>';
+    metrics.forEach((m,i)=>{const u=bizPerMonth[i]?Math.min(100,Math.round(activeDaysPerMonth[i]/bizPerMonth[i]*100)):0;html+='<td>'+(bizPerMonth[i]?u+'%':'â')+'</td>';});
+    const totU=totalBiz?Math.min(100,Math.round(totalActiveDays/totalBiz*100)):0;
+    html += '<td class="total">'+(totalBiz?totU+'%':'â')+'</td></tr>';
+
+    html += '<tr><td>Active Customers</td>';
+    activeCustPerMonth.forEach(n=>{html+='<td>'+(n||'â')+'</td>';});
+    html += '<td class="total">'+allCust.size+'</td></tr>';
+
+    html += '<tr><td>Business Days</td>';
+    bizPerMonth.forEach(n=>{html+='<td>'+(n||'â')+'</td>';});
+    html += '<td class="total">'+totalBiz+'</td></tr>';
+  })();
+  document.getElementById('pnlTable').innerHTML = html;
+
+  const yearVal = document.getElementById('filterYear').value;
+  document.getElementById('pnlPeriod').textContent = yearVal ? (yearType==='FY' ? `FY${yearVal}` : `CY${yearVal}`) : 'All Periods';
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+function updateCharts() {
+  const monthOrder = yearType === 'FY' ? FY_MONTH_ORDER : CY_MONTH_ORDER;
+  const labels = monthOrder.map(m => MONTH_NAMES[m]);
+
+  const byMonth = {};
+  monthOrder.forEach(m => { byMonth[m] = []; });
+  filteredData.forEach(d => {
+    if (byMonth[d.month] !== undefined) byMonth[d.month].push(d);
+  });
+
+  const revData = monthOrder.map(m => byMonth[m].reduce((s,d)=>s+d.revenue,0));
+  const costData = monthOrder.map(m => byMonth[m].reduce((s,d)=>s+d.cost,0));
+  const profitData = monthOrder.map(m => byMonth[m].reduce((s,d)=>s+d.profit,0));
+  const marginData = monthOrder.map(m => {
+    const r = byMonth[m].reduce((s,d)=>s+d.revenue,0);
+    const p = byMonth[m].reduce((s,d)=>s+d.profit,0);
+    return r > 0 ? (p/r*100) : 0;
+  });
+  const loadsData = monthOrder.map(m => byMonth[m].length);
+  const pplData = monthOrder.map(m => {
+    const p = byMonth[m].reduce((s,d)=>s+d.profit,0);
+    return byMonth[m].length > 0 ? p / byMonth[m].length : 0;
+  });
+
+  // Revenue vs Cost
+  updateOrCreateChart('chartRevCost', {
+    type:'bar', data: {
+      labels, datasets: [
+        { label:'Revenue', data:revData, backgroundColor:'rgba(79,140,255,0.7)', borderRadius:4 },
+        { label:'Cost', data:costData, backgroundColor:'rgba(245,158,11,0.7)', borderRadius:4 }
+      ]
+    }, options: chartOpts('$')
+  });
+
+  // Profit & Margin
+  updateOrCreateChart('chartProfitMargin', {
+    type:'bar', data: {
+      labels, datasets: [
+        { label:'Profit', data:profitData, backgroundColor: profitData.map(v=>v>=0?'rgba(34,197,94,0.7)':'rgba(239,68,68,0.7)'), borderRadius:4, yAxisID:'y' },
+        { label:'Margin %', data:marginData, type:'line', borderColor:'#a855f7', backgroundColor:'rgba(168,85,247,0.1)', pointRadius:4, pointBackgroundColor:'#a855f7', yAxisID:'y1', tension:0.3, fill:true }
+      ]
+    }, options: { ...chartOpts('$'), scales: {
+      x: { grid:{display:false}, ticks:{color:'#8b8fa3'} },
+      y: { position:'left', grid:{color:'rgba(42,46,63,0.5)'}, ticks:{color:'#8b8fa3', callback:v=>formatCompact(v)} },
+      y1: { position:'right', grid:{display:false}, ticks:{color:'#a855f7', callback:v=>v.toFixed(0)+'%'}, min:0 }
+    }}
+  });
+
+  // Loads
+  updateOrCreateChart('chartLoads', {
+    type:'bar', data: {
+      labels, datasets: [{ label:'Loads', data:loadsData, backgroundColor:'rgba(6,182,212,0.7)', borderRadius:4 }]
+    }, options: chartOpts('')
+  });
+
+  // Profit per Load
+  updateOrCreateChart('chartProfitPerLoad', {
+    type:'line', data: {
+      labels, datasets: [{ label:'Profit/Load', data:pplData, borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,0.1)', pointRadius:5, pointBackgroundColor:'#22c55e', tension:0.3, fill:true }]
+    }, options: chartOpts('$')
+  });
+}
+
+function updateCustomerTab() {
+  const custs = {};
+  filteredData.forEach(d => {
+    if (!custs[d.customer]) custs[d.customer] = { rev:0, cost:0, profit:0, loads:0 };
+    custs[d.customer].rev += d.revenue;
+    custs[d.customer].cost += d.cost;
+    custs[d.customer].profit += d.profit;
+    custs[d.customer].loads++;
+  });
+  const sorted = Object.entries(custs).sort((a,b)=>b[1].rev-a[1].rev);
+  const top15 = sorted.slice(0,15);
+
+  // Charts
+  updateOrCreateChart('chartTopCustomers', {
+    type:'bar', data: {
+      labels: top15.map(c=>c[0].substring(0,20)), datasets: [
+        { label:'Revenue', data:top15.map(c=>c[1].rev), backgroundColor:'rgba(79,140,255,0.7)', borderRadius:4 },
+        { label:'Cost', data:top15.map(c=>c[1].cost), backgroundColor:'rgba(245,158,11,0.5)', borderRadius:4 }
+      ]
+    }, options: { indexAxis:'y', ...chartOpts('$'), plugins:{legend:{display:true,labels:{color:'#8b8fa3',font:{size:11}}}} }
+  });
+
+  updateOrCreateChart('chartCustomerMargin', {
+    type:'bar', data: {
+      labels: top15.map(c=>c[0].substring(0,20)), datasets: [{
+        label:'Margin %', data:top15.map(c=>c[1].rev>0?(c[1].profit/c[1].rev*100):0),
+        backgroundColor: top15.map(c=>{const m=c[1].rev>0?(c[1].profit/c[1].rev*100):0; return m>=10?'rgba(34,197,94,0.7)':m>=5?'rgba(245,158,11,0.7)':'rgba(239,68,68,0.7)';}),
+        borderRadius:4
+      }]
+    }, options: { indexAxis:'y', ...chartOpts('%') }
+  });
+
+  // Table
+  let html = '<thead><tr><th>#</th><th>Customer</th><th>Loads</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Margin</th><th>Margin Visual</th></tr></thead><tbody>';
+  sorted.forEach(([name, d], i) => {
+    const margin = d.rev > 0 ? (d.profit / d.rev * 100) : 0;
+    const barColor = margin >= 10 ? 'var(--green)' : margin >= 5 ? 'var(--amber)' : 'var(--red)';
+    html += `<tr>
+      <td>${i+1}</td><td style="font-weight:600">${name}</td><td>${d.loads}</td>
+      <td>${formatCurrency(d.rev)}</td><td>${formatCurrency(d.cost)}</td>
+      <td style="color:${d.profit>=0?'var(--green)':'var(--red)'}">${formatCurrency(d.profit)}</td>
+      <td style="color:${barColor}">${margin.toFixed(1)}%</td>
+      <td><div class="margin-bar"><div class="margin-bar-fill" style="width:${Math.min(Math.max(margin,0),30)/30*100}%;background:${barColor}"></div></div></td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('customerTable').innerHTML = html;
+  document.getElementById('custBadge').textContent = `${sorted.length} customers`;
+}
+
+function updateCarrierTab() {
+  const carriers = {};
+  filteredData.forEach(d => {
+    if (!carriers[d.carrier]) carriers[d.carrier] = { rev:0, cost:0, profit:0, loads:0 };
+    carriers[d.carrier].rev += d.revenue;
+    carriers[d.carrier].cost += d.cost;
+    carriers[d.carrier].profit += d.profit;
+    carriers[d.carrier].loads++;
+  });
+  const sorted = Object.entries(carriers).sort((a,b)=>b[1].cost-a[1].cost);
+  const top15 = sorted.slice(0,15);
+
+  updateOrCreateChart('chartTopCarriers', {
+    type:'bar', data: {
+      labels: top15.map(c=>c[0].substring(0,20)), datasets: [
+        { label:'Cost', data:top15.map(c=>c[1].cost), backgroundColor:'rgba(239,68,68,0.6)', borderRadius:4 },
+        { label:'Revenue', data:top15.map(c=>c[1].rev), backgroundColor:'rgba(79,140,255,0.5)', borderRadius:4 }
+      ]
+    }, options: { indexAxis:'y', ...chartOpts('$') }
+  });
+
+  updateOrCreateChart('chartCarrierMargin', {
+    type:'bar', data: {
+      labels: top15.map(c=>c[0].substring(0,20)), datasets: [{
+        label:'Margin %', data:top15.map(c=>c[1].rev>0?(c[1].profit/c[1].rev*100):0),
+        backgroundColor: top15.map(c=>{const m=c[1].rev>0?(c[1].profit/c[1].rev*100):0; return m>=10?'rgba(34,197,94,0.7)':m>=5?'rgba(245,158,11,0.7)':'rgba(239,68,68,0.7)';}),
+        borderRadius:4
+      }]
+    }, options: { indexAxis:'y', ...chartOpts('%') }
+  });
+
+  let html = '<thead><tr><th>#</th><th>Carrier</th><th>Loads</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Margin</th><th>Margin Visual</th></tr></thead><tbody>';
+  sorted.forEach(([name, d], i) => {
+    const margin = d.rev > 0 ? (d.profit / d.rev * 100) : 0;
+    const barColor = margin >= 10 ? 'var(--green)' : margin >= 5 ? 'var(--amber)' : 'var(--red)';
+    html += `<tr>
+      <td>${i+1}</td><td style="font-weight:600">${name}</td><td>${d.loads}</td>
+      <td>${formatCurrency(d.rev)}</td><td>${formatCurrency(d.cost)}</td>
+      <td style="color:${d.profit>=0?'var(--green)':'var(--red)'}">${formatCurrency(d.profit)}</td>
+      <td style="color:${barColor}">${margin.toFixed(1)}%</td>
+      <td><div class="margin-bar"><div class="margin-bar-fill" style="width:${Math.min(Math.max(margin,0),30)/30*100}%;background:${barColor}"></div></div></td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('carrierTable').innerHTML = html;
+  document.getElementById('carrierBadge').textContent = `${sorted.length} carriers`;
+}
+
+function updateLaneTab() {
+  const lanes = {};
+  filteredData.forEach(d => {
+    const lane = getLane(d);
+    if (!lanes[lane]) lanes[lane] = { rev:0, cost:0, profit:0, loads:0 };
+    lanes[lane].rev += d.revenue;
+    lanes[lane].cost += d.cost;
+    lanes[lane].profit += d.profit;
+    lanes[lane].loads++;
+  });
+  const sorted = Object.entries(lanes).sort((a,b)=>b[1].loads-a[1].loads);
+  const top15 = sorted.slice(0,15);
+
+  updateOrCreateChart('chartTopLanes', {
+    type:'bar', data: {
+      labels: top15.map(c=>c[0]), datasets: [
+        { label:'Loads', data:top15.map(c=>c[1].loads), backgroundColor:'rgba(6,182,212,0.7)', borderRadius:4 }
+      ]
+    }, options: { indexAxis:'y', ...chartOpts('') }
+  });
+
+  updateOrCreateChart('chartLaneMargin', {
+    type:'bar', data: {
+      labels: top15.map(c=>c[0]), datasets: [{
+        label:'Margin %', data:top15.map(c=>c[1].rev>0?(c[1].profit/c[1].rev*100):0),
+        backgroundColor: top15.map(c=>{const m=c[1].rev>0?(c[1].profit/c[1].rev*100):0; return m>=10?'rgba(34,197,94,0.7)':m>=5?'rgba(245,158,11,0.7)':'rgba(239,68,68,0.7)';}),
+        borderRadius:4
+      }]
+    }, options: { indexAxis:'y', ...chartOpts('%') }
+  });
+
+  let html = '<thead><tr><th>#</th><th>Lane</th><th>Loads</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Margin</th><th>Profit/Load</th></tr></thead><tbody>';
+  sorted.forEach(([name, d], i) => {
+    const margin = d.rev > 0 ? (d.profit / d.rev * 100) : 0;
+    const ppl = d.loads > 0 ? d.profit / d.loads : 0;
+    const mc = margin >= 10 ? 'var(--green)' : margin >= 5 ? 'var(--amber)' : 'var(--red)';
+    html += `<tr>
+      <td>${i+1}</td><td style="font-weight:600">${name}</td><td>${d.loads}</td>
+      <td>${formatCurrency(d.rev)}</td><td>${formatCurrency(d.cost)}</td>
+      <td style="color:${d.profit>=0?'var(--green)':'var(--red)'}">${formatCurrency(d.profit)}</td>
+      <td style="color:${mc}">${margin.toFixed(1)}%</td>
+      <td>${formatCurrency(ppl)}</td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('laneTable').innerHTML = html;
+  document.getElementById('laneBadge').textContent = `${sorted.length} lanes`;
+}
+
+// ============================================================
+// ALL FY OVERVIEW TAB
+// ============================================================
+function updateAllFYTab() {
+  if (typeof renderAllFYSnippet === 'function') renderAllFYSnippet();
+}
+
+// ============================================================
+// INSIGHTS ENGINE ("Analysis Team")
+// ============================================================
+function generateInsights() {
+  const insights = [];
+  if (!filteredData.length) {
+    document.getElementById('insightsContainer').innerHTML = '<div class="insight">No data for selected filters.</div>';
+    return;
+  }
+
+  const totalRev = filteredData.reduce((s,d)=>s+d.revenue,0);
+  const totalProfit = filteredData.reduce((s,d)=>s+d.profit,0);
+  const totalMargin = totalRev > 0 ? (totalProfit/totalRev*100) : 0;
+
+  // Overall margin health
+  if (totalMargin < 5) {
+    insights.push({ type:'danger', label:'CRITICAL', text:`Overall margin is ${totalMargin.toFixed(1)}% â well below the 10% target. Immediate action required to review carrier costs and customer pricing.` });
+  } else if (totalMargin < 10) {
+    insights.push({ type:'warning', label:'ATTENTION', text:`Overall margin at ${totalMargin.toFixed(1)}% is below the 10% target. Consider renegotiating with low-margin carriers or adjusting customer pricing.` });
+  } else {
+    insights.push({ type:'success', label:'HEALTHY', text:`Overall margin at ${totalMargin.toFixed(1)}% exceeds the 10% target. Strong performance across the division.` });
+  }
+
+  // Find worst margin customers (with at least 5 loads)
+  const custs = {};
+  filteredData.forEach(d => {
+    if (!custs[d.customer]) custs[d.customer] = { rev:0, profit:0, loads:0 };
+    custs[d.customer].rev += d.revenue;
+    custs[d.customer].profit += d.profit;
+    custs[d.customer].loads++;
+  });
+
+  const badCustomers = Object.entries(custs)
+    .filter(([_,d]) => d.loads >= 5 && d.rev > 0 && (d.profit/d.rev*100) < 5)
+    .sort((a,b) => (a[1].profit/a[1].rev) - (b[1].profit/b[1].rev));
+
+  if (badCustomers.length) {
+    const list = badCustomers.slice(0,3).map(([n,d]) => `${n} (${(d.profit/d.rev*100).toFixed(1)}%, ${d.loads} loads)`).join(', ');
+    insights.push({ type:'danger', label:'TARGET CUSTOMERS', text:`Low-margin customers to review: ${list}. Consider rate increases or operational efficiency improvements.` });
+  }
+
+  // Find best customers
+  const goodCustomers = Object.entries(custs)
+    .filter(([_,d]) => d.loads >= 5 && d.rev > 0 && (d.profit/d.rev*100) >= 15)
+    .sort((a,b) => (b[1].profit/b[1].rev) - (a[1].profit/a[1].rev));
+
+  if (goodCustomers.length) {
+    const list = goodCustomers.slice(0,3).map(([n,d]) => `${n} (${(d.profit/d.rev*100).toFixed(1)}%)`).join(', ');
+    insights.push({ type:'success', label:'TOP PERFORMERS', text:`Highest margin customers: ${list}. Focus on growing volume with these accounts.` });
+  }
+
+  // Worst carriers
+  const carriers = {};
+  filteredData.forEach(d => {
+    if (!carriers[d.carrier]) carriers[d.carrier] = { rev:0, cost:0, profit:0, loads:0 };
+    carriers[d.carrier].rev += d.revenue;
+    carriers[d.carrier].cost += d.cost;
+    carriers[d.carrier].profit += d.profit;
+    carriers[d.carrier].loads++;
+  });
+
+  const badCarriers = Object.entries(carriers)
+    .filter(([_,d]) => d.loads >= 5 && d.rev > 0 && (d.profit/d.rev*100) < 5)
+    .sort((a,b) => (a[1].profit/a[1].rev) - (b[1].profit/b[1].rev));
+
+  if (badCarriers.length) {
+    const list = badCarriers.slice(0,3).map(([n,d]) => `${n} (${(d.profit/d.rev*100).toFixed(1)}%, ${d.loads} loads)`).join(', ');
+    insights.push({ type:'warning', label:'TARGET CARRIERS', text:`Carriers eroding margin: ${list}. Negotiate rates or seek alternative carriers for these lanes.` });
+  }
+
+  // Monthly trend â declining profit
+  const monthOrder = yearType === 'FY' ? FY_MONTH_ORDER : CY_MONTH_ORDER;
+  const monthlyProfit = monthOrder.map(m => {
+    const rows = filteredData.filter(d => d.month === m);
+    return { month: MONTH_NAMES[m], profit: rows.reduce((s,d)=>s+d.profit,0), loads: rows.length };
+  }).filter(mp => mp.loads > 0);
+
+  if (monthlyProfit.length >= 3) {
+    const last3 = monthlyProfit.slice(-3);
+    if (last3.length === 3 && last3[2].profit < last3[1].profit && last3[1].profit < last3[0].profit) {
+      insights.push({ type:'warning', label:'DECLINING TREND', text:`Profit has declined for 3 consecutive months (${last3.map(m=>m.month).join(' â ')}). Investigate root cause â carrier cost increases or volume drops.` });
+    }
+  }
+
+  // Biggest single-lane opportunity
+  const lanes = {};
+  filteredData.forEach(d => {
+    const lane = getLane(d);
+    if (!lanes[lane]) lanes[lane] = { rev:0, profit:0, loads:0 };
+    lanes[lane].rev += d.revenue;
+    lanes[lane].profit += d.profit;
+    lanes[lane].loads++;
+  });
+
+  const bigLowMarginLanes = Object.entries(lanes)
+    .filter(([_,d]) => d.loads >= 10 && d.rev > 0 && (d.profit/d.rev*100) < 8)
+    .sort((a,b) => b[1].rev - a[1].rev);
+
+  if (bigLowMarginLanes.length) {
+    const [name, d] = bigLowMarginLanes[0];
+    const m = (d.profit/d.rev*100);
+    insights.push({ type:'info', label:'LANE OPPORTUNITY', text:`${name} has ${d.loads} loads at only ${m.toFixed(1)}% margin (${formatCurrency(d.rev)} revenue). Improving margin by 3% would add ${formatCurrency(d.rev * 0.03)} to profit.` });
+  }
+
+  // Volume insight
+  const totalLoads = filteredData.length;
+  if (totalLoads > 0) {
+    const avgPPL = totalProfit / totalLoads;
+    insights.push({ type:'info', label:'VOLUME INSIGHT', text:`${totalLoads} loads at avg ${formatCurrency(avgPPL)}/load profit. Each additional load at avg rate adds ${formatCurrency(avgPPL)} to the bottom line.` });
+  }
+
+  // Render
+  document.getElementById('insightsContainer').innerHTML = insights.map(i => `
+    <div class="insight ${i.type}">
+      <div class="insight-label ${i.type}">${i.label}</div>
+      ${i.text}
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// CHART HELPERS
+// ============================================================
+function chartOpts(prefix) {
+  return {
+    responsive:true, maintainAspectRatio:false,
+    plugins: { legend: { display:false }, tooltip: {
+      backgroundColor:'#1a1d27', titleColor:'#e4e6ef', bodyColor:'#e4e6ef', borderColor:'#2a2e3f', borderWidth:1,
+      callbacks: { label: ctx => {
+        const v = ctx.parsed.y ?? ctx.parsed.x;
+        return ctx.dataset.label + ': ' + (prefix==='$' ? formatCurrency(v) : prefix==='%' ? v.toFixed(1)+'%' : v.toLocaleString());
+      }}
+    }},
+    scales: {
+      x: { grid:{display:false}, ticks:{color:'#8b8fa3', font:{size:11}} },
+      y: { grid:{color:'rgba(42,46,63,0.5)'}, ticks:{color:'#8b8fa3', callback: v => prefix==='$'?formatCompact(v):prefix==='%'?v+'%':v} }
+    }
+  };
+}
+
+function updateOrCreateChart(canvasId, config) {
+  if (charts[canvasId]) { charts[canvasId].destroy(); }
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  charts[canvasId] = new Chart(ctx, config);
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+
+      /* == Carrier Compliance Tab == */
+      var complianceSortKey = 'loads';
+      var complianceSortAsc = false;
+
+      function renderCarrierCompliance() {
+        if (!allData || !allData.length) return;
+        var HOL2 = new Set(['2022-01-03','2022-01-26','2022-03-14','2022-04-15','2022-04-18','2022-04-25','2022-06-13','2022-09-23','2022-11-01','2022-12-25','2022-12-26','2022-12-27','2023-01-02','2023-01-26','2023-03-13','2023-04-07','2023-04-08','2023-04-10','2023-04-25','2023-06-12','2023-09-29','2023-11-07','2023-12-25','2023-12-26','2024-01-01','2024-01-26','2024-03-11','2024-03-29','2024-03-30','2024-04-01','2024-04-25','2024-06-10','2024-09-27','2024-11-05','2024-12-25','2024-12-26','2025-01-01','2025-01-27','2025-03-10','2025-04-18','2025-04-19','2025-04-21','2025-04-25','2025-06-09','2025-09-26','2025-11-04','2025-12-25','2025-12-26','2026-01-01','2026-01-26','2026-03-09','2026-04-03','2026-04-04','2026-04-06','2026-04-27','2026-06-08','2026-09-25','2026-11-03','2026-12-25','2026-12-28']);
+
+        var monthSel = document.getElementById('complianceMonth');
+        var fySel = document.getElementById('complianceFY');
+        var months = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
+        var moNums = [7,8,9,10,11,12,1,2,3,4,5,6];
+        var fySet = new Set();
+        allData.forEach(function(r) {
+          if (!r.date) return;
+          var d = r.date instanceof Date ? r.date : new Date(r.date);
+          var m = d.getMonth() + 1, y = d.getFullYear();
+          var fy = m >= 7 ? y + 1 : y;
+          fySet.add(fy);
+        });
+        var fys = Array.from(fySet).sort(function(a,b){return b-a;});
+        if (!fySel.options.length) {
+          fys.forEach(function(f) {
+            var o = document.createElement('option');
+            o.value = f; o.textContent = 'FY' + f;
+            fySel.appendChild(o);
+          });
+        }
+        if (!monthSel.options.length) {
+          months.forEach(function(m,i) {
+            var o = document.createElement('option');
+            o.value = moNums[i]; o.textContent = m;
+            monthSel.appendChild(o);
+          });
+          var now = new Date();
+          monthSel.value = now.getMonth() + 1;
+        }
+        var selMonth = parseInt(monthSel.value);
+        var selFY = parseInt(fySel.value);
+        var refYear = selMonth >= 7 ? selFY - 1 : selFY;
+        var refStart = new Date(refYear, selMonth - 1, 1);
+        var refEnd = new Date(refYear, selMonth, 0);
+        var refBizDays = 0;
+        for (var dd = new Date(refStart); dd <= refEnd; dd.setDate(dd.getDate()+1)) {
+          var dow = dd.getDay();
+          var ds = dd.getFullYear() + '-' + String(dd.getMonth()+1).padStart(2,'0') + '-' + String(dd.getDate()).padStart(2,'0');
+          if (dow !== 0 && dow !== 6 && !HOL2.has(ds)) refBizDays++;
+        }
+        var t5Cut = new Date(refEnd); t5Cut.setMonth(t5Cut.getMonth() - 3);
+        var t4Cut = new Date(refEnd); t4Cut.setMonth(t4Cut.getMonth() - 2);
+
+        var carriers = {};
+        allData.forEach(function(r) {
+          if (!r.carrier || !r.date) return;
+          var cn = String(r.carrier).trim().toUpperCase();
+          if (!cn) return;
+          var d = r.date instanceof Date ? r.date : new Date(r.date);
+          if (isNaN(d)) return;
+          if (!carriers[cn]) carriers[cn] = { loads: 0, totalLoads: 0, daysSet: new Set(), bizDaysSet: new Set(), allDays: new Set(), lastUsed: null, monthLoads3: [0,0,0] };
+          carriers[cn].totalLoads++;
+          var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+          carriers[cn].allDays.add(ds);
+          if (!carriers[cn].lastUsed || d > carriers[cn].lastUsed) carriers[cn].lastUsed = d;
+          if (d >= refStart && d <= refEnd) {
+            carriers[cn].loads++;
+            carriers[cn].daysSet.add(ds);
+            var dow2 = d.getDay();
+            if (dow2 !== 0 && dow2 !== 6 && !HOL2.has(ds)) carriers[cn].bizDaysSet.add(ds);
+          }
+          for (var ti = 1; ti <= 3; ti++) {
+            var ts = new Date(refStart); ts.setMonth(ts.getMonth() - ti);
+            var te = new Date(ts.getFullYear(), ts.getMonth() + 1, 0);
+            if (d >= ts && d <= te) carriers[cn].monthLoads3[ti-1]++;
+          }
+        });
+
+        var tierCounts = {T1:0,T2:0,T3:0,T4:0,T5:0};
+        var rows = [];
+        Object.keys(carriers).forEach(function(cn) {
+          var s = carriers[cn];
+          var tier = 'T5';
+          var bizUsed = s.bizDaysSet.size;
+          var freq = '';
+          if (s.loads > 0) {
+            var pct = refBizDays > 0 ? bizUsed / refBizDays : 0;
+            if (pct >= 0.7) { tier = 'T1'; freq = 'Daily (' + Math.round(pct*100) + '%)'; }
+            else if (bizUsed >= 4) { tier = 'T2'; freq = 'Weekly (~' + bizUsed + ' days)'; }
+            else { tier = 'T3'; freq = 'Ad hoc (' + s.loads + ' loads)'; }
+          } else if (s.lastUsed && s.lastUsed >= t4Cut) {
+            tier = 'T4';
+            var ago = Math.round((refEnd - s.lastUsed) / 86400000);
+            freq = 'Last used ' + ago + 'd ago';
+          } else {
+            tier = 'T5';
+            if (s.lastUsed) {
+              var ago2 = Math.round((refEnd - s.lastUsed) / 86400000);
+              freq = 'Inactive ' + ago2 + 'd';
+            } else { freq = 'No record'; }
+          }
+          tierCounts[tier]++;
+          var prev = s.monthLoads3[0] + s.monthLoads3[1] + s.monthLoads3[2];
+          var avgPrev = prev / 3;
+          var trend = '\u2014';
+          if (s.loads > avgPrev * 1.2) trend = '\u25B2';
+          else if (s.loads < avgPrev * 0.8) trend = '\u25BC';
+          rows.push({ carrier: cn, tier: tier, tierNum: parseInt(tier.charAt(1)), loads: s.loads, totalLoads: s.totalLoads, activeDays: s.daysSet.size, bizDays: bizUsed + '/' + refBizDays, bizDaysNum: bizUsed, lastUsed: s.lastUsed, freq: freq, trend: trend });
+        });
+
+        rows.sort(function(a,b) {
+          var va, vb;
+          switch(complianceSortKey) {
+            case 'carrier': va = a.carrier; vb = b.carrier; return complianceSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+            case 'tier': va = a.tierNum; vb = b.tierNum; break;
+            case 'loads': va = a.loads; vb = b.loads; break;
+            case 'totalLoads': va = a.totalLoads; vb = b.totalLoads; break;
+            case 'activeDays': va = a.activeDays; vb = b.activeDays; break;
+            case 'bizDays': va = a.bizDaysNum; vb = b.bizDaysNum; break;
+            case 'lastUsed': va = a.lastUsed ? a.lastUsed.getTime() : 0; vb = b.lastUsed ? b.lastUsed.getTime() : 0; break;
+            case 'freq': va = a.freq; vb = b.freq; return complianceSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+            default: va = a.loads; vb = b.loads;
+          }
+          return complianceSortAsc ? va - vb : vb - va;
+        });
+        var tierColors = {T1:'#22c55e',T2:'#3b82f6',T3:'#f59e0b',T4:'#f97316',T5:'#ef4444'};
+        var tierLabels = {T1:'T1 \u2014 Daily',T2:'T2 \u2014 Weekly',T3:'T3 \u2014 Ad hoc',T4:'T4 \u2014 Previously Engaged',T5:'T5 \u2014 Inactive'};
+        var cardsHtml = '';
+        ['T1','T2','T3','T4','T5'].forEach(function(t) {
+          cardsHtml += '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid '+tierColors[t]+';"><div style="color:#94a3b8;font-size:0.82em;">'+tierLabels[t]+'</div><div style="font-size:1.6em;font-weight:700;color:'+tierColors[t]+';">'+tierCounts[t]+'</div><div style="color:#64748b;font-size:0.78em;">carriers</div></div>';
+        });
+        document.getElementById('tierSummaryCards').innerHTML = cardsHtml;
+
+        var html = '';
+        rows.forEach(function(r) {
+          var col = tierColors[r.tier];
+          var lu = r.lastUsed ? r.lastUsed.toLocaleDateString('en-AU') : '\u2014';
+          var trendCol = r.trend === '\u25B2' ? '#22c55e' : r.trend === '\u25BC' ? '#ef4444' : '#64748b';
+          html += '<tr><td>' + r.carrier + '</td><td style="color:'+col+';font-weight:700;">' + r.tier + '</td><td>' + r.loads + '</td><td>' + r.totalLoads + '</td><td>' + r.activeDays + '</td><td>' + r.bizDays + '</td><td>' + lu + '</td><td>' + r.freq + '</td><td style="color:'+trendCol+';font-size:1.1em;">' + r.trend + '</td></tr>';
+        });
+        document.getElementById('complianceBody').innerHTML = html;
+      }
+
+      function sortComplianceTable(key) {
+        if (complianceSortKey === key) complianceSortAsc = !complianceSortAsc;
+        else { complianceSortKey = key; complianceSortAsc = false; }
+        renderCarrierCompliance();
+      }
+
+      function exportComplianceCSV() {
+        var tbl = document.getElementById('complianceTable');
+        if (!tbl) return;
+        var csv = [];
+        var rows2 = tbl.querySelectorAll('tr');
+        rows2.forEach(function(r) {
+          var cols = r.querySelectorAll('th,td');
+          var row = [];
+          cols.forEach(function(c) { row.push('"' + c.textContent.replace(/"/g,'""') + '"'); });
+          csv.push(row.join(','));
+        });
+        var blob = new Blob([csv.join('\n')], {type:'text/csv'});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'carrier_compliance_' + document.getElementById('complianceFY').value + '_' + document.getElementById('complianceMonth').selectedOptions[0].textContent + '.csv';
+        a.click();
+      }
+
+function renderAllFYSnippet() {
+  const container = document.getElementById('allFyTable');
+  if (!container) return;
+  const toggles = {};
+  document.querySelectorAll('.fy-row-toggle').forEach(cb => { toggles[cb.value] = cb.checked; });
+
+  const HOL = new Set(['2022-01-03','2022-01-26','2022-03-14','2022-04-15','2022-04-16','2022-04-17','2022-04-18','2022-04-25','2022-06-13','2022-09-23','2022-09-30','2022-11-01','2022-12-25','2022-12-26','2022-12-27','2023-01-02','2023-01-26','2023-03-13','2023-04-07','2023-04-08','2023-04-09','2023-04-10','2023-04-25','2023-06-12','2023-09-22','2023-09-29','2023-11-07','2023-12-25','2023-12-26','2024-01-01','2024-01-26','2024-03-11','2024-03-29','2024-03-30','2024-03-31','2024-04-01','2024-04-25','2024-06-10','2024-09-27','2024-11-05','2024-12-25','2024-12-26','2025-01-01','2025-01-27','2025-03-10','2025-04-18','2025-04-19','2025-04-20','2025-04-21','2025-04-25','2025-06-09','2025-09-26','2025-11-04','2025-12-25','2025-12-26','2026-01-01','2026-01-26','2026-03-09','2026-04-03','2026-04-04','2026-04-05','2026-04-06','2026-04-25','2026-06-08','2026-09-25','2026-11-03','2026-12-25','2026-12-28']);
+  const pad = n => String(n).padStart(2,'0');
+  const isBiz = (y,mo,dm) => { const dt=new Date(y,mo,dm); const w=dt.getDay(); if(w===0||w===6)return false; return !HOL.has(y+'-'+pad(mo+1)+'-'+pad(dm)); };
+  const bizDaysInMonth = (y,mo) => { const last=new Date(y,mo+1,0).getDate(); let n=0; for(let d=1;d<=last;d++) if(isBiz(y,mo,d)) n++; return n; };
+
+  const fyMonths = [6,7,8,9,10,11,0,1,2,3,4,5];
+  const mLabels = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
+  const fmtC = n => { if(n==null||isNaN(n)) return 'â'; const a=Math.abs(n); return (n<0?'-':'')+'$'+(a>=1e6?(a/1e6).toFixed(2)+'M':a>=1e3?(a/1e3).toFixed(1)+'K':Math.round(a)); };
+
+  // Group allData by FY
+  const fyMap = {};
+  allData.forEach(r => {
+    if (!r.date) return;
+    const mo = r.date.getMonth(), y = r.date.getFullYear();
+    const fy = mo >= 6 ? y + 1 : y;
+    if (!fyMap[fy]) fyMap[fy] = [];
+    fyMap[fy].push(r);
+  });
+  const fyKeys = Object.keys(fyMap).map(Number).sort((a,b) => b - a);
+  if (!fyKeys.length) { container.innerHTML = '<p style="color:var(--text-dim)">No data loaded</p>'; return; }
+
+  let out = '';
+  fyKeys.forEach(fy => {
+    const rows = fyMap[fy];
+    // Per-month metrics
+    const mData = fyMonths.map((mo,mi) => {
+      const calY = mo >= 6 ? fy - 1 : fy;
+      const mRows = rows.filter(r => r.date.getMonth() === mo);
+      const loads = mRows.length;
+      const rev = mRows.reduce((s,r) => s + (r.revenue||0), 0);
+      const cost = mRows.reduce((s,r) => s + (r.cost||0), 0);
+      const profit = rev - cost;
+      const margin = rev ? (profit/rev*100) : 0;
+      const biz = bizDaysInMonth(calY, mo);
+      const custSet = new Set(mRows.map(r=>r.customer));
+      const daySet = new Set(mRows.map(r=>r.date.toISOString().slice(0,10)));
+      return {loads,rev,cost,profit,margin,biz,cust:custSet.size,activeDays:daySet.size,calY,mo};
+    });
+    const tot = {loads:0,rev:0,cost:0,biz:0,cust:new Set(),activeDays:new Set()};
+    rows.forEach(r=>{tot.loads++;tot.rev+=(r.revenue||0);tot.cost+=(r.cost||0);tot.cust.add(r.customer);tot.activeDays.add(r.date.toISOString().slice(0,10));});
+    mData.forEach(m=>{tot.biz+=m.biz;});
+    tot.profit=tot.rev-tot.cost;
+    tot.margin=tot.rev?(tot.profit/tot.rev*100):0;
+
+    out += '<div class="card" style="margin-bottom:20px;"><div class="card-title" style="padding:12px 16px;font-size:16px;font-weight:700;">FY' + fy + ' â ' + tot.loads + ' loads | ' + fmtC(tot.rev) + ' revenue | ' + tot.margin.toFixed(1) + '% margin</div>';
+    out += '<div style="overflow-x:auto;"><table class="pnl-table"><thead><tr><th>Metric</th>';
+    mLabels.forEach(l => { out += '<th>' + l + '</th>'; });
+    out += '<th>FY Total</th></tr></thead><tbody>';
+
+    const addRow = (label,vals,totVal,cls) => {
+      out += '<tr' + (cls?' class="'+cls+'"':'') + '><td>' + label + '</td>';
+      vals.forEach(v => { out += '<td>' + v + '</td>'; });
+      out += '<td class="total">' + totVal + '</td></tr>';
+    };
+
+    if(toggles.loads) addRow('# of Loads', mData.map(m=>m.loads||''), tot.loads);
+    if(toggles.revenue) addRow('Revenue', mData.map(m=>m.rev?fmtC(m.rev):''), fmtC(tot.rev), 'total-row');
+    if(toggles.cost) addRow('Cost', mData.map(m=>m.cost?fmtC(m.cost):''), fmtC(tot.cost));
+    if(toggles.profit) addRow('Gross Profit', mData.map(m=>m.loads?fmtC(m.profit):''), fmtC(tot.profit), 'highlight-cell good');
+    if(toggles.margin) addRow('Margin %', mData.map(m=>m.loads?m.margin.toFixed(1)+'%':''), tot.margin.toFixed(1)+'%');
+    if(toggles.profitPerLoad) addRow('Profit / Load', mData.map(m=>m.loads?fmtC(m.profit/m.loads):''), tot.loads?fmtC(tot.profit/tot.loads):'â');
+    if(toggles.revPerLoad) addRow('Avg Rev / Load', mData.map(m=>m.loads?fmtC(m.rev/m.loads):''), tot.loads?fmtC(tot.rev/tot.loads):'â');
+    if(toggles.costPerLoad) addRow('Avg Cost / Load', mData.map(m=>m.loads?fmtC(m.cost/m.loads):''), tot.loads?fmtC(tot.cost/tot.loads):'â');
+    if(toggles.loadsBizDay) addRow('Loads / Biz Day', mData.map(m=>m.biz?(m.loads/m.biz).toFixed(1):'â'), tot.biz?(tot.loads/tot.biz).toFixed(1):'â');
+    if(toggles.revBizDay) addRow('Rev / Biz Day', mData.map(m=>m.biz?fmtC(m.rev/m.biz):'â'), tot.biz?fmtC(tot.rev/tot.biz):'â');
+    if(toggles.profitBizDay) addRow('Profit / Biz Day', mData.map(m=>m.biz?fmtC(m.profit/m.biz):'â'), tot.biz?fmtC(tot.profit/tot.biz):'â');
+    if(toggles.utilisation) addRow('Ops Utilisation', mData.map(m=>m.biz?Math.min(100,Math.round(m.activeDays/m.biz*100))+'%':'â'), tot.biz?Math.min(100,Math.round(tot.activeDays.size/tot.biz*100))+'%':'â');
+    if(toggles.activeCust) addRow('Active Customers', mData.map(m=>m.cust||''), tot.cust.size);
+    if(toggles.bizDays) addRow('Business Days', mData.map(m=>m.biz||''), tot.biz);
+
+    out += '</tbody></table></div></div>';
+  });
+  container.innerHTML = out;
+
+  // Wire toggle listeners
+  document.querySelectorAll('.fy-row-toggle').forEach(cb => {
+    cb.onchange = renderAllFYSnippet;
+  });
+}
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tabId).classList.add('active');
+  event.target.classList.add('active');
+  // Resize charts when switching tabs
+  setTimeout(() => { Object.values(charts).forEach(c => c.resize()); }, 100);
+  if (tabId === 'allfyoverview') renderAllFYSnippet();
+  if (tabId === 'carriercompliance') renderCarrierCompliance();
+}
+
+// ============================================================
+// UTILITY
+// ============================================================
+function formatCurrency(val) {
+  if (Math.abs(val) >= 1000000) return '$' + (val/1000000).toFixed(2) + 'M';
+  if (Math.abs(val) >= 1000) return '$' + (val/1000).toFixed(1) + 'K';
+  return '$' + val.toFixed(0);
+}
+
+function formatCompact(val) {
+  if (Math.abs(val) >= 1000000) return '$' + (val/1000000).toFixed(1) + 'M';
+  if (Math.abs(val) >= 1000) return '$' + (val/1000).toFixed(0) + 'K';
+  return '$' + val.toFixed(0);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadAllData();
+
+// Auto-refresh every 5 minutes
+setInterval(refreshData, 300000);
+</script>
+</body>
+</html>
