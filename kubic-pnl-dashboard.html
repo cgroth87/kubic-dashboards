@@ -1916,7 +1916,8 @@ function switchTab(tabId) {
   // Resize charts when switching tabs
   setTimeout(() => { Object.values(charts).forEach(c => c.resize()); }, 100);
   if (tabId === 'allfyoverview') renderAllFYSnippet();
-} else if (tabId === 'carriercompliance') { renderCarrierCompliance(); }
+  if (tabId === 'carriercompliance') renderCarrierCompliance();
+}
 
 // ============================================================
 // UTILITY
