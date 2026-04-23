@@ -332,6 +332,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     <button onclick="switchTab('lanes')">Lane Analysis</button>
     <button onclick="switchTab('allfyoverview')">All FY Overview</button>
             <button class="tab-btn" onclick="switchTab('carriercompliance')">Carrier Compliance</button>
+            <button class="tab-btn" onclick="switchTab('carriermapping')">Carrier Mapping</button>
   </div>
 
   <!-- TAB: P&L -->
@@ -468,6 +469,32 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
             </label>
             <button onclick="exportComplianceCSV()" style="padding:6px 16px;border-radius:6px;border:1px solid #3b82f6;background:#1e40af;color:#e2e8f0;cursor:pointer;font-size:0.9em;">Export CSV</button>
           </div>
+
+        <!-- Carrier Mapping Tab -->
+        <div class="tab-content" id="tab-carriermapping">
+          <h2 style="margin-bottom:8px;">Carrier Name Mapping</h2>
+          <p style="color:#94a3b8;margin-bottom:16px;font-size:0.92em;">Add carrier name mappings below. Set Action to MERGE to auto-rename when data loads. Changes are saved in your browser.</p>
+          <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+            <input id="mapFrom" placeholder="Original Name" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:0.95em;width:280px;" />
+            <input id="mapTo" placeholder="Replace With" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:0.95em;width:280px;" />
+            <button onclick="addMapping()" style="padding:8px 20px;border-radius:6px;border:1px solid #3b82f6;background:#1e40af;color:#e2e8f0;cursor:pointer;font-size:0.95em;">Add Mapping</button>
+            <button onclick="detectDuplicates()" style="padding:8px 20px;border-radius:6px;border:1px solid #22c55e;background:#166534;color:#e2e8f0;cursor:pointer;font-size:0.95em;">Auto-Detect Duplicates</button>
+            <button onclick="exportMappings()" style="padding:8px 16px;border-radius:6px;border:1px solid #f59e0b;background:#92400e;color:#e2e8f0;cursor:pointer;font-size:0.9em;">Export CSV</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="pnl-table" id="mappingTable" style="width:100%;font-size:0.9em;">
+              <thead><tr>
+                <th>Original Name</th>
+                <th>Replace With</th>
+                <th>Action</th>
+                <th>Loads</th>
+                <th></th>
+              </tr></thead>
+              <tbody id="mappingBody"></tbody>
+            </table>
+          </div>
+        </div>
+
           <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;" id="tierSummaryCards"></div>
           <div style="overflow-x:auto;">
             <table class="pnl-table" id="complianceTable" style="width:100%;font-size:0.88em;">
@@ -645,6 +672,7 @@ async function loadAllData() {
 
   createMultiSelects();
   populateFilters();
+  autoMapCarriers();
   applyFilters();
   document.getElementById('loadingOverlay').classList.add('hidden');
   document.getElementById('lastUpdated').textContent = `Updated: ${new Date().toLocaleTimeString()} | ${allData.length.toLocaleString()} records loaded`;
@@ -1658,8 +1686,159 @@ function updateOrCreateChart(canvasId, config) {
 // ============================================================
 
       /* == Carrier Compliance Tab == */
-      var complianceSortKey = 'loads';
-      var complianceSortAsc = false;
+      
+      /* == Carrier Mapping Tab == */
+      function loadMappings() {
+        try { return JSON.parse(localStorage.getItem('kubic_carrier_mappings') || '[]'); } catch(e) { return []; }
+      }
+      function saveMappings(maps) {
+        localStorage.setItem('kubic_carrier_mappings', JSON.stringify(maps));
+      }
+      function renderMappings() {
+        var maps = loadMappings();
+        var body = document.getElementById('mappingBody');
+        if (!body) return;
+        var counts = {};
+        if (allData) allData.forEach(function(r) {
+          if (!r.carrier) return;
+          var c = String(r.carrier).trim().toUpperCase();
+          counts[c] = (counts[c]||0) + 1;
+        });
+        var html = '';
+        maps.forEach(function(m, idx) {
+          var loads = counts[m.from] || 0;
+          var actionColor = m.action === 'MERGE' ? '#22c55e' : m.action === 'KEEP' ? '#3b82f6' : '#f59e0b';
+          html += '<tr><td>' + m.from + '</td><td>' + m.to + '</td>';
+          html += '<td><select onchange="updateMappingAction(' + idx + ',this.value)" style="background:#1e293b;color:' + actionColor + ';border:1px solid #334155;border-radius:4px;padding:4px 8px;font-weight:700;">';
+          ['MERGE','REVIEW','KEEP'].forEach(function(a) {
+            html += '<option value="' + a + '"' + (m.action===a?' selected':'') + '>' + a + '</option>';
+          });
+          html += '</select></td>';
+          html += '<td>' + loads + '</td>';
+          html += '<td><button onclick="removeMapping(' + idx + ')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.85em;">Remove</button></td></tr>';
+        });
+        body.innerHTML = html;
+      }
+      function addMapping() {
+        var from = document.getElementById('mapFrom').value.trim().toUpperCase();
+        var to = document.getElementById('mapTo').value.trim().toUpperCase();
+        if (!from || !to) return;
+        var maps = loadMappings();
+        maps.push({ from: from, to: to, action: 'MERGE' });
+        saveMappings(maps);
+        document.getElementById('mapFrom').value = '';
+        document.getElementById('mapTo').value = '';
+        renderMappings();
+      }
+      function removeMapping(idx) {
+        var maps = loadMappings();
+        maps.splice(idx, 1);
+        saveMappings(maps);
+        renderMappings();
+      }
+      function updateMappingAction(idx, val) {
+        var maps = loadMappings();
+        maps[idx].action = val;
+        saveMappings(maps);
+        renderMappings();
+      }
+      function detectDuplicates() {
+        if (!allData || !allData.length) return;
+        var counts = {};
+        allData.forEach(function(r) {
+          if (!r.carrier) return;
+          var c = String(r.carrier).trim().toUpperCase();
+          counts[c] = (counts[c]||0) + 1;
+        });
+        var names = Object.keys(counts).sort();
+        var maps = loadMappings();
+        var existing = {};
+        maps.forEach(function(m) { existing[m.from] = true; });
+        var groups = {};
+        names.forEach(function(n) {
+          if (n.indexOf('JNH') === 0 || n.indexOf('B REF') === 0 || n.indexOf('QUICKLINK') === 0) return;
+          var norm = n.replace(/\s+/g,' ').replace(/\s*(PTY\s*LTD|P\/L|TRANSPORT|LOGISTICS|FREIGHT|EXPRESS|HAULAGE)\s*/g,'').trim();
+          if (norm.length < 3) norm = n;
+          if (!groups[norm]) groups[norm] = [];
+          groups[norm].push({ name: n, loads: counts[n] });
+        });
+        var added = 0;
+        Object.keys(groups).forEach(function(k) {
+          var g = groups[k];
+          if (g.length < 2) return;
+          g.sort(function(a,b) { return b.loads - a.loads; });
+          var keep = g[0].name;
+          g.slice(1).forEach(function(e) {
+            if (!existing[e.name]) {
+              maps.push({ from: e.name, to: keep, action: 'REVIEW' });
+              existing[e.name] = true;
+              added++;
+            }
+          });
+        });
+        // JNH sub-carrier dupes
+        var jnhNames = names.filter(function(n) { return n.indexOf('JNH') === 0; });
+        var jnhGroups = {};
+        jnhNames.forEach(function(n) {
+          var m = n.match(/JNH\s*\(\s*([^)]*)\s*\)?/);
+          var sub = m ? m[1].trim() : 'DIRECT';
+          var norm = sub.replace(/\s+/g,' ').replace(/TRANSOPRT/g,'TRANSPORT').replace(/LOGSITICS/g,'LOGISTICS').replace(/\bTSPT\b/g,'TRANSPORT').replace(/\s*(TRANSPORT|LOGISTICS|HAULAGE|EXPRESS|FREIGHT)\s*/g,'').trim();
+          if (norm.length < 2) norm = sub;
+          if (!jnhGroups[norm]) jnhGroups[norm] = [];
+          jnhGroups[norm].push({ name: n, loads: counts[n] });
+        });
+        Object.keys(jnhGroups).forEach(function(k) {
+          var g = jnhGroups[k];
+          if (g.length < 2) return;
+          g.sort(function(a,b) { return b.loads - a.loads; });
+          var keep = g[0].name;
+          g.slice(1).forEach(function(e) {
+            if (!existing[e.name]) {
+              maps.push({ from: e.name, to: keep, action: 'REVIEW' });
+              existing[e.name] = true;
+              added++;
+            }
+          });
+        });
+        saveMappings(maps);
+        renderMappings();
+        alert('Found ' + added + ' new potential duplicates. Review and set Action to MERGE or KEEP.');
+      }
+      function exportMappings() {
+        var maps = loadMappings();
+        var csv = 'Original Name,Replace With,Action\n';
+        maps.forEach(function(m) { csv += '"' + m.from + '","' + m.to + '",' + m.action + '\n'; });
+        var blob = new Blob([csv], {type:'text/csv'});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'carrier_mappings.csv';
+        a.click();
+      }
+
+
+/* == Carrier Auto-Mapping == */
+      function autoMapCarriers() {
+        if (!allData || !allData.length) return;
+        var manual = {};
+        try {
+          var maps = JSON.parse(localStorage.getItem('kubic_carrier_mappings') || '[]');
+          maps.forEach(function(m) {
+            if (m.action === 'MERGE' && m.from && m.to) manual[m.from.toUpperCase()] = m.to.toUpperCase();
+          });
+        } catch(e) {}
+        allData.forEach(function(r) {
+          if (!r.carrier) return;
+          var c = String(r.carrier).trim().toUpperCase();
+          if (c.indexOf('B REF') === 0) { r.carrier = 'LOCAL'; return; }
+          c = c.replace(/TRANSPORT TRANSPORT/g,'TRANSPORT').replace(/LOGISTICS LOGISTICS/g,'LOGISTICS').replace(/HAULAGE HAULAGE/g,'HAULAGE').replace(/EXPRESS EXPRESS/g,'EXPRESS').replace(/FREIGHT FREIGHT/g,'FREIGHT');
+          if (manual[c]) c = manual[c];
+          r.carrier = c;
+        });
+      }
+
+
+      var complianceSortKey = 'tier';
+      var complianceSortAsc = true;
 
       function renderCarrierCompliance() {
         if (!allData || !allData.length) return;
@@ -1917,6 +2096,7 @@ function switchTab(tabId) {
   setTimeout(() => { Object.values(charts).forEach(c => c.resize()); }, 100);
   if (tabId === 'allfyoverview') renderAllFYSnippet();
   if (tabId === 'carriercompliance') renderCarrierCompliance();
+  if (tabId === 'carriermapping') renderMappings();
 }
 
 // ============================================================
