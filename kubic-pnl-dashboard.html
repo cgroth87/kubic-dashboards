@@ -1710,10 +1710,20 @@ function updateOrCreateChart(canvasId, config) {
         return false;
       }
 
+      function getBusinessDays(year, month) {
+        var days = new Date(year, month + 1, 0).getDate();
+        var bd = 0;
+        for (var d = 1; d <= days; d++) {
+          var dow = new Date(year, month, d).getDay();
+          if (dow !== 0 && dow !== 6) bd++;
+        }
+        return bd;
+      }
+
       function renderCSR() {
         if (!allData || !allData.length) return;
-        var fySel = document.getElementById('csrFY');
-        if (fySel.options.length <= 1) {
+        var fysel = document.getElementById('csrFY');
+        if (fysel.options.length <= 1) {
           var fySet = new Set();
           allData.forEach(function(r) {
             if (!r.date) return;
@@ -1724,10 +1734,10 @@ function updateOrCreateChart(canvasId, config) {
           Array.from(fySet).sort(function(a,b){return b-a}).forEach(function(f) {
             var o = document.createElement('option');
             o.value = f; o.textContent = 'FY' + f;
-            fySel.appendChild(o);
+            fysel.appendChild(o);
           });
         }
-        var selFY = fySel.value;
+        var selFY = fysel.value;
         var csrData = allData.filter(function(r) {
           if (!r.customer || !r.date) return false;
           if (String(r.customer).toUpperCase().indexOf('RCTI') !== 0) return false;
@@ -1772,9 +1782,18 @@ function updateOrCreateChart(canvasId, config) {
         function fmtPct(v) { return v.toFixed(1) + '%'; }
         var marginColor = avgMargin >= 10 ? '#22c55e' : avgMargin >= 5 ? '#f59e0b' : '#ef4444';
         var profitColor = totalProfit >= 0 ? '#22c55e' : '#ef4444';
-        var totalAllRev = allData.reduce(function(s,r){return s+(parseFloat(r.revenue)||0);},0);
+        // Filter allData to match selected FY for accurate % comparisons
+        var fyAllData = selFY === 'all' ? allData : allData.filter(function(r) {
+          if (!r.date) return false;
+          var d = r.date instanceof Date ? r.date : new Date(r.date);
+          var m = d.getMonth() + 1, y = d.getFullYear();
+          var fy = m >= 7 ? y + 1 : y;
+          return fy === parseInt(selFY);
+        });
+        var fyAllLoads = fyAllData.length;
+        var totalAllRev = fyAllData.reduce(function(s,r){return s+(parseFloat(r.revenue)||0);},0);
         document.getElementById('csrKPICards').innerHTML =
-          '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid #8b5cf6;"><div style="color:#94a3b8;font-size:0.82em;">TOTAL CSR LOADS</div><div style="font-size:1.6em;font-weight:700;color:#e2e8f0;">'+totalLoads.toLocaleString()+'</div><div style="color:#64748b;font-size:0.78em;">'+fmtPct(allData.length>0?totalLoads/allData.length*100:0)+' of all loads</div></div>'+
+          '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid #8b5cf6;"><div style="color:#94a3b8;font-size:0.82em;">TOTAL CSR LOADS</div><div style="font-size:1.6em;font-weight:700;color:#e2e8f0;">'+totalLoads.toLocaleString()+'</div><div style="color:#64748b;font-size:0.78em;">'+fmtPct(fyAllLoads>0?totalLoads/fyAllLoads*100:0)+' of all loads</div></div>'+
           '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid #22c55e;"><div style="color:#94a3b8;font-size:0.82em;">CONTRACTED LOADS</div><div style="font-size:1.6em;font-weight:700;color:#22c55e;">'+contracted.length.toLocaleString()+'</div><div style="color:#64748b;font-size:0.78em;">'+fmtPct(totalLoads>0?contracted.length/totalLoads*100:0)+' of CSR</div></div>'+
           '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid #f59e0b;"><div style="color:#94a3b8;font-size:0.82em;">AD HOC LOADS</div><div style="font-size:1.6em;font-weight:700;color:#f59e0b;">'+adhoc.length.toLocaleString()+'</div><div style="color:#64748b;font-size:0.78em;">'+fmtPct(totalLoads>0?adhoc.length/totalLoads*100:0)+' of CSR</div></div>'+
           '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid #3b82f6;"><div style="color:#94a3b8;font-size:0.82em;">CSR REVENUE</div><div style="font-size:1.6em;font-weight:700;color:#e2e8f0;">'+fmtK(totalRev)+'</div><div style="color:#64748b;font-size:0.78em;">'+fmtPct(totalAllRev>0?totalRev/totalAllRev*100:0)+' of total</div></div>';
@@ -1795,40 +1814,163 @@ function updateOrCreateChart(canvasId, config) {
           '<div style="width:'+conPct+'%;background:#22c55e;display:flex;align-items:center;justify-content:center;font-size:0.8em;font-weight:700;color:#0f172a;">'+conPct.toFixed(0)+'%</div>'+
           '<div style="width:'+ahPct+'%;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:0.8em;font-weight:700;color:#0f172a;">'+ahPct.toFixed(0)+'%</div>'+
           '</div></div>';
+
+        /* === Build FY P&L Style Table === */
+        var FY_MONTHS = [6,7,8,9,10,11,0,1,2,3,4,5]; // Jul=6..Jun=5 (JS 0-based)
+        var MON_LABELS = ['JUL','AUG','SEP','OCT','NOV','DEC','JAN','FEB','MAR','APR','MAY','JUN'];
         var months = {};
         csrData.forEach(function(r) {
           var d = r.date instanceof Date ? r.date : new Date(r.date);
           var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-          if (!months[key]) months[key] = {loads:0,contracted:0,adhoc:0,rev:0,cost:0,profit:0};
+          if (!months[key]) months[key] = {loads:0,rev:0,cost:0,profit:0,customers:new Set()};
           months[key].loads++;
-          if (isContractedLane(r.pickupState, r.deliveryState, r.vehicle, r.date)) months[key].contracted++;
-          else months[key].adhoc++;
           months[key].rev += parseFloat(r.revenue) || 0;
           months[key].cost += parseFloat(r.cost) || 0;
           months[key].profit += parseFloat(r.profit) || 0;
+          months[key].customers.add(String(r.customer).toUpperCase());
         });
-        var sortedMonths = Object.keys(months).sort();
-        var html = '';
-        sortedMonths.forEach(function(m) {
-          var s = months[m];
-          var mg = s.rev > 0 ? (s.profit / s.rev * 100) : 0;
-          var mc = mg >= 10 ? '#22c55e' : mg >= 5 ? '#f59e0b' : '#ef4444';
-          var pc = s.profit >= 0 ? '#22c55e' : '#ef4444';
-          html += '<tr><td>'+m+'</td><td>'+s.loads+'</td><td>'+s.contracted+'</td><td>'+s.adhoc+'</td><td>'+fmtK(s.rev)+'</td><td>'+fmtK(s.cost)+'</td><td style="color:'+pc+';">'+fmtK(s.profit)+'</td><td style="color:'+mc+';">'+fmtPct(mg)+'</td><td>$'+(s.loads>0?(s.rev/s.loads).toFixed(0):'0')+'</td><td style="color:'+pc+';">$'+(s.loads>0?(s.profit/s.loads).toFixed(0):'0')+'</td></tr>';
+
+        // Determine which FY we're showing
+        var fyYear;
+        if (selFY !== 'all') {
+          fyYear = parseInt(selFY);
+        } else {
+          // Use the most recent FY
+          var allFYs = new Set();
+          csrData.forEach(function(r) {
+            var d = r.date instanceof Date ? r.date : new Date(r.date);
+            var m = d.getMonth()+1, y = d.getFullYear();
+            allFYs.add(m >= 7 ? y+1 : y);
+          });
+          fyYear = Math.max.apply(null, Array.from(allFYs));
+        }
+
+        // Build monthly data arrays for the 12 FY months
+        var mData = FY_MONTHS.map(function(jsMonth, idx) {
+          var yr = idx < 6 ? fyYear - 1 : fyYear; // Jul-Dec = FY-1, Jan-Jun = FY
+          var key = yr + '-' + String(jsMonth+1).padStart(2,'0');
+          var m = months[key] || {loads:0,rev:0,cost:0,profit:0,customers:new Set()};
+          var bd = getBusinessDays(yr, jsMonth);
+          return {
+            loads: m.loads,
+            rev: m.rev,
+            cost: m.cost,
+            profit: m.profit,
+            margin: m.rev > 0 ? (m.profit / m.rev * 100) : 0,
+            profitPerLoad: m.loads > 0 ? m.profit / m.loads : 0,
+            revPerLoad: m.loads > 0 ? m.rev / m.loads : 0,
+            costPerLoad: m.loads > 0 ? m.cost / m.loads : 0,
+            bd: bd,
+            loadsPerBD: bd > 0 ? m.loads / bd : 0,
+            revPerBD: bd > 0 ? m.rev / bd : 0,
+            profitPerBD: bd > 0 ? m.profit / bd : 0,
+            customers: m.customers.size,
+            hasData: m.loads > 0
+          };
         });
-        document.getElementById('csrPnlBody').innerHTML = html;
-        document.getElementById('csrPnlFoot').innerHTML = '<tr style="font-weight:700;border-top:2px solid #475569;"><td>TOTAL</td><td>'+totalLoads+'</td><td>'+contracted.length+'</td><td>'+adhoc.length+'</td><td>'+fmtK(totalRev)+'</td><td>'+fmtK(totalCost)+'</td><td style="color:'+profitColor+';">'+fmtK(totalProfit)+'</td><td style="color:'+marginColor+';">'+fmtPct(avgMargin)+'</td><td>$'+revPerLoad.toFixed(0)+'</td><td style="color:'+profitColor+';">$'+profitPerLoad.toFixed(0)+'</td></tr>';
+
+        // FY Totals
+        var fyTotalLoads = mData.reduce(function(s,m){return s+m.loads;},0);
+        var fyTotalRev = mData.reduce(function(s,m){return s+m.rev;},0);
+        var fyTotalCost = mData.reduce(function(s,m){return s+m.cost;},0);
+        var fyTotalProfit = mData.reduce(function(s,m){return s+m.profit;},0);
+        var fyTotalBD = mData.reduce(function(s,m){return s+m.bd;},0);
+        var allCust = new Set();
+        csrData.forEach(function(r){allCust.add(String(r.customer).toUpperCase());});
+        var fyTotals = {
+          loads: fyTotalLoads,
+          rev: fyTotalRev,
+          cost: fyTotalCost,
+          profit: fyTotalProfit,
+          margin: fyTotalRev > 0 ? (fyTotalProfit / fyTotalRev * 100) : 0,
+          profitPerLoad: fyTotalLoads > 0 ? fyTotalProfit / fyTotalLoads : 0,
+          revPerLoad: fyTotalLoads > 0 ? fyTotalRev / fyTotalLoads : 0,
+          costPerLoad: fyTotalLoads > 0 ? fyTotalCost / fyTotalLoads : 0,
+          bd: fyTotalBD,
+          loadsPerBD: fyTotalBD > 0 ? fyTotalLoads / fyTotalBD : 0,
+          revPerBD: fyTotalBD > 0 ? fyTotalRev / fyTotalBD : 0,
+          profitPerBD: fyTotalBD > 0 ? fyTotalProfit / fyTotalBD : 0,
+          customers: allCust.size
+        };
+
+        function fmtCell(v, type) {
+          if (type === 'loads') return v.toLocaleString();
+          if (type === 'money') return fmtK(v);
+          if (type === 'pct') return fmtPct(v);
+          if (type === 'dollar') return '$' + v.toFixed(0);
+          if (type === 'decimal') return v.toFixed(1);
+          if (type === 'int') return v.toFixed(0);
+          return v;
+        }
+
+        var metrics = [
+          {label:'# of Loads', key:'loads', fmt:'loads', bold:false, color:null},
+          {label:'Revenue (Charge to Client)', key:'rev', fmt:'money', bold:true, color:null},
+          {label:'Cost (Carrier Charges)', key:'cost', fmt:'money', bold:false, color:null},
+          {label:'Gross Profit', key:'profit', fmt:'money', bold:false, color:'profit'},
+          {label:'Margin %', key:'margin', fmt:'pct', bold:false, color:'margin'},
+          {label:'Profit per Load', key:'profitPerLoad', fmt:'dollar', bold:false, color:null},
+          {label:'Avg Revenue / Load', key:'revPerLoad', fmt:'dollar', bold:false, color:null},
+          {label:'Avg Cost / Load', key:'costPerLoad', fmt:'dollar', bold:false, color:null},
+          {label:'Loads / Business Day', key:'loadsPerBD', fmt:'decimal', bold:false, color:null},
+          {label:'Revenue / Business Day', key:'revPerBD', fmt:'money', bold:false, color:null},
+          {label:'Profit / Business Day', key:'profitPerBD', fmt:'money', bold:false, color:null},
+          {label:'Active Customers', key:'customers', fmt:'int', bold:false, color:null},
+          {label:'Business Days', key:'bd', fmt:'int', bold:false, color:null}
+        ];
+
+        var thead = '<tr><th style="text-align:left;padding:8px 12px;color:#94a3b8;font-size:0.82em;font-weight:600;text-transform:uppercase;border-bottom:2px solid #334155;">METRIC</th>';
+        MON_LABELS.forEach(function(l) {
+          thead += '<th style="text-align:right;padding:8px 10px;color:#94a3b8;font-size:0.82em;font-weight:600;border-bottom:2px solid #334155;">'+l+'</th>';
+        });
+        thead += '<th style="text-align:right;padding:8px 12px;color:#94a3b8;font-size:0.82em;font-weight:700;border-bottom:2px solid #334155;border-left:2px solid #475569;">FY TOTAL</th></tr>';
+
+        var tbody = '';
+        metrics.forEach(function(metric) {
+          var isProfit = metric.color === 'profit';
+          var isMargin = metric.color === 'margin';
+          var labelStyle = metric.bold ? 'font-weight:700;color:#e2e8f0;' : 'color:#cbd5e1;';
+          if (isProfit) labelStyle = 'color:#22c55e;font-weight:600;';
+          if (isMargin) labelStyle = 'color:#8b5cf6;font-weight:600;';
+          tbody += '<tr style="border-bottom:1px solid #1e293b;">';
+          tbody += '<td style="padding:7px 12px;font-size:0.88em;white-space:nowrap;'+labelStyle+'">'+metric.label+'</td>';
+          mData.forEach(function(m) {
+            var val = m[metric.key];
+            var cellColor = '#e2e8f0';
+            if (isProfit) cellColor = val >= 0 ? '#22c55e' : '#ef4444';
+            if (isMargin) cellColor = val >= 10 ? '#22c55e' : val >= 5 ? '#f59e0b' : '#ef4444';
+            if (metric.bold) cellColor = '#e2e8f0';
+            var display = m.hasData ? fmtCell(val, metric.fmt) : '—';
+            tbody += '<td style="text-align:right;padding:7px 10px;font-size:0.88em;color:'+cellColor+';">'+display+'</td>';
+          });
+          // FY Total column
+          var totVal = fyTotals[metric.key];
+          var totColor = '#e2e8f0';
+          if (isProfit) totColor = totVal >= 0 ? '#22c55e' : '#ef4444';
+          if (isMargin) totColor = totVal >= 10 ? '#22c55e' : totVal >= 5 ? '#f59e0b' : '#ef4444';
+          if (metric.bold) totColor = '#e2e8f0; font-weight:700';
+          tbody += '<td style="text-align:right;padding:7px 12px;font-size:0.88em;font-weight:700;color:'+totColor+';border-left:2px solid #475569;">'+fmtCell(totVal, metric.fmt)+'</td>';
+          tbody += '</tr>';
+        });
+
+        document.getElementById('csrPnlBody').innerHTML = tbody;
+        document.getElementById('csrPnlTable').querySelector('thead').innerHTML = thead;
+        document.getElementById('csrPnlFoot').innerHTML = '';
+
+        /* === Insights === */
         var insights = [];
         insights.push('<div style="font-weight:700;font-size:1.05em;color:#e2e8f0;margin-bottom:10px;">\u{1F4CA} CSR Business Unit Insights</div>');
-        insights.push('<div style="margin-bottom:8px;color:#cbd5e1;font-size:0.9em;">CSR represents <strong>'+fmtPct(allData.length>0?totalLoads/allData.length*100:0)+'</strong> of all loads and <strong>'+fmtPct(totalAllRev>0?totalRev/totalAllRev*100:0)+'</strong> of total revenue.</div>');
+        insights.push('<div style="margin-bottom:8px;color:#cbd5e1;font-size:0.9em;">CSR represents <strong>'+fmtPct(fyAllLoads>0?totalLoads/fyAllLoads*100:0)+'</strong> of all loads and <strong>'+fmtPct(totalAllRev>0?totalRev/totalAllRev*100:0)+'</strong> of total revenue.</div>');
         if (conMargin > ahMargin) {
           insights.push('<div style="margin-bottom:8px;color:#cbd5e1;font-size:0.9em;">✅ Contracted lanes outperform Ad Hoc: <strong>'+fmtPct(conMargin)+'</strong> margin vs <strong>'+fmtPct(ahMargin)+'</strong>. Consider converting high-volume ad hoc lanes to contracts.</div>');
         } else {
           insights.push('<div style="margin-bottom:8px;color:#cbd5e1;font-size:0.9em;">⚠️ Ad Hoc achieves <strong>'+fmtPct(ahMargin)+'</strong> margin vs contracted <strong>'+fmtPct(conMargin)+'</strong>. Review contracted rate cards for margin improvement.</div>');
         }
-        if (sortedMonths.length >= 2) {
-          var lastM = months[sortedMonths[sortedMonths.length - 1]];
-          var prevM = months[sortedMonths[sortedMonths.length - 2]];
+        var sortedKeys = Object.keys(months).sort();
+        if (sortedKeys.length >= 2) {
+          var lastK = sortedKeys[sortedKeys.length - 1];
+          var prevK = sortedKeys[sortedKeys.length - 2];
+          var lastM = months[lastK], prevM = months[prevK];
           var revChange = prevM.rev > 0 ? ((lastM.rev - prevM.rev) / prevM.rev * 100) : 0;
           var marginLast = lastM.rev > 0 ? (lastM.profit / lastM.rev * 100) : 0;
           var marginPrev = prevM.rev > 0 ? (prevM.profit / prevM.rev * 100) : 0;
@@ -1836,7 +1978,7 @@ function updateOrCreateChart(canvasId, config) {
           var loadChange = lastM.loads - prevM.loads;
           var trendIcon = revChange >= 0 ? '▲' : '▼';
           var trendColor = revChange >= 0 ? '#22c55e' : '#ef4444';
-          insights.push('<div style="margin-bottom:8px;color:#cbd5e1;font-size:0.9em;">Month-on-month ('+sortedMonths[sortedMonths.length-2]+' → '+sortedMonths[sortedMonths.length-1]+'): Revenue <span style="color:'+trendColor+';">'+trendIcon+' '+fmtPct(Math.abs(revChange))+'</span>, Loads '+(loadChange>=0?'+':'')+loadChange+', Margin '+(marginChange>=0?'+':'')+marginChange.toFixed(1)+'pp.</div>');
+          insights.push('<div style="margin-bottom:8px;color:#cbd5e1;font-size:0.9em;">Month-on-month ('+prevK+' → '+lastK+'): Revenue <span style="color:'+trendColor+';">'+trendIcon+' '+fmtPct(Math.abs(revChange))+'</span>, Loads '+(loadChange>=0?'+':'')+loadChange+', Margin '+(marginChange>=0?'+':'')+marginChange.toFixed(1)+'pp.</div>');
         }
         var laneStats = {};
         csrData.forEach(function(r) {
