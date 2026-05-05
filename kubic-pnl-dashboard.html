@@ -1715,7 +1715,189 @@ function updateOrCreateChart(canvasId, config) {
 // TAB SWITCHING
 // ============================================================
 
-      undefined/* == Carrier Compliance Tab == */
+      undefined
+      /* == CSR Tab == */
+      var CSR_CONTRACTED_LANES = [
+        {p:'NSW',d:'VIC'},{p:'NSW',d:'SA'},{p:'SA',d:'NSW'},{p:'QLD',d:'SA'},{p:'SA',d:'QLD'}
+      ];
+
+      function isContractedLane(pickup, delivery) {
+        var pu = String(pickup||'').toUpperCase().trim();
+        var del = String(delivery||'').toUpperCase().trim();
+        for (var i = 0; i < CSR_CONTRACTED_LANES.length; i++) {
+          if (CSR_CONTRACTED_LANES[i].p === pu && CSR_CONTRACTED_LANES[i].d === del) return true;
+        }
+        return false;
+      }
+
+      function renderCSR() {
+        if (!allData || !allData.length) return;
+        var fySel = document.getElementById('csrFY');
+        if (fySel.options.length <= 1) {
+          var fySet = new Set();
+          allData.forEach(function(r) {
+            if (!r.date) return;
+            var d = r.date instanceof Date ? r.date : new Date(r.date);
+            var m = d.getMonth() + 1, y = d.getFullYear();
+            fySet.add(m >= 7 ? y + 1 : y);
+          });
+          Array.from(fySet).sort(function(a,b){return b-a}).forEach(function(f) {
+            var o = document.createElement('option');
+            o.value = f; o.textContent = 'FY' + f;
+            fySel.appendChild(o);
+          });
+        }
+        var selFY = fySel.value;
+        var csrData = allData.filter(function(r) {
+          if (!r.customer || !r.date) return false;
+          if (String(r.customer).toUpperCase().indexOf('RCTI') !== 0) return false;
+          if (selFY !== 'all') {
+            var d = r.date instanceof Date ? r.date : new Date(r.date);
+            var m = d.getMonth() + 1, y = d.getFullYear();
+            var fy = m >= 7 ? y + 1 : y;
+            if (fy !== parseInt(selFY)) return false;
+          }
+          return true;
+        });
+        var contracted = [], adhoc = [];
+        csrData.forEach(function(r) {
+          if (isContractedLane(r.pickupState, r.deliveryState)) contracted.push(r);
+          else adhoc.push(r);
+        });
+        var totalLoads = csrData.length;
+        var totalRev = 0, totalCost = 0, totalProfit = 0;
+        csrData.forEach(function(r) {
+          totalRev += parseFloat(r.revenue) || 0;
+          totalCost += parseFloat(r.cost) || 0;
+          totalProfit += parseFloat(r.profit) || 0;
+        });
+        var avgMargin = totalRev > 0 ? (totalProfit / totalRev * 100) : 0;
+        var revPerLoad = totalLoads > 0 ? totalRev / totalLoads : 0;
+        var profitPerLoad = totalLoads > 0 ? totalProfit / totalLoads : 0;
+        var conRev = 0, conCost = 0, conProfit = 0;
+        contracted.forEach(function(r) {
+          conRev += parseFloat(r.revenue) || 0;
+          conCost += parseFloat(r.cost) || 0;
+          conProfit += parseFloat(r.profit) || 0;
+        });
+        var conMargin = conRev > 0 ? (conProfit / conRev * 100) : 0;
+        var ahRev = 0, ahCost = 0, ahProfit = 0;
+        adhoc.forEach(function(r) {
+          ahRev += parseFloat(r.revenue) || 0;
+          ahCost += parseFloat(r.cost) || 0;
+                ahProfit += parseFloat(r.profit) || 0;
+        });
+        var ahMargin = ahRev > 0 ? (ahProfit / ahRev * 100) : 0;
+        function fmtK(v) { return v >= 1000000 ? '$' + (v/1000000).toFixed(2) + 'M' : v >= 1000 ? '$' + (v/1000).toFixed(1) + 'K' : '$' + v.toFixed(0); }
+        function fmtPct(v) { return v.toFixed(1) + '%'; }
+        var marginColor = avgMargin >= 10 ? '#22c55e' : avgMargin >= 5 ? '#f59e0b' : '#ef4444';
+        var profitColor = totalProfit >= 0 ? '#22c55e' : '#ef4444';
+        var totalAllRev = allData.reduce(function(s,r){return s+(parseFloat(r.revenue)||0);},0);
+        document.getElementById('csrKPICards').innerHTML =
+          '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid #8b5cf6;"><div style="color:#94a3b8;font-size:0.82em;">TOTAL CSR LOADS</div><div style="font-size:1.6em;font-weight:700;color:#e2e8f0;">'+totalLoads.toLocaleString()+'</div><div style="color:#64748b;font-size:0.78em;">'+fmtPct(allData.length>0?totalLoads/allData.length*100:0)+' of all loads</div></div>'+
+          '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid #22c55e;"><div style="color:#94a3b8;font-size:0.82em;">CONTRACTED LOADS</div><div style="font-size:1.6em;font-weight:700;color:#22c55e;">'+contracted.length.toLocaleString()+'</div><div style="color:#64748b;font-size:0.78em;">'+fmtPct(totalLoads>0?contracted.length/totalLoads*100:0)+' of CSR</div></div>'+
+          '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid #f59e0b;"><div style="color:#94a3b8;font-size:0.82em;">AD HOC LOADS</div><div style="font-size:1.6em;font-weight:700;color:#f59e0b;">'+adhoc.length.toLocaleString()+'</div><div style="color:#64748b;font-size:0.78em;">'+fmtPct(totalLoads>0?adhoc.length/totalLoads*100:0)+' of CSR</div></div>'+
+          '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid #3b82f6;"><div style="color:#94a3b8;font-size:0.82em;">CSR REVENUE</div><div style="font-size:1.6em;font-weight:700;color:#e2e8f0;">'+fmtK(totalRev)+'</div><div style="color:#64748b;font-size:0.78em;">'+fmtPct(totalAllRev>0?totalRev/totalAllRev*100:0)+' of total</div></div>';
+        document.getElementById('csrKPICards2').innerHTML =
+          '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid #64748b;"><div style="color:#94a3b8;font-size:0.82em;">CSR COST</div><div style="font-size:1.6em;font-weight:700;color:#e2e8f0;">'+fmtK(totalCost)+'</div></div>'+
+          '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid '+profitColor+';"><div style="color:#94a3b8;font-size:0.82em;">CSR PROFIT</div><div style="font-size:1.6em;font-weight:700;color:'+profitColor+';">'+fmtK(totalProfit)+'</div></div>'+
+          '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid '+marginColor+';"><div style="color:#94a3b8;font-size:0.82em;">CSR MARGIN</div><div style="font-size:1.6em;font-weight:700;color:'+marginColor+';">'+fmtPct(avgMargin)+'</div><div style="color:#64748b;font-size:0.78em;">'+(avgMargin>=10?'Healthy':'Attention needed')+'</div></div>'+
+          '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid #06b6d4;"><div style="color:#94a3b8;font-size:0.82em;">REVENUE / LOAD</div><div style="font-size:1.6em;font-weight:700;color:#e2e8f0;">$'+revPerLoad.toFixed(0)+'</div><div style="color:#64748b;font-size:0.78em;">Profit/Load: $'+profitPerLoad.toFixed(0)+'</div></div>';
+        var conPct = totalLoads > 0 ? (contracted.length / totalLoads * 100) : 0;
+        var ahPct = 100 - conPct;
+        document.getElementById('csrSplitBar').innerHTML =
+          '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;">'+
+          '<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'+
+          '<span style="color:#22c55e;font-weight:600;font-size:0.9em;">Contracted: '+contracted.length+' loads ('+fmtK(conRev)+' rev, '+fmtPct(conMargin)+' margin)</span>'+
+          '<span style="color:#f59e0b;font-weight:600;font-size:0.9em;">Ad Hoc: '+adhoc.length+' loads ('+fmtK(ahRev)+' rev, '+fmtPct(ahMargin)+' margin)</span>'+
+          '</div>'+
+          '<div style="height:24px;border-radius:12px;overflow:hidden;display:flex;">'+
+          '<div style="width:'+conPct+'%;background:#22c55e;display:flex;align-items:center;justify-content:center;font-size:0.8em;font-weight:700;color:#0f172a;">'+conPct.toFixed(0)+'%</div>'+
+          '<div style="width:'+ahPct+'%;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:0.8em;font-weight:700;color:#0f172a;">'+ahPct.toFixed(0)+'%</div>'+
+          '</div></div>';
+        var months = {};
+        csrData.forEach(function(r) {
+          var d = r.date instanceof Date ? r.date : new Date(r.date);
+          var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+          if (!months[key]) months[key] = {loads:0,contracted:0,adhoc:0,rev:0,cost:0,profit:0};
+          months[key].loads++;
+          if (isContractedLane(r.pickupState, r.deliveryState)) months[key].contracted++;
+          else months[key].adhoc++;
+          months[key].rev += parseFloat(r.revenue) || 0;
+          months[key].cost += parseFloat(r.cost) || 0;
+          months[key].profit += parseFloat(r.profit) || 0;
+        });
+        var sortedMonths = Object.keys(months).sort();
+        var html = '';
+        sortedMonths.forEach(function(m) {
+          var s = months[m];
+          var mg = s.rev > 0 ? (s.profit / s.rev * 100) : 0;
+          var mc = mg >= 10 ? '#22c55e' : mg >= 5 ? '#f59e0b' : '#ef4444';
+          var pc = s.profit >= 0 ? '#22c55e' : '#ef4444';
+          html += '<tr><td>'+m+'</td><td>'+s.loads+'</td><td>'+s.contracted+'</td><td>'+s.adhoc+'</td><td>'+fmtK(s.rev)+'</td><td>'+fmtK(s.cost)+'</td><td style="color:'+pc+';">'+fmtK(s.profit)+'</td><td style="color:'+mc+';">'+fmtPct(mg)+'</td><td>$'+(s.loads>0?(s.rev/s.loads).toFixed(0):'0')+'</td><td style="color:'+pc+';">$'+(s.loads>0?(s.profit/s.loads).toFixed(0):'0')+'</td></tr>';
+        });
+        document.getElementById('csrPnlBody').innerHTML = html;
+        document.getElementById('csrPnlFoot').innerHTML = '<tr style="font-weight:700;border-top:2px solid #475569;"><td>TOTAL</td><td>'+totalLoads+'</td><td>'+contracted.length+'</td><td>'+adhoc.length+'</td><td>'+fmtK(totalRev)+'</td><td>'+fmtK(totalCost)+'</td><td style="color:'+profitColor+';">'+fmtK(totalProfit)+'</td><td style="color:'+marginColor+';">'+fmtPct(avgMargin)+'</td><td>$'+revPerLoad.toFixed(0)+'</td><td style="color:'+profitColor+';">$'+profitPerLoad.toFixed(0)+'</td></tr>';
+        var insights = [];
+        insights.push('<div style="font-weight:700;font-size:1.05em;color:#e2e8f0;margin-bottom:10px;">\u{1F4CA} CSR Business Unit Insights</div>');
+        insights.push('<div style="margin-bottom:8px;color:#cbd5e1;font-size:0.9em;">CSR represents <strong>'+fmtPct(allData.length>0?totalLoads/allData.length*100:0)+'</strong> of all loads and <strong>'+fmtPct(totalAllRev>0?totalRev/totalAllRev*100:0)+'</strong> of total revenue.</div>');
+        if (conMargin > ahMargin) {
+          insights.push('<div style="margin-bottom:8px;color:#cbd5e1;font-size:0.9em;">â Contracted lanes outperform Ad Hoc: <strong>'+fmtPct(conMargin)+'</strong> margin vs <strong>'+fmtPct(ahMargin)+'</strong>. Consider converting high-volume ad hoc lanes to contracts.</div>');
+        } else {
+          insights.push('<div style="margin-bottom:8px;color:#cbd5e1;font-size:0.9em;">â ï¸ Ad Hoc achieves <strong>'+fmtPct(ahMargin)+'</strong> margin vs contracted <strong>'+fmtPct(conMargin)+'</strong>. Review contracted rate cards for margin improvement.</div>');
+        }
+        if (sortedMonths.length >= 2) {
+          var lastM = months[sortedMonths[sortedMonths.length - 1]];
+          var prevM = months[sortedMonths[sortedMonths.length - 2]];
+          var revChange = prevM.rev > 0 ? ((lastM.rev - prevM.rev) / prevM.rev * 100) : 0;
+          var marginLast = lastM.rev > 0 ? (lastM.profit / lastM.rev * 100) : 0;
+          var marginPrev = prevM.rev > 0 ? (prevM.profit / prevM.rev * 100) : 0;
+          var marginChange = marginLast - marginPrev;
+          var loadChange = lastM.loads - prevM.loads;
+          var trendIcon = revChange >= 0 ? 'â²' : 'â¼';
+          var trendColor = revChange >= 0 ? '#22c55e' : '#ef4444';
+          insights.push('<div style="margin-bottom:8px;color:#cbd5e1;font-size:0.9em;">Month-on-month ('+sortedMonths[sortedMonths.length-2]+' â '+sortedMonths[sortedMonths.length-1]+'): Revenue <span style="color:'+trendColor+';">'+trendIcon+' '+fmtPct(Math.abs(revChange))+'</span>, Loads '+(loadChange>=0?'+':'')+loadChange+', Margin '+(marginChange>=0?'+':'')+marginChange.toFixed(1)+'pp.</div>');
+        }
+        var laneStats = {};
+        csrData.forEach(function(r) {
+          var lane = (r.pickupState||'') + '-' + (r.deliveryState||'');
+          if (!laneStats[lane]) laneStats[lane] = {loads:0,rev:0,profit:0};
+          laneStats[lane].loads++;
+          laneStats[lane].rev += parseFloat(r.revenue) || 0;
+          laneStats[lane].profit += parseFloat(r.profit) || 0;
+        });
+        var topLanes = Object.keys(laneStats).sort(function(a,b){return laneStats[b].loads-laneStats[a].loads;}).slice(0,3);
+        var laneInfo = topLanes.map(function(l){var s=laneStats[l];return l+' ('+s.loads+' loads, '+fmtPct(s.rev>0?s.profit/s.rev*100:0)+' margin)';}).join('; ');
+        insights.push('<div style="margin-bottom:8px;color:#cbd5e1;font-size:0.9em;">\u{1F6E3}ï¸ Top lanes: <strong>'+laneInfo+'</strong></div>');
+        if (avgMargin < 5) {
+          insights.push('<div style="color:#ef4444;font-size:0.9em;font-weight:600;">\u{1F6A8} CSR margin at '+fmtPct(avgMargin)+' is below 5% threshold. Immediate rate review recommended.</div>');
+        } else if (avgMargin < 10) {
+          insights.push('<div style="color:#f59e0b;font-size:0.9em;">â ï¸ CSR margin at '+fmtPct(avgMargin)+' is below the 10% target. Monitor for further decline.</div>');
+        } else {
+          insights.push('<div style="color:#22c55e;font-size:0.9em;">â CSR margin is healthy at '+fmtPct(avgMargin)+', above the 10% target.</div>');
+        }
+        document.getElementById('csrInsights').innerHTML = insights.join('');
+      }
+
+      function exportCSRCSV() {
+        var tbl = document.getElementById('csrPnlTable');
+        if (!tbl) return;
+        var csv = [];
+        tbl.querySelectorAll('tr').forEach(function(r) {
+          var cols = r.querySelectorAll('th,td');
+          var row = [];
+          cols.forEach(function(c) { row.push('"' + c.textContent.replace(/"/g,'""') + '"'); });
+          csv.push(row.join(','));
+        });
+        var blob = new Blob([csv.join('\n')], {type:'text/csv'});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'csr_pnl_' + document.getElementById('csrFY').value + '.csv';
+        a.click();
+      }
+
+
+      /* == Carrier Compliance Tab == */
       
       /* == Carrier Mapping Tab == */
       function loadMappings() {
