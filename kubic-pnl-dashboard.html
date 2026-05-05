@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kubic Transport — Interstate & Linehaul P&L Dashboard</title>
+<title>Kubic Transport â Interstate & Linehaul P&L Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root {
@@ -120,7 +120,7 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background
 /* ANALYSIS PANEL */
 .analysis-panel { background: linear-gradient(135deg, #1a2332 0%, #1e1a32 100%); border:1px solid var(--border); border-radius:12px; padding:20px; }
 .analysis-panel h3 { font-size:14px; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
-.analysis-panel h3::before { content:'🔍'; }
+.analysis-panel h3::before { content:'ð'; }
 .insight { padding:12px 14px; background: rgba(255,255,255,0.03); border-radius:8px; margin-bottom:8px; border-left:3px solid var(--accent); font-size:13px; line-height:1.5; }
 .insight.warning { border-left-color: var(--amber); }
 .insight.danger { border-left-color: var(--red); }
@@ -196,14 +196,14 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
   <div class="header-left">
     <div class="logo">K</div>
     <div>
-      <h1>Kubic Transport — <span>Interstate & Linehaul P&L</span></h1>
-      <div class="header-sub">Directors Dashboard — Live from Google Sheets</div>
+      <h1>Kubic Transport â <span>Interstate & Linehaul P&L</span></h1>
+      <div class="header-sub">Directors Dashboard â Live from Google Sheets</div>
     </div>
   </div>
   <div class="header-right">
     <div class="last-updated" id="lastUpdated"></div>
     <div class="live-badge"><div class="live-dot"></div>LIVE DATA</div>
-    <button class="refresh-btn" onclick="refreshData()">↻ Refresh</button>
+    <button class="refresh-btn" onclick="refreshData()">â» Refresh</button>
   </div>
 </div>
 
@@ -240,7 +240,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     <div id="filterCarrier"></div>
   </div>
   <div class="filter-sep"></div>
-  <button class="filter-reset" onclick="resetFilters()">✕ Reset Filters</button>
+  <button class="filter-reset" onclick="resetFilters()">â Reset Filters</button>
 </div>
 
 <!-- MAIN -->
@@ -249,22 +249,22 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
   <div class="grid-4" id="kpiCards">
     <div class="kpi revenue">
       <div class="kpi-label">Total Revenue</div>
-      <div class="kpi-value" id="kpiRevenue">—</div>
+      <div class="kpi-value" id="kpiRevenue">â</div>
       <div class="kpi-sub" id="kpiRevenueSub"></div>
     </div>
     <div class="kpi cost">
       <div class="kpi-label">Total Cost</div>
-      <div class="kpi-value" id="kpiCost">—</div>
+      <div class="kpi-value" id="kpiCost">â</div>
       <div class="kpi-sub" id="kpiCostSub"></div>
     </div>
     <div class="kpi profit">
       <div class="kpi-label">Net Profit</div>
-      <div class="kpi-value" id="kpiProfit">—</div>
+      <div class="kpi-value" id="kpiProfit">â</div>
       <div class="kpi-sub" id="kpiProfitSub"></div>
     </div>
     <div class="kpi margin">
       <div class="kpi-label">Avg Margin</div>
-      <div class="kpi-value" id="kpiMargin">—</div>
+      <div class="kpi-value" id="kpiMargin">â</div>
       <div class="kpi-sub" id="kpiMarginSub"></div>
     </div>
   </div>
@@ -273,53 +273,53 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
   <div class="grid-4">
     <div class="kpi">
       <div class="kpi-label">Total Loads</div>
-      <div class="kpi-value" id="kpiLoads">—</div>
+      <div class="kpi-value" id="kpiLoads">â</div>
       <div class="kpi-sub" id="kpiLoadsSub"></div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Avg Revenue / Load</div>
-      <div class="kpi-value" id="kpiRevPerLoad">—</div>
+      <div class="kpi-value" id="kpiRevPerLoad">â</div>
       <div class="kpi-sub" id="kpiRevPerLoadSub"></div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Avg Profit / Load</div>
-      <div class="kpi-value" id="kpiProfitPerLoad">—</div>
+      <div class="kpi-value" id="kpiProfitPerLoad">â</div>
       <div class="kpi-sub" id="kpiProfitPerLoadSub"></div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Active Customers</div>
-      <div class="kpi-value" id="kpiCustomers">—</div>
+      <div class="kpi-value" id="kpiCustomers">â</div>
       <div class="kpi-sub" id="kpiCustomersSub"></div>
     </div>
       <div class="kpi">
         <div class="kpi-label">Loads / Business Day</div>
-        <div class="kpi-value" id="kpiLoadsPerDay">—</div>
+        <div class="kpi-value" id="kpiLoadsPerDay">â</div>
         <div class="kpi-sub" id="kpiLoadsPerDaySub"><span>Excl weekends &amp; VIC holidays</span></div>
       </div>
       <div class="kpi">
         <div class="kpi-label">Revenue / Business Day</div>
-        <div class="kpi-value" id="kpiRevPerDay">—</div>
+        <div class="kpi-value" id="kpiRevPerDay">â</div>
         <div class="kpi-sub" id="kpiRevPerDaySub"><span></span></div>
       </div>
       <div class="kpi">
         <div class="kpi-label">Profit / Business Day</div>
-        <div class="kpi-value" id="kpiProfitPerDay">—</div>
+        <div class="kpi-value" id="kpiProfitPerDay">â</div>
         <div class="kpi-sub" id="kpiProfitPerDaySub"><span></span></div>
       </div>
       <div class="kpi">
         <div class="kpi-label">Ops Utilisation</div>
-        <div class="kpi-value" id="kpiUtilisation">—</div>
+        <div class="kpi-value" id="kpiUtilisation">â</div>
         <div class="kpi-sub" id="kpiUtilisationSub"><span>Active / business days</span></div>
       </div>
       <div class="kpi">
         <div class="kpi-label">Peak Day</div>
-        <div class="kpi-value" id="kpiPeakDay">—</div>
+        <div class="kpi-value" id="kpiPeakDay">â</div>
         <div class="kpi-sub" id="kpiPeakDaySub"><span>Max loads in a day</span></div>
       </div>
       <div class="kpi">
         <div class="kpi-label">Avg Loads / Active Day</div>
-        <div class="kpi-value" id="kpiLoadsPerActiveDay">—</div>
-        <div class="kpi-sub" id="kpiLoadsPerActiveDaySub"><span>Days with ≥1 load</span></div>
+        <div class="kpi-value" id="kpiLoadsPerActiveDay">â</div>
+        <div class="kpi-sub" id="kpiLoadsPerActiveDaySub"><span>Days with â¥1 load</span></div>
       </div>
   </div>
 
@@ -459,7 +459,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
 
         <!-- Carrier Compliance Tab -->
         <div class="tab-content" id="tab-carriercompliance">
-          <h2 style="margin-bottom:8px;">Carrier Compliance — Tier Overview</h2>
+          <h2 style="margin-bottom:8px;">Carrier Compliance â Tier Overview</h2>
           <p style="color:#94a3b8;margin-bottom:16px;font-size:0.92em;">Carrier tiering based on utilisation frequency. Select a reference month to generate compliance tiers for portal updates.</p>
           <div style="display:flex;gap:16px;align-items:center;margin-bottom:18px;flex-wrap:wrap;">
             <label style="color:#cbd5e1;font-size:0.95em;">Reference Month:
@@ -474,13 +474,13 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
           <div style="overflow-x:auto;">
             <table class="pnl-table" id="complianceTable" style="width:100%;font-size:0.88em;">
               <thead><tr>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('carrier')">Carrier ▿</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('tier')">Tier ▿</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('loads')">Loads (Month) ▿</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('totalLoads')">Loads (All Time) ▿</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('activeDays')">Active Days ▿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('carrier')">Carrier â¿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('tier')">Tier â¿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('loads')">Loads (Month) â¿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('totalLoads')">Loads (All Time) â¿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('activeDays')">Active Days â¿</th>
                 <th style="cursor:pointer;" onclick="sortComplianceTable('bizDays')">Biz Days Used</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('lastUsed')">Last Used ▿</th>
+                <th style="cursor:pointer;" onclick="sortComplianceTable('lastUsed')">Last Used â¿</th>
                 <th style="cursor:pointer;" onclick="sortComplianceTable('freq')">Frequency</th>
                 <th>Trend</th>
               </tr></thead>
@@ -705,7 +705,7 @@ function getCYQuarter(month) {
 }
 
 function getLane(d) {
-  return `${d.pickupState||'?'} → ${d.deliveryState||'?'}`;
+  return `${d.pickupState||'?'} â ${d.deliveryState||'?'}`;
 }
 
 // ============================================================
@@ -748,7 +748,7 @@ class MultiSelect {
       <div class="multi-select">
         <button class="multi-select-btn" data-action="toggle">
           <span class="multi-select-label"></span>
-          <span class="multi-select-arrow">▼</span>
+          <span class="multi-select-arrow">â¼</span>
         </button>
         <div class="multi-select-dropdown">
           ${this.searchable ? '<div class="multi-select-search"><input type="text" placeholder="Search..." data-action="search"></div>' : ''}
@@ -1120,14 +1120,14 @@ function updateKPIs() {
   document.getElementById('kpiMargin').className = 'kpi-value ' + (avgMargin >= 10 ? 'positive' : avgMargin >= 5 ? '' : 'negative');
 
   document.getElementById('kpiLoads').textContent = loads.toLocaleString();
-  document.getElementById('kpiRevPerLoad').textContent = loads > 0 ? formatCurrency(rev / loads) : '—';
-  document.getElementById('kpiProfitPerLoad').textContent = loads > 0 ? formatCurrency(profit / loads) : '—';
+  document.getElementById('kpiRevPerLoad').textContent = loads > 0 ? formatCurrency(rev / loads) : 'â';
+  document.getElementById('kpiProfitPerLoad').textContent = loads > 0 ? formatCurrency(profit / loads) : 'â';
   document.getElementById('kpiCustomers').textContent = uniqueCustomers;
 
   // Sub text with loads context
   document.getElementById('kpiRevenueSub').innerHTML = `<span>${loads} total loads</span>`;
-  document.getElementById('kpiProfitSub').innerHTML = profit >= 0 ? `<span class="up">▲ Profitable</span>` : `<span class="down">▼ Loss-making</span>`;
-  document.getElementById('kpiMarginSub').innerHTML = avgMargin >= 10 ? `<span class="up">▲ Healthy</span>` : avgMargin >= 5 ? `<span>Moderate</span>` : `<span class="down">▼ Below target</span>`;
+  document.getElementById('kpiProfitSub').innerHTML = profit >= 0 ? `<span class="up">â² Profitable</span>` : `<span class="down">â¼ Loss-making</span>`;
+  document.getElementById('kpiMarginSub').innerHTML = avgMargin >= 10 ? `<span class="up">â² Healthy</span>` : avgMargin >= 5 ? `<span>Moderate</span>` : `<span class="down">â¼ Below target</span>`;
 
   // --- Daily ops metrics (business-day excl VIC+national holidays) ---
   (function(){
@@ -1139,7 +1139,7 @@ function updateKPIs() {
       '2026-01-01','2026-01-26','2026-03-09','2026-04-03','2026-04-04','2026-04-05','2026-04-06','2026-04-25','2026-06-08','2026-09-25','2026-11-03','2026-12-25','2026-12-28'
     ]);
     const _ids=['kpiLoadsPerDay','kpiRevPerDay','kpiProfitPerDay','kpiUtilisation','kpiPeakDay','kpiLoadsPerActiveDay'];
-    if (!filteredData || !filteredData.length) { _ids.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='—';}); return; }
+    if (!filteredData || !filteredData.length) { _ids.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='â';}); return; }
     let min=null,max=null;
     const dayLoads={};
     filteredData.forEach(d=>{
@@ -1149,7 +1149,7 @@ function updateKPIs() {
       const k=d.date.getFullYear()+'-'+String(d.date.getMonth()+1).padStart(2,'0')+'-'+String(d.date.getDate()).padStart(2,'0');
       dayLoads[k]=(dayLoads[k]||0)+1;
     });
-    if(!min){ _ids.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='—';}); return; }
+    if(!min){ _ids.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='â';}); return; }
     const isBiz=dt=>{const w=dt.getDay();if(w===0||w===6)return false;const k=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');return !HOL.has(k);};
     let bizDays=0;
     const cur=new Date(min.getFullYear(),min.getMonth(),min.getDate());
@@ -1287,28 +1287,28 @@ function updatePnL() {
     const allCust=new Set();filteredData.forEach(r=>{if(r.customer)allCust.add(r.customer);});
 
     html += '<tr><td>Loads / Business Day</td>';
-    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?(m.loads/bizPerMonth[i]).toFixed(1):'—')+'</td>';});
-    html += '<td class="total">'+(totalBiz?(totalLoads/totalBiz).toFixed(1):'—')+'</td></tr>';
+    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?(m.loads/bizPerMonth[i]).toFixed(1):'â')+'</td>';});
+    html += '<td class="total">'+(totalBiz?(totalLoads/totalBiz).toFixed(1):'â')+'</td></tr>';
 
     html += '<tr><td>Revenue / Business Day</td>';
-    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?formatCurrency(m.rev/bizPerMonth[i]):'—')+'</td>';});
-    html += '<td class="total">'+(totalBiz?formatCurrency(totals.rev/totalBiz):'—')+'</td></tr>';
+    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?formatCurrency(m.rev/bizPerMonth[i]):'â')+'</td>';});
+    html += '<td class="total">'+(totalBiz?formatCurrency(totals.rev/totalBiz):'â')+'</td></tr>';
 
     html += '<tr><td>Profit / Business Day</td>';
-    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?formatCurrency(m.profit/bizPerMonth[i]):'—')+'</td>';});
-    html += '<td class="total">'+(totalBiz?formatCurrency(totals.profit/totalBiz):'—')+'</td></tr>';
+    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?formatCurrency(m.profit/bizPerMonth[i]):'â')+'</td>';});
+    html += '<td class="total">'+(totalBiz?formatCurrency(totals.profit/totalBiz):'â')+'</td></tr>';
 
     html += '<tr><td>Ops Utilisation</td>';
-    metrics.forEach((m,i)=>{const u=bizPerMonth[i]?Math.min(100,Math.round(activeDaysPerMonth[i]/bizPerMonth[i]*100)):0;html+='<td>'+(bizPerMonth[i]?u+'%':'—')+'</td>';});
+    metrics.forEach((m,i)=>{const u=bizPerMonth[i]?Math.min(100,Math.round(activeDaysPerMonth[i]/bizPerMonth[i]*100)):0;html+='<td>'+(bizPerMonth[i]?u+'%':'â')+'</td>';});
     const totU=totalBiz?Math.min(100,Math.round(totalActiveDays/totalBiz*100)):0;
-    html += '<td class="total">'+(totalBiz?totU+'%':'—')+'</td></tr>';
+    html += '<td class="total">'+(totalBiz?totU+'%':'â')+'</td></tr>';
 
     html += '<tr><td>Active Customers</td>';
-    activeCustPerMonth.forEach(n=>{html+='<td>'+(n||'—')+'</td>';});
+    activeCustPerMonth.forEach(n=>{html+='<td>'+(n||'â')+'</td>';});
     html += '<td class="total">'+allCust.size+'</td></tr>';
 
     html += '<tr><td>Business Days</td>';
-    bizPerMonth.forEach(n=>{html+='<td>'+(n||'—')+'</td>';});
+    bizPerMonth.forEach(n=>{html+='<td>'+(n||'â')+'</td>';});
     html += '<td class="total">'+totalBiz+'</td></tr>';
   })();
   document.getElementById('pnlTable').innerHTML = html;
@@ -1553,7 +1553,7 @@ function generateInsights() {
 
   // Overall margin health
   if (totalMargin < 5) {
-    insights.push({ type:'danger', label:'CRITICAL', text:`Overall margin is ${totalMargin.toFixed(1)}% — well below the 10% target. Immediate action required to review carrier costs and customer pricing.` });
+    insights.push({ type:'danger', label:'CRITICAL', text:`Overall margin is ${totalMargin.toFixed(1)}% â well below the 10% target. Immediate action required to review carrier costs and customer pricing.` });
   } else if (totalMargin < 10) {
     insights.push({ type:'warning', label:'ATTENTION', text:`Overall margin at ${totalMargin.toFixed(1)}% is below the 10% target. Consider renegotiating with low-margin carriers or adjusting customer pricing.` });
   } else {
@@ -1607,7 +1607,7 @@ function generateInsights() {
     insights.push({ type:'warning', label:'TARGET CARRIERS', text:`Carriers eroding margin: ${list}. Negotiate rates or seek alternative carriers for these lanes.` });
   }
 
-  // Monthly trend — declining profit
+  // Monthly trend â declining profit
   const monthOrder = yearType === 'FY' ? FY_MONTH_ORDER : CY_MONTH_ORDER;
   const monthlyProfit = monthOrder.map(m => {
     const rows = filteredData.filter(d => d.month === m);
@@ -1617,7 +1617,7 @@ function generateInsights() {
   if (monthlyProfit.length >= 3) {
     const last3 = monthlyProfit.slice(-3);
     if (last3.length === 3 && last3[2].profit < last3[1].profit && last3[1].profit < last3[0].profit) {
-      insights.push({ type:'warning', label:'DECLINING TREND', text:`Profit has declined for 3 consecutive months (${last3.map(m=>m.month).join(' → ')}). Investigate root cause — carrier cost increases or volume drops.` });
+      insights.push({ type:'warning', label:'DECLINING TREND', text:`Profit has declined for 3 consecutive months (${last3.map(m=>m.month).join(' â ')}). Investigate root cause â carrier cost increases or volume drops.` });
     }
   }
 
@@ -1656,7 +1656,7 @@ function generateInsights() {
     </div>
         <!-- CSR Tab -->
         <div class="tab-content" id="tab-csr">
-          <h2 style="margin-bottom:8px;">CSR Business Unit — P&amp;L Analysis</h2>
+          <h2 style="margin-bottom:8px;">CSR Business Unit â P&amp;L Analysis</h2>
           <p style="color:#94a3b8;margin-bottom:16px;font-size:0.92em;">Performance analysis for CSR (RCTI) loads. Contracted vs Ad Hoc breakdown with auto-generated insights.</p>
           <div style="display:flex;gap:16px;align-items:center;margin-bottom:18px;flex-wrap:wrap;">
             <label style="color:#cbd5e1;font-size:0.95em;">Financial Year:
@@ -1721,11 +1721,16 @@ function updateOrCreateChart(canvasId, config) {
         {p:'NSW',d:'VIC'},{p:'NSW',d:'SA'},{p:'SA',d:'NSW'},{p:'QLD',d:'SA'},{p:'SA',d:'QLD'}
       ];
 
-      function isContractedLane(pickup, delivery) {
+      function isContractedLane(pickup, delivery, vehicle, dateVal) {
         var pu = String(pickup||'').toUpperCase().trim();
         var del = String(delivery||'').toUpperCase().trim();
         for (var i = 0; i < CSR_CONTRACTED_LANES.length; i++) {
           if (CSR_CONTRACTED_LANES[i].p === pu && CSR_CONTRACTED_LANES[i].d === del) return true;
+        }
+        var veh = String(vehicle||'').toUpperCase().trim();
+        if (veh.indexOf('LCL') > -1) {
+          var d = dateVal instanceof Date ? dateVal : new Date(dateVal);
+          if (d >= new Date('2025-07-01')) return true;
         }
         return false;
       }
@@ -1761,7 +1766,7 @@ function updateOrCreateChart(canvasId, config) {
         });
         var contracted = [], adhoc = [];
         csrData.forEach(function(r) {
-          if (isContractedLane(r.pickupState, r.deliveryState)) contracted.push(r);
+          if (isContractedLane(r.pickupState, r.deliveryState, r.vehicle, r.date)) contracted.push(r);
           else adhoc.push(r);
         });
         var totalLoads = csrData.length;
@@ -1785,7 +1790,7 @@ function updateOrCreateChart(canvasId, config) {
         adhoc.forEach(function(r) {
           ahRev += parseFloat(r.revenue) || 0;
           ahCost += parseFloat(r.cost) || 0;
-                ahProfit += parseFloat(r.profit) || 0;
+          ahProfit += parseFloat(r.profit) || 0;
         });
         var ahMargin = ahRev > 0 ? (ahProfit / ahRev * 100) : 0;
         function fmtK(v) { return v >= 1000000 ? '$' + (v/1000000).toFixed(2) + 'M' : v >= 1000 ? '$' + (v/1000).toFixed(1) + 'K' : '$' + v.toFixed(0); }
@@ -1821,7 +1826,7 @@ function updateOrCreateChart(canvasId, config) {
           var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
           if (!months[key]) months[key] = {loads:0,contracted:0,adhoc:0,rev:0,cost:0,profit:0};
           months[key].loads++;
-          if (isContractedLane(r.pickupState, r.deliveryState)) months[key].contracted++;
+          if (isContractedLane(r.pickupState, r.deliveryState, r.vehicle, r.date)) months[key].contracted++;
           else months[key].adhoc++;
           months[key].rev += parseFloat(r.revenue) || 0;
           months[key].cost += parseFloat(r.cost) || 0;
@@ -2228,7 +2233,7 @@ function renderAllFYSnippet() {
 
   const fyMonths = [6,7,8,9,10,11,0,1,2,3,4,5];
   const mLabels = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
-  const fmtC = n => { if(n==null||isNaN(n)) return '—'; const a=Math.abs(n); return (n<0?'-':'')+'$'+(a>=1e6?(a/1e6).toFixed(2)+'M':a>=1e3?(a/1e3).toFixed(1)+'K':Math.round(a)); };
+  const fmtC = n => { if(n==null||isNaN(n)) return 'â'; const a=Math.abs(n); return (n<0?'-':'')+'$'+(a>=1e6?(a/1e6).toFixed(2)+'M':a>=1e3?(a/1e3).toFixed(1)+'K':Math.round(a)); };
 
   // Group allData by FY
   const fyMap = {};
@@ -2265,7 +2270,7 @@ function renderAllFYSnippet() {
     tot.profit=tot.rev-tot.cost;
     tot.margin=tot.rev?(tot.profit/tot.rev*100):0;
 
-    out += '<div class="card" style="margin-bottom:20px;"><div class="card-title" style="padding:12px 16px;font-size:16px;font-weight:700;">FY' + fy + ' — ' + tot.loads + ' loads | ' + fmtC(tot.rev) + ' revenue | ' + tot.margin.toFixed(1) + '% margin</div>';
+    out += '<div class="card" style="margin-bottom:20px;"><div class="card-title" style="padding:12px 16px;font-size:16px;font-weight:700;">FY' + fy + ' â ' + tot.loads + ' loads | ' + fmtC(tot.rev) + ' revenue | ' + tot.margin.toFixed(1) + '% margin</div>';
     out += '<div style="overflow-x:auto;"><table class="pnl-table"><thead><tr><th>Metric</th>';
     mLabels.forEach(l => { out += '<th>' + l + '</th>'; });
     out += '<th>FY Total</th></tr></thead><tbody>';
@@ -2281,13 +2286,13 @@ function renderAllFYSnippet() {
     if(toggles.cost) addRow('Cost', mData.map(m=>m.cost?fmtC(m.cost):''), fmtC(tot.cost));
     if(toggles.profit) addRow('Gross Profit', mData.map(m=>m.loads?fmtC(m.profit):''), fmtC(tot.profit), 'highlight-cell good');
     if(toggles.margin) addRow('Margin %', mData.map(m=>m.loads?m.margin.toFixed(1)+'%':''), tot.margin.toFixed(1)+'%');
-    if(toggles.profitPerLoad) addRow('Profit / Load', mData.map(m=>m.loads?fmtC(m.profit/m.loads):''), tot.loads?fmtC(tot.profit/tot.loads):'—');
-    if(toggles.revPerLoad) addRow('Avg Rev / Load', mData.map(m=>m.loads?fmtC(m.rev/m.loads):''), tot.loads?fmtC(tot.rev/tot.loads):'—');
-    if(toggles.costPerLoad) addRow('Avg Cost / Load', mData.map(m=>m.loads?fmtC(m.cost/m.loads):''), tot.loads?fmtC(tot.cost/tot.loads):'—');
-    if(toggles.loadsBizDay) addRow('Loads / Biz Day', mData.map(m=>m.biz?(m.loads/m.biz).toFixed(1):'—'), tot.biz?(tot.loads/tot.biz).toFixed(1):'—');
-    if(toggles.revBizDay) addRow('Rev / Biz Day', mData.map(m=>m.biz?fmtC(m.rev/m.biz):'—'), tot.biz?fmtC(tot.rev/tot.biz):'—');
-    if(toggles.profitBizDay) addRow('Profit / Biz Day', mData.map(m=>m.biz?fmtC(m.profit/m.biz):'—'), tot.biz?fmtC(tot.profit/tot.biz):'—');
-    if(toggles.utilisation) addRow('Ops Utilisation', mData.map(m=>m.biz?Math.min(100,Math.round(m.activeDays/m.biz*100))+'%':'—'), tot.biz?Math.min(100,Math.round(tot.activeDays.size/tot.biz*100))+'%':'—');
+    if(toggles.profitPerLoad) addRow('Profit / Load', mData.map(m=>m.loads?fmtC(m.profit/m.loads):''), tot.loads?fmtC(tot.profit/tot.loads):'â');
+    if(toggles.revPerLoad) addRow('Avg Rev / Load', mData.map(m=>m.loads?fmtC(m.rev/m.loads):''), tot.loads?fmtC(tot.rev/tot.loads):'â');
+    if(toggles.costPerLoad) addRow('Avg Cost / Load', mData.map(m=>m.loads?fmtC(m.cost/m.loads):''), tot.loads?fmtC(tot.cost/tot.loads):'â');
+    if(toggles.loadsBizDay) addRow('Loads / Biz Day', mData.map(m=>m.biz?(m.loads/m.biz).toFixed(1):'â'), tot.biz?(tot.loads/tot.biz).toFixed(1):'â');
+    if(toggles.revBizDay) addRow('Rev / Biz Day', mData.map(m=>m.biz?fmtC(m.rev/m.biz):'â'), tot.biz?fmtC(tot.rev/tot.biz):'â');
+    if(toggles.profitBizDay) addRow('Profit / Biz Day', mData.map(m=>m.biz?fmtC(m.profit/m.biz):'â'), tot.biz?fmtC(tot.profit/tot.biz):'â');
+    if(toggles.utilisation) addRow('Ops Utilisation', mData.map(m=>m.biz?Math.min(100,Math.round(m.activeDays/m.biz*100))+'%':'â'), tot.biz?Math.min(100,Math.round(tot.activeDays.size/tot.biz*100))+'%':'â');
     if(toggles.activeCust) addRow('Active Customers', mData.map(m=>m.cust||''), tot.cust.size);
     if(toggles.bizDays) addRow('Business Days', mData.map(m=>m.biz||''), tot.biz);
 
