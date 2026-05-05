@@ -169,6 +169,7 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background
 </style>
 </head>
 <body>
+
 <div id="passwordOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#0f1117;z-index:10000;display:flex;align-items:center;justify-content:center;">
   <div style="background:#1a1d27;padding:40px;border-radius:16px;border:1px solid #2a2e3f;text-align:center;max-width:400px;width:90%;">
     <div style="width:60px;height:60px;background:linear-gradient(135deg,#4f8cff,#a855f7);border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:24px;color:#fff;margin:0 auto 20px;">K</div>
@@ -181,10 +182,9 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background
 </div>
 <script>
 async function hashPwd(pwd){const e=new TextEncoder().encode(pwd);const h=await crypto.subtle.digest('SHA-256',e);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
-async function checkPwd(){const p=document.getElementById('pwdInput').value;const h=await hashPwd(p);if(h==='d2d6670dcc41061954b2c3eab115b77f2dc279c74b972003749eb5a9cb194ea2'){document.getElementById('passwordOverlay').style.display='none';sessionStorage.setItem('kubic_auth','true');}else{document.getElementById('pwdError').style.display='block';document.getElementById('pwdInput').value='';}}
+async function checkPwd(){const p=document.getElementById('pwdInput').value;const h=await hashPwd(p);if(h==='c48073aeda601f7de74c597f38566c6fa82bfd89c87a3b6dd6a0722b7ec7c04b'){document.getElementById('passwordOverlay').style.display='none';sessionStorage.setItem('kubic_auth','true');}else{document.getElementById('pwdError').style.display='block';document.getElementById('pwdInput').value='';}}
 if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOMContentLoaded',()=>{document.getElementById('passwordOverlay').style.display='none';});}
 </script>
-
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
@@ -291,36 +291,6 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       <div class="kpi-value" id="kpiCustomers">—</div>
       <div class="kpi-sub" id="kpiCustomersSub"></div>
     </div>
-      <div class="kpi">
-        <div class="kpi-label">Loads / Business Day</div>
-        <div class="kpi-value" id="kpiLoadsPerDay">—</div>
-        <div class="kpi-sub" id="kpiLoadsPerDaySub"><span>Excl weekends &amp; VIC holidays</span></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Revenue / Business Day</div>
-        <div class="kpi-value" id="kpiRevPerDay">—</div>
-        <div class="kpi-sub" id="kpiRevPerDaySub"><span></span></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Profit / Business Day</div>
-        <div class="kpi-value" id="kpiProfitPerDay">—</div>
-        <div class="kpi-sub" id="kpiProfitPerDaySub"><span></span></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Ops Utilisation</div>
-        <div class="kpi-value" id="kpiUtilisation">—</div>
-        <div class="kpi-sub" id="kpiUtilisationSub"><span>Active / business days</span></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Peak Day</div>
-        <div class="kpi-value" id="kpiPeakDay">—</div>
-        <div class="kpi-sub" id="kpiPeakDaySub"><span>Max loads in a day</span></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Avg Loads / Active Day</div>
-        <div class="kpi-value" id="kpiLoadsPerActiveDay">—</div>
-        <div class="kpi-sub" id="kpiLoadsPerActiveDaySub"><span>Days with ≥1 load</span></div>
-      </div>
   </div>
 
   <!-- VIEW TABS -->
@@ -331,9 +301,6 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     <button onclick="switchTab('carriers')">Carrier Analysis</button>
     <button onclick="switchTab('lanes')">Lane Analysis</button>
     <button onclick="switchTab('allfyoverview')">All FY Overview</button>
-            <button class="tab-btn" onclick="switchTab('carriercompliance')">Carrier Compliance</button>
-            <button class="tab-btn" onclick="switchTab('carriermapping')">Carrier Mapping</button>
-            <button class="tab-btn" onclick="switchTab('csr')">CSR</button>
   </div>
 
   <!-- TAB: P&L -->
@@ -437,92 +404,40 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
 
   <!-- TAB: ALL FY OVERVIEW -->
   <div class="tab-content" id="tab-allfyoverview">
-    <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-      <span style="color:var(--text-dim);font-size:13px;margin-right:8px;">Show rows:</span>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="loads" checked> # of Loads</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="revenue" checked> Revenue</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="cost" checked> Cost</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="profit" checked> Gross Profit</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="margin" checked> Margin %</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="profitPerLoad"> Profit/Load</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="revPerLoad"> Avg Rev/Load</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="costPerLoad"> Avg Cost/Load</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="loadsBizDay" checked> Loads/Biz Day</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="revBizDay"> Rev/Biz Day</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="profitBizDay"> Profit/Biz Day</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="utilisation"> Ops Utilisation</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="activeCust" checked> Active Customers</label>
-      <label style="font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="fy-row-toggle" value="bizDays"> Business Days</label>
+    <div class="card">
+      <div class="card-title">All Financial Years Comparison</div>
+      <div class="pnl-scroll">
+        <table class="pnl-table" id="allFyTable"></table>
+      </div>
     </div>
-    <div id="allFyTable" style="max-height:80vh;overflow-y:auto;"></div>
+    <div class="grid-2" style="margin-top: 20px;">
+      <div class="card">
+        <div class="card-title">Revenue, Cost & Profit Trend</div>
+        <div class="chart-container"><canvas id="chartAllFyRevCostProfit"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Loads per FY</div>
+        <div class="chart-container"><canvas id="chartAllFyLoads"></canvas></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Margin % Trend Across All FYs</div>
+        <div class="chart-container"><canvas id="chartAllFyMargin"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">YoY Growth Comparison</div>
+        <div class="chart-container"><canvas id="chartAllFyGrowth"></canvas></div>
+      </div>
+    </div>
   </div>
-
-        <!-- Carrier Compliance Tab -->
-        <div class="tab-content" id="tab-carriercompliance">
-          <h2 style="margin-bottom:8px;">Carrier Compliance — Tier Overview</h2>
-          <p style="color:#94a3b8;margin-bottom:16px;font-size:0.92em;">Carrier tiering based on utilisation frequency. Select a reference month to generate compliance tiers for portal updates.</p>
-          <div style="display:flex;gap:16px;align-items:center;margin-bottom:18px;flex-wrap:wrap;">
-            <label style="color:#cbd5e1;font-size:0.95em;">Reference Month:
-              <select id="complianceMonth" onchange="renderCarrierCompliance()" style="margin-left:6px;padding:6px 12px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:0.95em;"></select>
-            </label>
-            <label style="color:#cbd5e1;font-size:0.95em;">FY:
-              <select id="complianceFY" onchange="renderCarrierCompliance()" style="margin-left:6px;padding:6px 12px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:0.95em;"></select>
-            </label>
-            <button onclick="exportComplianceCSV()" style="padding:6px 16px;border-radius:6px;border:1px solid #3b82f6;background:#1e40af;color:#e2e8f0;cursor:pointer;font-size:0.9em;">Export CSV</button>
-          </div>
-<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;" id="tierSummaryCards"></div>
-          <div style="overflow-x:auto;">
-            <table class="pnl-table" id="complianceTable" style="width:100%;font-size:0.88em;">
-              <thead><tr>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('carrier')">Carrier ▿</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('tier')">Tier ▿</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('loads')">Loads (Month) ▿</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('totalLoads')">Loads (All Time) ▿</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('activeDays')">Active Days ▿</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('bizDays')">Biz Days Used</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('lastUsed')">Last Used ▿</th>
-                <th style="cursor:pointer;" onclick="sortComplianceTable('freq')">Frequency</th>
-                <th>Trend</th>
-              </tr></thead>
-              <tbody id="complianceBody"></tbody>
-            </table>
-          </div>
-
-
-        </div>
-
-
-        <!-- Carrier Mapping Tab -->
-        <div class="tab-content" id="tab-carriermapping">
-          <h2 style="margin-bottom:8px;">Carrier Name Mapping</h2>
-          <p style="color:#94a3b8;margin-bottom:16px;font-size:0.92em;">Add carrier name mappings below. Set Action to MERGE to auto-rename when data loads. Changes are saved in your browser.</p>
-          <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
-            <input id="mapFrom" placeholder="Original Name" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:0.95em;width:280px;" />
-            <input id="mapTo" placeholder="Replace With" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:0.95em;width:280px;" />
-            <button onclick="addMapping()" style="padding:8px 20px;border-radius:6px;border:1px solid #3b82f6;background:#1e40af;color:#e2e8f0;cursor:pointer;font-size:0.95em;">Add Mapping</button>
-            <button onclick="detectDuplicates()" style="padding:8px 20px;border-radius:6px;border:1px solid #22c55e;background:#166534;color:#e2e8f0;cursor:pointer;font-size:0.95em;">Auto-Detect Duplicates</button>
-            <button onclick="exportMappings()" style="padding:8px 16px;border-radius:6px;border:1px solid #f59e0b;background:#92400e;color:#e2e8f0;cursor:pointer;font-size:0.9em;">Export CSV</button>
-          </div>
-          <div style="overflow-x:auto;">
-            <table class="pnl-table" id="mappingTable" style="width:100%;font-size:0.9em;">
-              <thead><tr>
-                <th>Original Name</th>
-                <th>Replace With</th>
-                <th>Action</th>
-                <th>Loads</th>
-                <th></th>
-              </tr></thead>
-              <tbody id="mappingBody"></tbody>
-            </table>
-          </div>
-
-          
+</div>
 
 <script>
 // ============================================================
 // CONFIGURATION
 // ============================================================
-const SHEET_ID = '1TjvR5ODYR0SjxgjrJ_CVi4FPpfHkG96-ih7f-QLq8sE';
+const SHEET_ID = '1EDU9_oq-hix7KyeKjpWfAuP00_AfofBSHeF-vsHfZOk';
 const TABS = ['2026','2025','2024','2023','2022','2018 - 2021'];
 
 // Column mappings per tab structure
@@ -675,7 +590,6 @@ async function loadAllData() {
 
   createMultiSelects();
   populateFilters();
-  autoMapCarriers();
   applyFilters();
   document.getElementById('loadingOverlay').classList.add('hidden');
   document.getElementById('lastUpdated').textContent = `Updated: ${new Date().toLocaleTimeString()} | ${allData.length.toLocaleString()} records loaded`;
@@ -1128,49 +1042,6 @@ function updateKPIs() {
   document.getElementById('kpiRevenueSub').innerHTML = `<span>${loads} total loads</span>`;
   document.getElementById('kpiProfitSub').innerHTML = profit >= 0 ? `<span class="up">▲ Profitable</span>` : `<span class="down">▼ Loss-making</span>`;
   document.getElementById('kpiMarginSub').innerHTML = avgMargin >= 10 ? `<span class="up">▲ Healthy</span>` : avgMargin >= 5 ? `<span>Moderate</span>` : `<span class="down">▼ Below target</span>`;
-
-  // --- Daily ops metrics (business-day excl VIC+national holidays) ---
-  (function(){
-    const HOL = new Set([
-      '2022-01-03','2022-01-26','2022-03-14','2022-04-15','2022-04-16','2022-04-17','2022-04-18','2022-04-25','2022-06-13','2022-09-23','2022-09-30','2022-11-01','2022-12-25','2022-12-26','2022-12-27',
-      '2023-01-02','2023-01-26','2023-03-13','2023-04-07','2023-04-08','2023-04-09','2023-04-10','2023-04-25','2023-06-12','2023-09-22','2023-09-29','2023-11-07','2023-12-25','2023-12-26',
-      '2024-01-01','2024-01-26','2024-03-11','2024-03-29','2024-03-30','2024-03-31','2024-04-01','2024-04-25','2024-06-10','2024-09-27','2024-11-05','2024-12-25','2024-12-26',
-      '2025-01-01','2025-01-27','2025-03-10','2025-04-18','2025-04-19','2025-04-20','2025-04-21','2025-04-25','2025-06-09','2025-09-26','2025-11-04','2025-12-25','2025-12-26',
-      '2026-01-01','2026-01-26','2026-03-09','2026-04-03','2026-04-04','2026-04-05','2026-04-06','2026-04-25','2026-06-08','2026-09-25','2026-11-03','2026-12-25','2026-12-28'
-    ]);
-    const _ids=['kpiLoadsPerDay','kpiRevPerDay','kpiProfitPerDay','kpiUtilisation','kpiPeakDay','kpiLoadsPerActiveDay'];
-    if (!filteredData || !filteredData.length) { _ids.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='—';}); return; }
-    let min=null,max=null;
-    const dayLoads={};
-    filteredData.forEach(d=>{
-      if(!d.date) return;
-      if(!min||d.date<min) min=d.date;
-      if(!max||d.date>max) max=d.date;
-      const k=d.date.getFullYear()+'-'+String(d.date.getMonth()+1).padStart(2,'0')+'-'+String(d.date.getDate()).padStart(2,'0');
-      dayLoads[k]=(dayLoads[k]||0)+1;
-    });
-    if(!min){ _ids.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='—';}); return; }
-    const isBiz=dt=>{const w=dt.getDay();if(w===0||w===6)return false;const k=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');return !HOL.has(k);};
-    let bizDays=0;
-    const cur=new Date(min.getFullYear(),min.getMonth(),min.getDate());
-    const endD=new Date(max.getFullYear(),max.getMonth(),max.getDate());
-    while(cur<=endD){if(isBiz(cur))bizDays++;cur.setDate(cur.getDate()+1);}
-    const activeDays=Object.keys(dayLoads).length;
-    const peakDay=Object.entries(dayLoads).reduce((a,b)=>b[1]>a[1]?b:a,['',0]);
-    const loadsPerBiz=bizDays?filteredData.length/bizDays:0;
-    const revPerBiz=bizDays?rev/bizDays:0;
-    const profitPerBiz=bizDays?(rev-cost)/bizDays:0;
-    const util=bizDays?activeDays/bizDays:0;
-    const loadsPerActive=activeDays?filteredData.length/activeDays:0;
-    const fmt$=n=>'$'+(Math.abs(n)>=1e6?(n/1e6).toFixed(2)+'M':Math.abs(n)>=1e3?(n/1e3).toFixed(1)+'K':Math.round(n));
-    const set=(id,v,sub)=>{const e=document.getElementById(id);if(e)e.textContent=v;if(sub!=null){const s=document.getElementById(id+'Sub');if(s)s.innerHTML='<span>'+sub+'</span>';}};
-    set('kpiLoadsPerDay', loadsPerBiz.toFixed(1), bizDays+' business days');
-    set('kpiRevPerDay', fmt$(revPerBiz));
-    set('kpiProfitPerDay', fmt$(profitPerBiz));
-    set('kpiUtilisation', (util*100).toFixed(0)+'%', activeDays+' of '+bizDays+' days active');
-    set('kpiPeakDay', peakDay[1]+' loads', peakDay[0]);
-    set('kpiLoadsPerActiveDay', loadsPerActive.toFixed(1));
-  })();
 }
 
 // ============================================================
@@ -1270,47 +1141,6 @@ function updatePnL() {
   html += `<td class="fy-total">${formatCurrency(avgCostTotal)}</td></tr>`;
 
   html += '</tbody>';
-  // --- Extra monthly KPI rows ---
-  (function(){
-    const HOL = new Set(['2022-01-03','2022-01-26','2022-03-14','2022-04-15','2022-04-16','2022-04-17','2022-04-18','2022-04-25','2022-06-13','2022-09-23','2022-09-30','2022-11-01','2022-12-25','2022-12-26','2022-12-27','2023-01-02','2023-01-26','2023-03-13','2023-04-07','2023-04-08','2023-04-09','2023-04-10','2023-04-25','2023-06-12','2023-09-22','2023-09-29','2023-11-07','2023-12-25','2023-12-26','2024-01-01','2024-01-26','2024-03-11','2024-03-29','2024-03-30','2024-03-31','2024-04-01','2024-04-25','2024-06-10','2024-09-27','2024-11-05','2024-12-25','2024-12-26','2025-01-01','2025-01-27','2025-03-10','2025-04-18','2025-04-19','2025-04-20','2025-04-21','2025-04-25','2025-06-09','2025-09-26','2025-11-04','2025-12-25','2025-12-26','2026-01-01','2026-01-26','2026-03-09','2026-04-03','2026-04-04','2026-04-05','2026-04-06','2026-04-25','2026-06-08','2026-09-25','2026-11-03','2026-12-25','2026-12-28']);
-    const pad=n=>String(n).padStart(2,'0');
-    const isBiz=(y,mo,dm)=>{const dt=new Date(y,mo,dm);const w=dt.getDay();if(w===0||w===6)return false;return !HOL.has(y+'-'+pad(mo+1)+'-'+pad(dm));};
-    const bizDaysInMonth=(y,mo)=>{const last=new Date(y,mo+1,0).getDate();let n=0;for(let d=1;d<=last;d++)if(isBiz(y,mo,d))n++;return n;};
-    const monthYears={}, monthActiveCust={}, monthActiveDays={};
-    filteredData.forEach(r=>{if(!r.date)return;const mo=r.date.getMonth();const y=r.date.getFullYear();monthYears[mo]=y;(monthActiveCust[mo]=monthActiveCust[mo]||new Set()).add(r.customer);(monthActiveDays[mo]=monthActiveDays[mo]||new Set()).add(y+'-'+pad(mo+1)+'-'+pad(r.date.getDate()));});
-    const bizPerMonth = monthOrder.map(mo=>{const y=monthYears[mo]; return y?bizDaysInMonth(y,mo):0;});
-    const activeCustPerMonth = monthOrder.map(mo=>(monthActiveCust[mo]||new Set()).size);
-    const activeDaysPerMonth = monthOrder.map(mo=>(monthActiveDays[mo]||new Set()).size);
-    const totalBiz=bizPerMonth.reduce((a,b)=>a+b,0);
-    const totalActiveDays=activeDaysPerMonth.reduce((a,b)=>a+b,0);
-    const totalLoads=metrics.reduce((s,m)=>s+m.loads,0);
-    const allCust=new Set();filteredData.forEach(r=>{if(r.customer)allCust.add(r.customer);});
-
-    html += '<tr><td>Loads / Business Day</td>';
-    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?(m.loads/bizPerMonth[i]).toFixed(1):'—')+'</td>';});
-    html += '<td class="total">'+(totalBiz?(totalLoads/totalBiz).toFixed(1):'—')+'</td></tr>';
-
-    html += '<tr><td>Revenue / Business Day</td>';
-    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?formatCurrency(m.rev/bizPerMonth[i]):'—')+'</td>';});
-    html += '<td class="total">'+(totalBiz?formatCurrency(totals.rev/totalBiz):'—')+'</td></tr>';
-
-    html += '<tr><td>Profit / Business Day</td>';
-    metrics.forEach((m,i)=>{html+='<td>'+(bizPerMonth[i]?formatCurrency(m.profit/bizPerMonth[i]):'—')+'</td>';});
-    html += '<td class="total">'+(totalBiz?formatCurrency(totals.profit/totalBiz):'—')+'</td></tr>';
-
-    html += '<tr><td>Ops Utilisation</td>';
-    metrics.forEach((m,i)=>{const u=bizPerMonth[i]?Math.min(100,Math.round(activeDaysPerMonth[i]/bizPerMonth[i]*100)):0;html+='<td>'+(bizPerMonth[i]?u+'%':'—')+'</td>';});
-    const totU=totalBiz?Math.min(100,Math.round(totalActiveDays/totalBiz*100)):0;
-    html += '<td class="total">'+(totalBiz?totU+'%':'—')+'</td></tr>';
-
-    html += '<tr><td>Active Customers</td>';
-    activeCustPerMonth.forEach(n=>{html+='<td>'+(n||'—')+'</td>';});
-    html += '<td class="total">'+allCust.size+'</td></tr>';
-
-    html += '<tr><td>Business Days</td>';
-    bizPerMonth.forEach(n=>{html+='<td>'+(n||'—')+'</td>';});
-    html += '<td class="total">'+totalBiz+'</td></tr>';
-  })();
   document.getElementById('pnlTable').innerHTML = html;
 
   const yearVal = document.getElementById('filterYear').value;
@@ -1534,7 +1364,211 @@ function updateLaneTab() {
 // ALL FY OVERVIEW TAB
 // ============================================================
 function updateAllFYTab() {
-  if (typeof renderAllFYSnippet === 'function') renderAllFYSnippet();
+  // Group ALL data (not filtered by year/quarter/month) by FY, but respect customer/lane/carrier filters
+  const fyData = {};
+  const allYears = new Set();
+
+  // First pass: get all FY years present in allData
+  allData.forEach(d => {
+    const fy = getFY(d.date);
+    allYears.add(fy);
+  });
+
+  const years = Array.from(allYears).sort((a,b) => a-b);
+
+  // Second pass: group filtered data by FY (respecting customer/lane/carrier filters)
+  const customer = document.getElementById('filterCustomer').value;
+  const lane = document.getElementById('filterLane').value;
+  const carrier = document.getElementById('filterCarrier').value;
+
+  allData.forEach(d => {
+    // Apply customer/lane/carrier filters (but ignore year/quarter/month)
+    if (customer && d.customer !== customer) return;
+    if (lane && getLane(d) !== lane) return;
+    if (carrier && d.carrier !== carrier) return;
+
+    const fy = getFY(d.date);
+    if (!fyData[fy]) fyData[fy] = { rev:0, cost:0, profit:0, loads:0 };
+    fyData[fy].rev += d.revenue;
+    fyData[fy].cost += d.cost;
+    fyData[fy].profit += d.profit;
+    fyData[fy].loads++;
+  });
+
+  // Build summary table
+  const metrics = ['Total Loads', 'Total Revenue', 'Total Cost', 'Gross Profit', 'Margin %', 'Profit per Load', 'Avg Revenue per Load', 'YoY Revenue Growth %', 'YoY Profit Growth %'];
+  let html = '<thead><tr><th>Metric</th>';
+  years.forEach(y => html += `<th>FY${y}</th>`);
+  html += '</tr></thead><tbody>';
+
+  // Helper function to find best/worst value
+  function getHighlight(metricName, values) {
+    const numValues = values.filter(v => v !== null && v !== undefined && !isNaN(v));
+    if (numValues.length === 0) return { best: -1, worst: -1 };
+    const maxVal = Math.max(...numValues);
+    const minVal = Math.min(...numValues);
+    const best = values.indexOf(maxVal);
+    const worst = values.indexOf(minVal);
+    return { best, worst };
+  }
+
+  // Loads row
+  let loadsVals = years.map(y => fyData[y] ? fyData[y].loads : 0);
+  let hl = getHighlight('Loads', loadsVals);
+  html += '<tr><td>Total Loads</td>';
+  years.forEach((y, idx) => {
+    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
+    html += `<td class="${cls}">${loadsVals[idx] || 0}</td>`;
+  });
+  html += '</tr>';
+
+  // Revenue row
+  let revVals = years.map(y => fyData[y] ? fyData[y].rev : 0);
+  hl = getHighlight('Revenue', revVals);
+  html += '<tr class="total-row"><td>Total Revenue</td>';
+  years.forEach((y, idx) => {
+    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
+    html += `<td class="${cls}">${revVals[idx] ? formatCurrency(revVals[idx]) : '$0'}</td>`;
+  });
+  html += '</tr>';
+
+  // Cost row
+  let costVals = years.map(y => fyData[y] ? fyData[y].cost : 0);
+  hl = getHighlight('Cost', costVals);
+  html += '<tr><td>Total Cost</td>';
+  years.forEach((y, idx) => {
+    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
+    html += `<td class="${cls}">${costVals[idx] ? formatCurrency(costVals[idx]) : '$0'}</td>`;
+  });
+  html += '</tr>';
+
+  // Profit row
+  let profitVals = years.map(y => fyData[y] ? fyData[y].profit : 0);
+  hl = getHighlight('Profit', profitVals);
+  html += '<tr class="profit-row"><td>Gross Profit</td>';
+  years.forEach((y, idx) => {
+    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
+    const rowCls = profitVals[idx] < 0 ? 'negative' : '';
+    html += `<td class="${cls} ${rowCls}">${profitVals[idx] ? formatCurrency(profitVals[idx]) : '$0'}</td>`;
+  });
+  html += '</tr>';
+
+  // Margin % row
+  let marginVals = years.map(y => fyData[y] && fyData[y].rev > 0 ? (fyData[y].profit / fyData[y].rev * 100) : 0);
+  hl = getHighlight('Margin', marginVals);
+  html += '<tr class="margin-row"><td>Margin %</td>';
+  years.forEach((y, idx) => {
+    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
+    html += `<td class="${cls}">${marginVals[idx].toFixed(1)}%</td>`;
+  });
+  html += '</tr>';
+
+  // Profit per Load row
+  let pplVals = years.map(y => fyData[y] && fyData[y].loads > 0 ? fyData[y].profit / fyData[y].loads : 0);
+  hl = getHighlight('PPL', pplVals);
+  html += '<tr><td>Profit per Load</td>';
+  years.forEach((y, idx) => {
+    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
+    html += `<td class="${cls}">${pplVals[idx] ? formatCurrency(pplVals[idx]) : '$0'}</td>`;
+  });
+  html += '</tr>';
+
+  // Avg Revenue per Load
+  let arpVals = years.map(y => fyData[y] && fyData[y].loads > 0 ? fyData[y].rev / fyData[y].loads : 0);
+  hl = getHighlight('ARP', arpVals);
+  html += '<tr><td>Avg Revenue per Load</td>';
+  years.forEach((y, idx) => {
+    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
+    html += `<td class="${cls}">${arpVals[idx] ? formatCurrency(arpVals[idx]) : '$0'}</td>`;
+  });
+  html += '</tr>';
+
+  // YoY Revenue Growth
+  let revGrowthVals = years.map((y, idx) => {
+    if (idx === 0) return null;
+    const prev = revVals[idx - 1];
+    const curr = revVals[idx];
+    return prev > 0 ? ((curr - prev) / prev * 100) : 0;
+  });
+  hl = getHighlight('RevGrowth', revGrowthVals);
+  html += '<tr><td>YoY Revenue Growth %</td>';
+  years.forEach((y, idx) => {
+    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
+    if (revGrowthVals[idx] === null) {
+      html += `<td class="${cls}">—</td>`;
+    } else {
+      const sign = revGrowthVals[idx] >= 0 ? '+' : '';
+      html += `<td class="${cls}">${sign}${revGrowthVals[idx].toFixed(1)}%</td>`;
+    }
+  });
+  html += '</tr>';
+
+  // YoY Profit Growth
+  let profitGrowthVals = years.map((y, idx) => {
+    if (idx === 0) return null;
+    const prev = profitVals[idx - 1];
+    const curr = profitVals[idx];
+    return prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
+  });
+  hl = getHighlight('ProfitGrowth', profitGrowthVals);
+  html += '<tr><td>YoY Profit Growth %</td>';
+  years.forEach((y, idx) => {
+    const cls = idx === hl.best ? 'highlight-cell good' : idx === hl.worst ? 'highlight-cell bad' : '';
+    if (profitGrowthVals[idx] === null) {
+      html += `<td class="${cls}">—</td>`;
+    } else {
+      const sign = profitGrowthVals[idx] >= 0 ? '+' : '';
+      html += `<td class="${cls}">${sign}${profitGrowthVals[idx].toFixed(1)}%</td>`;
+    }
+  });
+  html += '</tr>';
+
+  html += '</tbody>';
+  document.getElementById('allFyTable').innerHTML = html;
+
+  // Chart 1: Revenue, Cost, Profit trend
+  updateOrCreateChart('chartAllFyRevCostProfit', {
+    type:'line', data: {
+      labels: years.map(y => 'FY' + y),
+      datasets: [
+        { label:'Revenue', data:revVals, borderColor:'var(--accent)', backgroundColor:'rgba(79,140,255,0.1)', borderWidth:2, tension:0.3, fill:true },
+        { label:'Cost', data:costVals, borderColor:'var(--amber)', backgroundColor:'rgba(245,158,11,0.05)', borderWidth:2, tension:0.3 },
+        { label:'Profit', data:profitVals, borderColor:'var(--green)', backgroundColor:'rgba(34,197,94,0.1)', borderWidth:2, tension:0.3 }
+      ]
+    }, options: chartOpts('$')
+  });
+
+  // Chart 2: Loads per FY
+  updateOrCreateChart('chartAllFyLoads', {
+    type:'bar', data: {
+      labels: years.map(y => 'FY' + y),
+      datasets: [
+        { label:'Loads', data:loadsVals, backgroundColor:'rgba(6,182,212,0.7)', borderRadius:4 }
+      ]
+    }, options: chartOpts('')
+  });
+
+  // Chart 3: Margin trend
+  updateOrCreateChart('chartAllFyMargin', {
+    type:'line', data: {
+      labels: years.map(y => 'FY' + y),
+      datasets: [
+        { label:'Margin %', data:marginVals, borderColor:'var(--purple)', backgroundColor:'rgba(168,85,247,0.1)', borderWidth:2.5, tension:0.3, fill:true, pointRadius:5, pointBackgroundColor:'var(--purple)' }
+      ]
+    }, options: chartOpts('%')
+  });
+
+  // Chart 4: YoY Growth comparison
+  const yoyLabels = years.slice(1).map((y, idx) => 'FY' + y);
+  updateOrCreateChart('chartAllFyGrowth', {
+    type:'bar', data: {
+      labels: yoyLabels,
+      datasets: [
+        { label:'Revenue Growth %', data:revGrowthVals.slice(1), backgroundColor:'rgba(79,140,255,0.7)', borderRadius:4 },
+        { label:'Profit Growth %', data:profitGrowthVals.slice(1), backgroundColor:'rgba(34,197,94,0.7)', borderRadius:4 }
+      ]
+    }, options: { ...chartOpts('%'), scales: { y: { ...chartOpts('%').scales.y } } }
+  });
 }
 
 // ============================================================
@@ -1654,33 +1688,6 @@ function generateInsights() {
       <div class="insight-label ${i.type}">${i.label}</div>
       ${i.text}
     </div>
-        <!-- CSR Tab -->
-        <div class="tab-content" id="tab-csr">
-          <h2 style="margin-bottom:8px;">CSR Business Unit — P&amp;L Analysis</h2>
-          <p style="color:#94a3b8;margin-bottom:16px;font-size:0.92em;">Performance analysis for CSR (RCTI) loads. Contracted vs Ad Hoc breakdown with auto-generated insights.</p>
-          <div style="display:flex;gap:16px;align-items:center;margin-bottom:18px;flex-wrap:wrap;">
-            <label style="color:#cbd5e1;font-size:0.95em;">Financial Year:
-              <select id="csrFY" onchange="renderCSR()" style="margin-left:6px;padding:6px 12px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:0.95em;">
-                <option value="all">All FYs</option>
-              </select>
-            </label>
-            <button onclick="exportCSRCSV()" style="padding:6px 16px;border-radius:6px;border:1px solid #3b82f6;background:#1e40af;color:#e2e8f0;cursor:pointer;font-size:0.9em;">Export CSV</button>
-          </div>
-          <div id="csrKPICards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px;"></div>
-          <div id="csrKPICards2" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;"></div>
-          <div id="csrSplitBar" style="margin-bottom:20px;"></div>
-          <div id="csrInsights" style="background:#1e293b;border-radius:10px;padding:16px 20px;margin-bottom:20px;border-left:4px solid #8b5cf6;"></div>
-          <div style="overflow-x:auto;">
-            <table class="pnl-table" id="csrPnlTable" style="width:100%;font-size:0.88em;">
-              <thead><tr>
-                <th>Month</th><th>Total Loads</th><th>Contracted</th><th>Ad Hoc</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Margin %</th><th>Rev/Load</th><th>Profit/Load</th>
-              </tr></thead>
-              <tbody id="csrPnlBody"></tbody>
-              <tfoot id="csrPnlFoot"></tfoot>
-            </table>
-          </div>
-        </div>
-
   `).join('');
 }
 
@@ -1714,411 +1721,6 @@ function updateOrCreateChart(canvasId, config) {
 // ============================================================
 // TAB SWITCHING
 // ============================================================
-
-      undefined/* == Carrier Compliance Tab == */
-      
-      /* == Carrier Mapping Tab == */
-      function loadMappings() {
-        try { return JSON.parse(localStorage.getItem('kubic_carrier_mappings') || '[]'); } catch(e) { return []; }
-      }
-      function saveMappings(maps) {
-        localStorage.setItem('kubic_carrier_mappings', JSON.stringify(maps));
-      }
-      function renderMappings() {
-        var maps = loadMappings();
-        var body = document.getElementById('mappingBody');
-        if (!body) return;
-        var counts = {};
-        if (allData) allData.forEach(function(r) {
-          if (!r.carrier) return;
-          var c = String(r.carrier).trim().toUpperCase();
-          counts[c] = (counts[c]||0) + 1;
-        });
-        var html = '';
-        maps.forEach(function(m, idx) {
-          var loads = counts[m.from] || 0;
-          var actionColor = m.action === 'MERGE' ? '#22c55e' : m.action === 'KEEP' ? '#3b82f6' : '#f59e0b';
-          html += '<tr><td>' + m.from + '</td><td>' + m.to + '</td>';
-          html += '<td><select onchange="updateMappingAction(' + idx + ',this.value)" style="background:#1e293b;color:' + actionColor + ';border:1px solid #334155;border-radius:4px;padding:4px 8px;font-weight:700;">';
-          ['MERGE','REVIEW','KEEP'].forEach(function(a) {
-            html += '<option value="' + a + '"' + (m.action===a?' selected':'') + '>' + a + '</option>';
-          });
-          html += '</select></td>';
-          html += '<td>' + loads + '</td>';
-          html += '<td><button onclick="removeMapping(' + idx + ')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.85em;">Remove</button></td></tr>';
-        });
-        body.innerHTML = html;
-      }
-      function addMapping() {
-        var from = document.getElementById('mapFrom').value.trim().toUpperCase();
-        var to = document.getElementById('mapTo').value.trim().toUpperCase();
-        if (!from || !to) return;
-        var maps = loadMappings();
-        maps.push({ from: from, to: to, action: 'MERGE' });
-        saveMappings(maps);
-        document.getElementById('mapFrom').value = '';
-        document.getElementById('mapTo').value = '';
-        renderMappings();
-      }
-      function removeMapping(idx) {
-        var maps = loadMappings();
-        maps.splice(idx, 1);
-        saveMappings(maps);
-        renderMappings();
-      }
-      function updateMappingAction(idx, val) {
-        var maps = loadMappings();
-        maps[idx].action = val;
-        saveMappings(maps);
-        renderMappings();
-      }
-      function detectDuplicates() {
-        if (!allData || !allData.length) return;
-        var counts = {};
-        allData.forEach(function(r) {
-          if (!r.carrier) return;
-          var c = String(r.carrier).trim().toUpperCase();
-          counts[c] = (counts[c]||0) + 1;
-        });
-        var names = Object.keys(counts).sort();
-        var maps = loadMappings();
-        var existing = {};
-        maps.forEach(function(m) { existing[m.from] = true; });
-        var groups = {};
-        names.forEach(function(n) {
-          if (n.indexOf('JNH') === 0 || n.indexOf('B REF') === 0 || n.indexOf('QUICKLINK') === 0) return;
-          var norm = n.replace(/\s+/g,' ').replace(/\s*(PTY\s*LTD|P\/L|TRANSPORT|LOGISTICS|FREIGHT|EXPRESS|HAULAGE)\s*/g,'').trim();
-          if (norm.length < 3) norm = n;
-          if (!groups[norm]) groups[norm] = [];
-          groups[norm].push({ name: n, loads: counts[n] });
-        });
-        var added = 0;
-        Object.keys(groups).forEach(function(k) {
-          var g = groups[k];
-          if (g.length < 2) return;
-          g.sort(function(a,b) { return b.loads - a.loads; });
-          var keep = g[0].name;
-          g.slice(1).forEach(function(e) {
-            if (!existing[e.name]) {
-              maps.push({ from: e.name, to: keep, action: 'REVIEW' });
-              existing[e.name] = true;
-              added++;
-            }
-          });
-        });
-        // JNH sub-carrier dupes
-        var jnhNames = names.filter(function(n) { return n.indexOf('JNH') === 0; });
-        var jnhGroups = {};
-        jnhNames.forEach(function(n) {
-          var m = n.match(/JNH\s*\(\s*([^)]*)\s*\)?/);
-          var sub = m ? m[1].trim() : 'DIRECT';
-          var norm = sub.replace(/\s+/g,' ').replace(/TRANSOPRT/g,'TRANSPORT').replace(/LOGSITICS/g,'LOGISTICS').replace(/\bTSPT\b/g,'TRANSPORT').replace(/\s*(TRANSPORT|LOGISTICS|HAULAGE|EXPRESS|FREIGHT)\s*/g,'').trim();
-          if (norm.length < 2) norm = sub;
-          if (!jnhGroups[norm]) jnhGroups[norm] = [];
-          jnhGroups[norm].push({ name: n, loads: counts[n] });
-        });
-        Object.keys(jnhGroups).forEach(function(k) {
-          var g = jnhGroups[k];
-          if (g.length < 2) return;
-          g.sort(function(a,b) { return b.loads - a.loads; });
-          var keep = g[0].name;
-          g.slice(1).forEach(function(e) {
-            if (!existing[e.name]) {
-              maps.push({ from: e.name, to: keep, action: 'REVIEW' });
-              existing[e.name] = true;
-              added++;
-            }
-          });
-        });
-        saveMappings(maps);
-        renderMappings();
-        alert('Found ' + added + ' new potential duplicates. Review and set Action to MERGE or KEEP.');
-      }
-      function exportMappings() {
-        var maps = loadMappings();
-        var csv = 'Original Name,Replace With,Action\n';
-        maps.forEach(function(m) { csv += '"' + m.from + '","' + m.to + '",' + m.action + '\n'; });
-        var blob = new Blob([csv], {type:'text/csv'});
-        var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'carrier_mappings.csv';
-        a.click();
-      }
-
-
-/* == Carrier Auto-Mapping == */
-      function autoMapCarriers() {
-        if (!allData || !allData.length) return;
-        var manual = {};
-        try {
-          var maps = JSON.parse(localStorage.getItem('kubic_carrier_mappings') || '[]');
-          maps.forEach(function(m) {
-            if (m.action === 'MERGE' && m.from && m.to) manual[m.from.toUpperCase()] = m.to.toUpperCase();
-          });
-        } catch(e) {}
-        allData.forEach(function(r) {
-          if (!r.carrier) return;
-          var c = String(r.carrier).trim().toUpperCase();
-          if (c.indexOf('B REF') === 0) { r.carrier = 'LOCAL'; return; }
-        if (c.indexOf('KANDU') === 0) { r.carrier = 'KANDU'; return; }
-        if (c.indexOf('KANDU') === 0) { r.carrier = 'KANDU'; return; }
-          c = c.replace(/TRANSPORT TRANSPORT/g,'TRANSPORT').replace(/LOGISTICS LOGISTICS/g,'LOGISTICS').replace(/HAULAGE HAULAGE/g,'HAULAGE').replace(/EXPRESS EXPRESS/g,'EXPRESS').replace(/FREIGHT FREIGHT/g,'FREIGHT');
-          if (manual[c]) c = manual[c];
-          r.carrier = c;
-        });
-      }
-
-
-      var complianceSortKey = 'tier';
-      var complianceSortAsc = true;
-
-      function renderCarrierCompliance() {
-        if (!allData || !allData.length) return;
-        var HOL2 = new Set(['2022-01-03','2022-01-26','2022-03-14','2022-04-15','2022-04-18','2022-04-25','2022-06-13','2022-09-23','2022-11-01','2022-12-25','2022-12-26','2022-12-27','2023-01-02','2023-01-26','2023-03-13','2023-04-07','2023-04-08','2023-04-10','2023-04-25','2023-06-12','2023-09-29','2023-11-07','2023-12-25','2023-12-26','2024-01-01','2024-01-26','2024-03-11','2024-03-29','2024-03-30','2024-04-01','2024-04-25','2024-06-10','2024-09-27','2024-11-05','2024-12-25','2024-12-26','2025-01-01','2025-01-27','2025-03-10','2025-04-18','2025-04-19','2025-04-21','2025-04-25','2025-06-09','2025-09-26','2025-11-04','2025-12-25','2025-12-26','2026-01-01','2026-01-26','2026-03-09','2026-04-03','2026-04-04','2026-04-06','2026-04-27','2026-06-08','2026-09-25','2026-11-03','2026-12-25','2026-12-28']);
-
-        var monthSel = document.getElementById('complianceMonth');
-        var fySel = document.getElementById('complianceFY');
-        var months = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
-        var moNums = [7,8,9,10,11,12,1,2,3,4,5,6];
-        var fySet = new Set();
-        allData.forEach(function(r) {
-          if (!r.date) return;
-          var d = r.date instanceof Date ? r.date : new Date(r.date);
-          var m = d.getMonth() + 1, y = d.getFullYear();
-          var fy = m >= 7 ? y + 1 : y;
-          fySet.add(fy);
-        });
-        var fys = Array.from(fySet).sort(function(a,b){return b-a;});
-        if (!fySel.options.length) {
-          fys.forEach(function(f) {
-            var o = document.createElement('option');
-            o.value = f; o.textContent = 'FY' + f;
-            fySel.appendChild(o);
-          });
-        }
-        if (!monthSel.options.length) {
-          months.forEach(function(m,i) {
-            var o = document.createElement('option');
-            o.value = moNums[i]; o.textContent = m;
-            monthSel.appendChild(o);
-          });
-          var now = new Date();
-          monthSel.value = now.getMonth() + 1;
-        }
-        var selMonth = parseInt(monthSel.value);
-        var selFY = parseInt(fySel.value);
-        var refYear = selMonth >= 7 ? selFY - 1 : selFY;
-        var refStart = new Date(refYear, selMonth - 1, 1);
-        var refEnd = new Date(refYear, selMonth, 0);
-        var refBizDays = 0;
-        for (var dd = new Date(refStart); dd <= refEnd; dd.setDate(dd.getDate()+1)) {
-          var dow = dd.getDay();
-          var ds = dd.getFullYear() + '-' + String(dd.getMonth()+1).padStart(2,'0') + '-' + String(dd.getDate()).padStart(2,'0');
-          if (dow !== 0 && dow !== 6 && !HOL2.has(ds)) refBizDays++;
-        }
-        var t5Cut = new Date(refEnd); t5Cut.setMonth(t5Cut.getMonth() - 3);
-        var t4Cut = new Date(refEnd); t4Cut.setMonth(t4Cut.getMonth() - 2);
-
-        var carriers = {};
-        allData.forEach(function(r) {
-          if (!r.carrier || !r.date) return;
-          var cn = String(r.carrier).trim().toUpperCase();
-          if (!cn) return;
-          var d = r.date instanceof Date ? r.date : new Date(r.date);
-          if (isNaN(d)) return;
-          if (!carriers[cn]) carriers[cn] = { loads: 0, totalLoads: 0, daysSet: new Set(), bizDaysSet: new Set(), allDays: new Set(), lastUsed: null, monthLoads3: [0,0,0] };
-          carriers[cn].totalLoads++;
-          var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-          carriers[cn].allDays.add(ds);
-          if (!carriers[cn].lastUsed || d > carriers[cn].lastUsed) carriers[cn].lastUsed = d;
-          if (d >= refStart && d <= refEnd) {
-            carriers[cn].loads++;
-            carriers[cn].daysSet.add(ds);
-            var dow2 = d.getDay();
-            if (dow2 !== 0 && dow2 !== 6 && !HOL2.has(ds)) carriers[cn].bizDaysSet.add(ds);
-          }
-          for (var ti = 1; ti <= 3; ti++) {
-            var ts = new Date(refStart); ts.setMonth(ts.getMonth() - ti);
-            var te = new Date(ts.getFullYear(), ts.getMonth() + 1, 0);
-            if (d >= ts && d <= te) carriers[cn].monthLoads3[ti-1]++;
-          }
-        });
-
-        var tierCounts = {T1:0,T2:0,T3:0,T4:0,T5:0};
-        var rows = [];
-        Object.keys(carriers).forEach(function(cn) {
-          var s = carriers[cn];
-          var tier = 'T5';
-          var bizUsed = s.bizDaysSet.size;
-          var freq = '';
-          if (s.loads > 0) {
-            var pct = refBizDays > 0 ? bizUsed / refBizDays : 0;
-            if (pct >= 0.7) { tier = 'T1'; freq = 'Daily (' + Math.round(pct*100) + '%)'; }
-            else if (bizUsed >= 4) { tier = 'T2'; freq = 'Weekly (~' + bizUsed + ' days)'; }
-            else { tier = 'T3'; freq = 'Ad hoc (' + s.loads + ' loads)'; }
-          } else if (s.lastUsed && s.lastUsed >= t4Cut) {
-            tier = 'T4';
-            var ago = Math.round((refEnd - s.lastUsed) / 86400000);
-            freq = 'Last used ' + ago + 'd ago';
-          } else {
-            tier = 'T5';
-            if (s.lastUsed) {
-              var ago2 = Math.round((refEnd - s.lastUsed) / 86400000);
-              freq = 'Inactive ' + ago2 + 'd';
-            } else { freq = 'No record'; }
-          }
-          tierCounts[tier]++;
-          var prev = s.monthLoads3[0] + s.monthLoads3[1] + s.monthLoads3[2];
-          var avgPrev = prev / 3;
-          var trend = '\u2014';
-          if (s.loads > avgPrev * 1.2) trend = '\u25B2';
-          else if (s.loads < avgPrev * 0.8) trend = '\u25BC';
-          rows.push({ carrier: cn, tier: tier, tierNum: parseInt(tier.charAt(1)), loads: s.loads, totalLoads: s.totalLoads, activeDays: s.daysSet.size, bizDays: bizUsed + '/' + refBizDays, bizDaysNum: bizUsed, lastUsed: s.lastUsed, freq: freq, trend: trend });
-        });
-
-        rows.sort(function(a,b) {
-          var va, vb;
-          switch(complianceSortKey) {
-            case 'carrier': va = a.carrier; vb = b.carrier; return complianceSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
-            case 'tier': va = a.tierNum; vb = b.tierNum; break;
-            case 'loads': va = a.loads; vb = b.loads; break;
-            case 'totalLoads': va = a.totalLoads; vb = b.totalLoads; break;
-            case 'activeDays': va = a.activeDays; vb = b.activeDays; break;
-            case 'bizDays': va = a.bizDaysNum; vb = b.bizDaysNum; break;
-            case 'lastUsed': va = a.lastUsed ? a.lastUsed.getTime() : 0; vb = b.lastUsed ? b.lastUsed.getTime() : 0; break;
-            case 'freq': va = a.freq; vb = b.freq; return complianceSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
-            default: va = a.loads; vb = b.loads;
-          }
-          return complianceSortAsc ? va - vb : vb - va;
-        });
-        var tierColors = {T1:'#22c55e',T2:'#3b82f6',T3:'#f59e0b',T4:'#f97316',T5:'#ef4444'};
-        var tierLabels = {T1:'T1 \u2014 Daily',T2:'T2 \u2014 Weekly',T3:'T3 \u2014 Ad hoc',T4:'T4 \u2014 Previously Engaged',T5:'T5 \u2014 Inactive'};
-        var cardsHtml = '';
-        ['T1','T2','T3','T4','T5'].forEach(function(t) {
-          cardsHtml += '<div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:4px solid '+tierColors[t]+';"><div style="color:#94a3b8;font-size:0.82em;">'+tierLabels[t]+'</div><div style="font-size:1.6em;font-weight:700;color:'+tierColors[t]+';">'+tierCounts[t]+'</div><div style="color:#64748b;font-size:0.78em;">carriers</div></div>';
-        });
-        document.getElementById('tierSummaryCards').innerHTML = cardsHtml;
-
-        var html = '';
-        rows.forEach(function(r) {
-          var col = tierColors[r.tier];
-          var lu = r.lastUsed ? r.lastUsed.toLocaleDateString('en-AU') : '\u2014';
-          var trendCol = r.trend === '\u25B2' ? '#22c55e' : r.trend === '\u25BC' ? '#ef4444' : '#64748b';
-          html += '<tr><td>' + r.carrier + '</td><td style="color:'+col+';font-weight:700;">' + r.tier + '</td><td>' + r.loads + '</td><td>' + r.totalLoads + '</td><td>' + r.activeDays + '</td><td>' + r.bizDays + '</td><td>' + lu + '</td><td>' + r.freq + '</td><td style="color:'+trendCol+';font-size:1.1em;">' + r.trend + '</td></tr>';
-        });
-        document.getElementById('complianceBody').innerHTML = html;
-      }
-
-      function sortComplianceTable(key) {
-        if (complianceSortKey === key) complianceSortAsc = !complianceSortAsc;
-        else { complianceSortKey = key; complianceSortAsc = false; }
-        renderCarrierCompliance();
-      }
-
-      function exportComplianceCSV() {
-        var tbl = document.getElementById('complianceTable');
-        if (!tbl) return;
-        var csv = [];
-        var rows2 = tbl.querySelectorAll('tr');
-        rows2.forEach(function(r) {
-          var cols = r.querySelectorAll('th,td');
-          var row = [];
-          cols.forEach(function(c) { row.push('"' + c.textContent.replace(/"/g,'""') + '"'); });
-          csv.push(row.join(','));
-        });
-        var blob = new Blob([csv.join('\n')], {type:'text/csv'});
-        var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'carrier_compliance_' + document.getElementById('complianceFY').value + '_' + document.getElementById('complianceMonth').selectedOptions[0].textContent + '.csv';
-        a.click();
-      }
-
-function renderAllFYSnippet() {
-  const container = document.getElementById('allFyTable');
-  if (!container) return;
-  const toggles = {};
-  document.querySelectorAll('.fy-row-toggle').forEach(cb => { toggles[cb.value] = cb.checked; });
-
-  const HOL = new Set(['2022-01-03','2022-01-26','2022-03-14','2022-04-15','2022-04-16','2022-04-17','2022-04-18','2022-04-25','2022-06-13','2022-09-23','2022-09-30','2022-11-01','2022-12-25','2022-12-26','2022-12-27','2023-01-02','2023-01-26','2023-03-13','2023-04-07','2023-04-08','2023-04-09','2023-04-10','2023-04-25','2023-06-12','2023-09-22','2023-09-29','2023-11-07','2023-12-25','2023-12-26','2024-01-01','2024-01-26','2024-03-11','2024-03-29','2024-03-30','2024-03-31','2024-04-01','2024-04-25','2024-06-10','2024-09-27','2024-11-05','2024-12-25','2024-12-26','2025-01-01','2025-01-27','2025-03-10','2025-04-18','2025-04-19','2025-04-20','2025-04-21','2025-04-25','2025-06-09','2025-09-26','2025-11-04','2025-12-25','2025-12-26','2026-01-01','2026-01-26','2026-03-09','2026-04-03','2026-04-04','2026-04-05','2026-04-06','2026-04-25','2026-06-08','2026-09-25','2026-11-03','2026-12-25','2026-12-28']);
-  const pad = n => String(n).padStart(2,'0');
-  const isBiz = (y,mo,dm) => { const dt=new Date(y,mo,dm); const w=dt.getDay(); if(w===0||w===6)return false; return !HOL.has(y+'-'+pad(mo+1)+'-'+pad(dm)); };
-  const bizDaysInMonth = (y,mo) => { const last=new Date(y,mo+1,0).getDate(); let n=0; for(let d=1;d<=last;d++) if(isBiz(y,mo,d)) n++; return n; };
-
-  const fyMonths = [6,7,8,9,10,11,0,1,2,3,4,5];
-  const mLabels = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
-  const fmtC = n => { if(n==null||isNaN(n)) return '—'; const a=Math.abs(n); return (n<0?'-':'')+'$'+(a>=1e6?(a/1e6).toFixed(2)+'M':a>=1e3?(a/1e3).toFixed(1)+'K':Math.round(a)); };
-
-  // Group allData by FY
-  const fyMap = {};
-  allData.forEach(r => {
-    if (!r.date) return;
-    const mo = r.date.getMonth(), y = r.date.getFullYear();
-    const fy = mo >= 6 ? y + 1 : y;
-    if (!fyMap[fy]) fyMap[fy] = [];
-    fyMap[fy].push(r);
-  });
-  const fyKeys = Object.keys(fyMap).map(Number).sort((a,b) => b - a);
-  if (!fyKeys.length) { container.innerHTML = '<p style="color:var(--text-dim)">No data loaded</p>'; return; }
-
-  let out = '';
-  fyKeys.forEach(fy => {
-    const rows = fyMap[fy];
-    // Per-month metrics
-    const mData = fyMonths.map((mo,mi) => {
-      const calY = mo >= 6 ? fy - 1 : fy;
-      const mRows = rows.filter(r => r.date.getMonth() === mo);
-      const loads = mRows.length;
-      const rev = mRows.reduce((s,r) => s + (r.revenue||0), 0);
-      const cost = mRows.reduce((s,r) => s + (r.cost||0), 0);
-      const profit = rev - cost;
-      const margin = rev ? (profit/rev*100) : 0;
-      const biz = bizDaysInMonth(calY, mo);
-      const custSet = new Set(mRows.map(r=>r.customer));
-      const daySet = new Set(mRows.map(r=>r.date.toISOString().slice(0,10)));
-      return {loads,rev,cost,profit,margin,biz,cust:custSet.size,activeDays:daySet.size,calY,mo};
-    });
-    const tot = {loads:0,rev:0,cost:0,biz:0,cust:new Set(),activeDays:new Set()};
-    rows.forEach(r=>{tot.loads++;tot.rev+=(r.revenue||0);tot.cost+=(r.cost||0);tot.cust.add(r.customer);tot.activeDays.add(r.date.toISOString().slice(0,10));});
-    mData.forEach(m=>{tot.biz+=m.biz;});
-    tot.profit=tot.rev-tot.cost;
-    tot.margin=tot.rev?(tot.profit/tot.rev*100):0;
-
-    out += '<div class="card" style="margin-bottom:20px;"><div class="card-title" style="padding:12px 16px;font-size:16px;font-weight:700;">FY' + fy + ' — ' + tot.loads + ' loads | ' + fmtC(tot.rev) + ' revenue | ' + tot.margin.toFixed(1) + '% margin</div>';
-    out += '<div style="overflow-x:auto;"><table class="pnl-table"><thead><tr><th>Metric</th>';
-    mLabels.forEach(l => { out += '<th>' + l + '</th>'; });
-    out += '<th>FY Total</th></tr></thead><tbody>';
-
-    const addRow = (label,vals,totVal,cls) => {
-      out += '<tr' + (cls?' class="'+cls+'"':'') + '><td>' + label + '</td>';
-      vals.forEach(v => { out += '<td>' + v + '</td>'; });
-      out += '<td class="total">' + totVal + '</td></tr>';
-    };
-
-    if(toggles.loads) addRow('# of Loads', mData.map(m=>m.loads||''), tot.loads);
-    if(toggles.revenue) addRow('Revenue', mData.map(m=>m.rev?fmtC(m.rev):''), fmtC(tot.rev), 'total-row');
-    if(toggles.cost) addRow('Cost', mData.map(m=>m.cost?fmtC(m.cost):''), fmtC(tot.cost));
-    if(toggles.profit) addRow('Gross Profit', mData.map(m=>m.loads?fmtC(m.profit):''), fmtC(tot.profit), 'highlight-cell good');
-    if(toggles.margin) addRow('Margin %', mData.map(m=>m.loads?m.margin.toFixed(1)+'%':''), tot.margin.toFixed(1)+'%');
-    if(toggles.profitPerLoad) addRow('Profit / Load', mData.map(m=>m.loads?fmtC(m.profit/m.loads):''), tot.loads?fmtC(tot.profit/tot.loads):'—');
-    if(toggles.revPerLoad) addRow('Avg Rev / Load', mData.map(m=>m.loads?fmtC(m.rev/m.loads):''), tot.loads?fmtC(tot.rev/tot.loads):'—');
-    if(toggles.costPerLoad) addRow('Avg Cost / Load', mData.map(m=>m.loads?fmtC(m.cost/m.loads):''), tot.loads?fmtC(tot.cost/tot.loads):'—');
-    if(toggles.loadsBizDay) addRow('Loads / Biz Day', mData.map(m=>m.biz?(m.loads/m.biz).toFixed(1):'—'), tot.biz?(tot.loads/tot.biz).toFixed(1):'—');
-    if(toggles.revBizDay) addRow('Rev / Biz Day', mData.map(m=>m.biz?fmtC(m.rev/m.biz):'—'), tot.biz?fmtC(tot.rev/tot.biz):'—');
-    if(toggles.profitBizDay) addRow('Profit / Biz Day', mData.map(m=>m.biz?fmtC(m.profit/m.biz):'—'), tot.biz?fmtC(tot.profit/tot.biz):'—');
-    if(toggles.utilisation) addRow('Ops Utilisation', mData.map(m=>m.biz?Math.min(100,Math.round(m.activeDays/m.biz*100))+'%':'—'), tot.biz?Math.min(100,Math.round(tot.activeDays.size/tot.biz*100))+'%':'—');
-    if(toggles.activeCust) addRow('Active Customers', mData.map(m=>m.cust||''), tot.cust.size);
-    if(toggles.bizDays) addRow('Business Days', mData.map(m=>m.biz||''), tot.biz);
-
-    out += '</tbody></table></div></div>';
-  });
-  container.innerHTML = out;
-
-  // Wire toggle listeners
-  document.querySelectorAll('.fy-row-toggle').forEach(cb => {
-    cb.onchange = renderAllFYSnippet;
-  });
-}
-
 function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
@@ -2126,10 +1728,6 @@ function switchTab(tabId) {
   event.target.classList.add('active');
   // Resize charts when switching tabs
   setTimeout(() => { Object.values(charts).forEach(c => c.resize()); }, 100);
-  if (tabId === 'allfyoverview') renderAllFYSnippet();
-  if (tabId === 'carriercompliance') renderCarrierCompliance();
-      if (tabId === 'csr') renderCSR();
-  if (tabId === 'carriermapping') renderMappings();
 }
 
 // ============================================================
