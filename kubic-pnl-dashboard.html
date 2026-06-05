@@ -75,7 +75,8 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background
 
 /* LAYOUT */
 .main { padding:20px 28px; }
-.grid-4 { display:grid; grid-template-columns: repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.grid-1 { display:grid; grid-template-columns:1fr; gap:16px; margin-bottom:16px; }
+    .grid-4 { display:grid; grid-template-columns: repeat(4,1fr); gap:14px; margin-bottom:20px; }
 .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:20px; }
 .grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; margin-bottom:20px; }
 
@@ -322,6 +323,13 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         <div class="kpi-sub" id="kpiLoadsPerActiveDaySub"><span>Days with ≥1 load</span></div>
       </div>
   </div>
+    <div class="grid-1" style="margin-top:0;">
+      <div class="kpi" style="border-left:4px solid #a78bfa;">
+        <div class="kpi-label">LOADS BY ALLOCATOR</div>
+        <div class="kpi-value" id="kpiAllocator" style="font-size:1rem;line-height:1.6;"></div>
+        <div class="kpi-sub" id="kpiAllocatorSub"></div>
+      </div>
+    </div>
 
   <!-- VIEW TABS -->
   <div class="tab-bar">
@@ -528,11 +536,11 @@ const TABS = ['2026','2025','2024','2023','2022','2018 - 2021'];
 // Column mappings per tab structure
 const COL_MAP = {
   modern: { // 2023-2026: 30 cols
-    customer:'B', date:'C', pickupState:'I', deliveryState:'L', vehicle:'P',
+    allocator:'A', customer:'B', date:'C', pickupState:'I', deliveryState:'L', vehicle:'P',
     revenue:'S', carrier:'U', cost:'X', profit:'AC', margin:'AD'
   },
   mid: { // 2022: 27 cols
-    customer:'B', date:'C', pickupState:'F', deliveryState:'I', vehicle:'M',
+    allocator:'A', customer:'B', date:'C', pickupState:'F', deliveryState:'I', vehicle:'M',
     revenue:'P', carrier:'R', cost:'U', profit:'Z', margin:'AA'
   },
   legacy: { // 2018-2021: 28 cols
@@ -550,7 +558,7 @@ function getColMap(tab) {
 // ============================================================
 // STATE
 // ============================================================
-let allData = []; // Array of {customer,date,pickupState,deliveryState,vehicle,revenue,carrier,cost,profit,margin}
+let allData = []; // Array of {allocator,customer,date,pickupState,deliveryState,vehicle,revenue,carrier,cost,profit,margin}
 let filteredData = [];
 let yearType = 'FY'; // FY or CY
 let charts = {};
@@ -590,7 +598,8 @@ async function fetchViaFetch(url) {
 
 async function fetchSheetData(tabName) {
   const cm = getColMap(tabName);
-  const cols = `${cm.customer},${cm.date},${cm.pickupState},${cm.deliveryState},${cm.vehicle},${cm.revenue},${cm.carrier},${cm.cost},${cm.profit},${cm.margin}`;
+  const _hasAlloc = !!cm.allocator;
+      const cols = `${_hasAlloc ? cm.allocator+',' : ''}${cm.customer},${cm.date},${cm.pickupState},${cm.deliveryState},${cm.vehicle},${cm.revenue},${cm.carrier},${cm.cost},${cm.profit},${cm.margin}`;
   const query = `select ${cols} where ${cm.date} is not null`;
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(tabName)}&tq=${encodeURIComponent(query)}&headers=1`;
 
@@ -607,7 +616,8 @@ async function fetchSheetData(tabName) {
     return json.table.rows.map(r => {
       const c = r.c;
       if (!c || !c[1]) return null;
-      const dateVal = c[1]?.v;
+      const _o = _hasAlloc ? 1 : 0;
+          const dateVal = c[1 + _o]?.v;
       let dt = null;
       if (dateVal instanceof Date) {
         dt = dateVal;
@@ -621,21 +631,22 @@ async function fetchSheetData(tabName) {
       }
       if (!dt || isNaN(dt.getTime())) return null;
 
-      const rev = parseFloat(c[5]?.v) || 0;
-      const cost = parseFloat(c[7]?.v) || 0;
-      const profit = parseFloat(c[8]?.v) || (rev - cost);
-      const margin = c[9]?.v ? parseFloat(c[9].v) : (rev > 0 ? profit / rev : 0);
+      const rev = parseFloat(c[5 + _o]?.v) || 0;
+      const cost = parseFloat(c[7 + _o]?.v) || 0;
+      const profit = parseFloat(c[8 + _o]?.v) || (rev - cost);
+      const margin = c[9 + _o]?.v ? parseFloat(c[9 + _o].v) : (rev > 0 ? profit / rev : 0);
 
       return {
-        customer: (c[0]?.v || 'Unknown').toString().trim(),
+        allocator: (_hasAlloc && c[0] && c[0].v) ? c[0].v.toString().trim() : 'N/A',
+            customer: (c[0 + _o]?.v || 'Unknown').toString().trim(),
         date: dt,
         month: dt.getMonth(),
         year: dt.getFullYear(),
-        pickupState: (c[2]?.v || '').toString().trim().toUpperCase(),
-        deliveryState: (c[3]?.v || '').toString().trim().toUpperCase(),
-        vehicle: (c[4]?.v || '').toString().trim(),
+        pickupState: (c[2 + _o]?.v || '').toString().trim().toUpperCase(),
+        deliveryState: (c[3 + _o]?.v || '').toString().trim().toUpperCase(),
+        vehicle: (c[4 + _o]?.v || '').toString().trim(),
         revenue: rev,
-        carrier: (c[6]?.v || 'Unknown').toString().trim(),
+        carrier: (c[6 + _o]?.v || 'Unknown').toString().trim(),
         cost: cost,
         profit: profit,
         margin: margin
@@ -1070,6 +1081,7 @@ function applyFilters() {
   }
 
   updateKPIs();
+    updateAllocatorKPI();
   updatePnL();
   updateCharts();
   updateCustomerTab();
@@ -1176,6 +1188,42 @@ function updateKPIs() {
 // ============================================================
 // P&L TABLE (Replicating PDF format)
 // ============================================================
+
+  // ===== ALLOCATOR KPI =====
+  function updateAllocatorKPI() {
+    const allocCounts = {};
+    filteredData.forEach(d => {
+      let a = (d.allocator || 'N/A').toString().trim().toUpperCase();
+      if (!a || a === 'NULL' || a === '') a = 'N/A';
+      allocCounts[a] = (allocCounts[a] || 0) + 1;
+    });
+    const sorted = Object.entries(allocCounts).sort((a, b) => b[1] - a[1]);
+    const total = filteredData.length;
+    const colors = {'CG':'#3b82f6','OH':'#10b981','BT':'#f59e0b','OK':'#ef4444','N/A':'#6b7280','ALLOCATED':'#8b5cf6'};
+    let h = '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">';
+    sorted.forEach(([name, count]) => {
+      const pct = ((count / total) * 100).toFixed(1);
+      const col = colors[name] || '#6b7280';
+      h += '<div style="display:flex;align-items:center;gap:8px;min-width:140px;">'
+        + '<div style="width:10px;height:10px;border-radius:50%;background:' + col + ';flex-shrink:0;"></div>'
+        + '<span style="font-weight:700;color:' + col + ';">' + name + '</span>'
+        + '<span style="color:#9ca3af;font-size:0.85rem;">' + count.toLocaleString() + ' (' + pct + '%)</span>'
+        + '</div>';
+    });
+    h += '</div>';
+    h += '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:8px;width:100%;">';
+    sorted.forEach(([name, count]) => {
+      const pct = (count / total) * 100;
+      const col = colors[name] || '#6b7280';
+      h += '<div style="width:' + pct + '%;background:' + col + ';" title="' + name + ': ' + count + '"></div>';
+    });
+    h += '</div>';
+    const el = document.getElementById('kpiAllocator');
+    if (el) el.innerHTML = h;
+    const sub = document.getElementById('kpiAllocatorSub');
+    if (sub) sub.innerHTML = '<span>' + sorted.length + ' allocators | ' + total.toLocaleString() + ' total loads</span>';
+  }
+
 function updatePnL() {
   const monthOrder = yearType === 'FY' ? FY_MONTH_ORDER : CY_MONTH_ORDER;
   const monthLabels = monthOrder.map(m => MONTH_NAMES[m]);
