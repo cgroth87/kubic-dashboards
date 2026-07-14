@@ -1,0 +1,2313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CG Commission Tracker - Kubic Transport</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-tertiary: #334155;
+      --text-primary: #f1f5f9;
+      --text-secondary: #cbd5e1;
+      --text-tertiary: #94a3b8
+      --border-color: #475569;
+      --accent-primary: #3b82f6;
+      --accent-secondary: #10b981;
+      --accent-success: #10b981;
+      --accent-warning: #f59e0b;
+      --accent-danger: #ef4444;
+      --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      --transition: all 0.3s ease;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* Header */
+    .header {
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 15px;
+    }
+
+    .header-title {
+      flex: 1;
+    }
+
+    .header-title h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 5px;
+      color: var(--text-primary);
+    }
+
+    .header-title p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background-color: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--accent-success);
+      border-radius: 20px;
+      color: var(--accent-success);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .live-badge::before {
+      content: '●';
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background-color: var(--accent-primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #2563eb;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--border-color);
+    }
+
+    .last-updated {
+      color: var(--text-tertiary);
+      font-size: 12px;
+    }
+
+    /* Filters */
+    .filters {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .filter-group label {
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      min-width: 80px;
+    }
+
+    select {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    select:hover, select:focus {
+      border-color: var(--accent-primary);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    /* Multi-Select Dropdown */
+    .multi-select {
+      position: relative;
+      min-width: 140px;
+    }
+
+    .multi-select-btn {
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: var(--transition);
+      min-height: 32px;
+    }
+
+    .multi-select-btn:hover {
+      border-color: var(--accent-primary);
+    }
+
+    .multi-select-btn.open {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .multi-select-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: 200;
+      max-height: 300px;
+      overflow-y: auto;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-top: 4px;
+      min-width: 220px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      display: none;
+    }
+
+    .multi-select-dropdown.open {
+      display: block;
+    }
+
+    .multi-select-search {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .multi-select-search input {
+      width: 100%;
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 4px;
+      outline: none;
+    }
+
+    .multi-select-search input:focus {
+      border-color: var(--accent-primary);
+    }
+
+    .multi-select-actions {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 11px;
+    }
+
+    .multi-select-actions span {
+      cursor: pointer;
+      color: var(--accent-primary);
+      transition: var(--transition);
+    }
+
+    .multi-select-actions span:hover {
+      text-decoration: underline;
+    }
+
+    .multi-select-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: var(--transition);
+    }
+
+    .multi-select-option:hover {
+      background-color: rgba(59, 130, 246, 0.08);
+    }
+
+    .multi-select-option input[type="checkbox"] {
+      accent-color: var(--accent-primary);
+      cursor: pointer;
+    }
+
+    .multi-select-badge {
+      background-color: var(--accent-primary);
+      color: #fff;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+
+    .toggle-group {
+      display: flex;
+      gap: 8px;
+      background-color: var(--bg-primary);
+      border-radius: 6px;
+      padding: 4px;
+      border: 1px solid var(--border-color);
+    }
+
+    .toggle-btn {
+      padding: 6px 12px;
+      border: none;
+      background-color: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 4px;
+      transition: var(--transition);
+    }
+
+    .toggle-btn.active {
+      background-color: var(--accent-primary);
+      color: white;
+    }
+
+    /* KPI Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .kpi-card {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: var(--card-shadow);
+      transition: var(--transition);
+    }
+
+    .kpi-card:hover {
+      border-color: var(--accent-primary);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2);
+    }
+
+    .kpi-label {
+      color: var(--text-tertiary);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .kpi-subtext {
+      color: var(--text-tertiary);
+      font-size: 12px;
+    }
+
+    .kpi-card.accent-primary {
+      border-left: 4px solid var(--accent-primary);
+    }
+
+    .kpi-card.accent-success {
+      border-left: 4px solid var(--accent-success);
+    }
+
+    .kpi-card.accent-warning {
+      border-left: 4px solid var(--accent-warning);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 30px;
+      background-color: var(--bg-secondary);
+      border-radius: 8px 8px 0 0;
+      overflow: hidden;
+    }
+
+    .tab-button {
+      padding: 12px 20px;
+      border: none;
+      background-color: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 14px;
+      transition: var(--transition);
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-button.active {
+      color: var(--accent-primary);
+      border-bottom-color: var(--accent-primary);
+    }
+
+    .tab-button:hover {
+      color: var(--text-primary);
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      background-color: var(--bg-tertiary);
+      color: var(--text-secondary);
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    tr:hover {
+      background-color: var(--bg-tertiary);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .accent-primary {
+      color: var(--accent-primary);
+    }
+
+    .accent-success {
+      color: var(--accent-success);
+    }
+
+    /* Charts */
+    .chart-container {
+      position: relative;
+      height: 400px;
+      margin-bottom: 30px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .chart-container-sm {
+      position: relative;
+      height: 300px;
+      margin-bottom: 30px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .chart-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 15px;
+    }
+
+    /* Grid layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-tertiary);
+    }
+
+    .loading::after {
+      content: '...';
+      animation: dots 1.5s steps(3, end) infinite;
+    }
+
+    @keyframes dots {
+      0%, 20% { content: '.'; }
+      40% { content: '..'; }
+      60%, 100% { content: '...'; }
+    }
+
+    /* Error */
+    .error {
+      background-color: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--accent-danger);
+      border-radius: 8px;
+      padding: 15px;
+      color: #fca5a5;
+      margin-bottom: 20px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        padding: 12px;
+      }
+
+      .header-title h1 {
+        font-size: 22px;
+      }
+
+      .header-top {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .header-controls {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .filters {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .filter-group {
+        width: 100%;
+        flex-direction: column;
+      }
+
+      .filter-group label {
+        min-width: unset;
+      }
+
+      .tabs {
+        overflow-x: auto;
+      }
+
+      .tab-button {
+        padding: 10px 16px;
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="passwordOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#0f1117;z-index:10000;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#1a1d27;padding:40px;border-radius:16px;border:1px solid #2a2e3f;text-align:center;max-width:400px;width:90%;">
+    <div style="width:60px;height:60px;background:linear-gradient(135deg,#4f8cff,#a855f7);border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:24px;color:#fff;margin:0 auto 20px;">K</div>
+    <h2 style="color:#e4e6ef;margin-bottom:8px;font-size:20px;">CG Commission Tracker</h2>
+    <p style="color:#8b8fa3;margin-bottom:24px;font-size:14px;">Enter password to access the dashboard</p>
+    <input id="pwdInput" type="password" placeholder="Password" style="width:100%;padding:12px 16px;background:#22263a;border:1px solid #2a2e3f;color:#e4e6ef;border-radius:8px;font-size:15px;margin-bottom:12px;box-sizing:border-box;" onkeydown="if(event.key==='Enter')checkPwd()">
+    <button onclick="checkPwd()" style="width:100%;padding:12px;background:#4f8cff;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">Access Dashboard</button>
+    <p id="pwdError" style="color:#ef4444;margin-top:12px;font-size:13px;display:none;">Incorrect password</p>
+  </div>
+</div>
+<script>
+async function hashPwd(pwd){const e=new TextEncoder().encode(pwd);const h=await crypto.subtle.digest('SHA-256',e);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function checkPwd(){const p=document.getElementById('pwdInput').value;const h=await hashPwd(p);if(h==='d2d6670dcc41061954b2c3eab115b77f2dc279c74b972003749eb5a9cb194ea2'){document.getElementById('passwordOverlay').style.display='none';sessionStorage.setItem('kubic_auth','true');}else{document.getElementById('pwdError').style.display='block';document.getElementById('pwdInput').value='';}}
+if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOMContentLoaded',()=>{document.getElementById('passwordOverlay').style.display='none';});}
+</script>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-top">
+        <div class="header-title">
+          <h1>CG Accounts — Commission Tracker</h1>
+          <p>Kubic Transport Interstate & Linehaul | 1.5% Commission</p>
+        </div>
+        <div class="header-controls">
+          <div class="live-badge">Live</div>
+          <button class="btn btn-secondary" id="refreshBtn" onclick="refreshData()">↻ Refresh</button>
+          <span class="last-updated" id="lastUpdated">Loading...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <div class="filter-group">
+        <label>Type:</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" data-type="fy" onclick="toggleYearType('fy')">FY Year</button>
+          <button class="toggle-btn" data-type="cy" onclick="toggleYearType('cy')">Calendar Year</button>
+        </div>
+      </div>
+      <div class="filter-group">
+        <label>Year:</label>
+        <div id="filterYear"></div>
+      </div>
+      <div class="filter-group">
+        <label>Quarter:</label>
+        <div id="filterQuarter"></div>
+      </div>
+      <div class="filter-group">
+        <label>Month:</label>
+        <div id="filterMonth"></div>
+      </div>
+      <div class="filter-group">
+        <label>Customer:</label>
+        <div id="filterCustomer"></div>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card accent-primary">
+        <div class="kpi-label">Total Commission Earned</div>
+        <div class="kpi-value" id="totalCommission">$0.00</div>
+        <div class="kpi-subtext">1.5% of revenue</div>
+      </div>
+      <div class="kpi-card accent-success">
+        <div class="kpi-label">Total Revenue</div>
+        <div class="kpi-value" id="totalRevenue">$0.00</div>
+        <div class="kpi-subtext">CG customers only</div>
+      </div>
+      <div class="kpi-card accent-warning">
+        <div class="kpi-label">Total Loads</div>
+        <div class="kpi-value" id="totalLoads">0</div>
+        <div class="kpi-subtext">CG customer shipments</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Active CG Customers</div>
+        <div class="kpi-value" id="activeCustomers">0</div>
+        <div class="kpi-subtext">In current data</div>
+      </div>
+      <div class="kpi-card" style="border-left:3px solid #10b981;">
+        <div class="kpi-label">Total Margin $</div>
+        <div class="kpi-value" id="totalMarginDollar">$0.00</div>
+        <div class="kpi-subtext">Revenue − Cost</div>
+      </div>
+      <div class="kpi-card" style="border-left:3px solid #8b5cf6;">
+        <div class="kpi-label">Avg Margin %</div>
+        <div class="kpi-value" id="avgMargin">0%</div>
+        <div class="kpi-subtext">Weighted by revenue</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab('overview')">Commission Overview</button>
+      <button class="tab-button" onclick="switchTab('customers')">By Customer</button>
+      <button class="tab-button" onclick="switchTab('comparison')">FY Comparison</button>
+      <button class="tab-button" onclick="switchTab('quarterly')">Quarterly View</button>
+      <button class="tab-button" onclick="switchTab('manage')">Manage Customers</button>
+      <button class="tab-button" onclick="switchTab('insights')">Insights</button>
+    </div>
+
+    <!-- Tab Content -->
+
+    <!-- Overview Tab -->
+    <div id="overview" class="tab-content active">
+      <div class="grid-2">
+        <div>
+          <div class="chart-title">Commission Trend (Monthly)</div>
+          <div class="chart-container">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+        <div>
+          <div class="chart-title">Cumulative Commission</div>
+          <div class="chart-container">
+            <canvas id="cumulativeChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-title">Monthly P&L Summary</div>
+      <div class="table-container">
+        <table id="monthlyTable">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th class="text-right"># of Loads</th>
+              <th class="text-right">Revenue</th>
+              <th class="text-right">Margin</th>
+              <th class="text-right">Commission (1.5%)</th>
+              <th class="text-right">Avg Commission/Load</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5" class="text-center loading">Loading data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- By Customer Tab -->
+    <div id="customers" class="tab-content">
+      <div class="grid-2">
+        <div>
+          <div class="chart-title">Top 15 Customers by Commission</div>
+          <div class="chart-container">
+            <canvas id="topCustomersChart"></canvas>
+          </div>
+        </div>
+        <div>
+          <div class="chart-title">Commission Distribution</div>
+          <div class="chart-container">
+            <canvas id="distributionChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-title">All CG Customers</div>
+      <div class="table-container">
+        <table id="customersTable">
+          <thead>
+            <tr>
+              <th>Customer Name</th>
+              <th>CG Code</th>
+              <th class="text-right">Loads</th>
+              <th class="text-right">Revenue</th>
+              <th class="text-right">Margin</th>
+              <th class="text-right">Commission</th>
+              <th class="text-right">% of Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="6" class="text-center loading">Loading data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Comparison Tab -->
+    <div id="comparison" class="tab-content">
+      <div class="chart-title">Multi-Year Commission Trend</div>
+      <div class="chart-container">
+        <canvas id="multiYearChart"></canvas>
+      </div>
+
+      <div class="chart-title">FY Year Comparison</div>
+      <div class="table-container">
+        <div style="overflow-x:auto;">
+        <table id="comparisonTable">
+          <thead id="comparisonHead">
+            <tr>
+              <th>Metric</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5" class="text-center loading">Loading data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    </div>
+    <!-- Quarterly Tab -->
+    <div id="quarterly" class="tab-content">
+      <div class="chart-title">Commission by Quarter</div>
+      <div class="chart-container">
+        <canvas id="quarterlyChart"></canvas>
+      </div>
+      <div class="table-container">
+        <table id="quarterlyTable">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>Metric</th>
+              <th class="text-right">Q1</th>
+              <th class="text-right">Q2</th>
+              <th class="text-right">Q3</th>
+              <th class="text-right">Q4</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" class="text-center loading">Loading data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div id="manage" class="tab-content">
+      <div class="card">
+        <h2>Manage CG Customers</h2>
+        <p style="color:#666;font-size:14px">Edit the CG customer list used for booking matching. Changes are saved in your browser only (localStorage).</p>
+        <div id="manageStatus" style="display:none;padding:10px;margin:10px 0;border-radius:4px;"></div>
+        <div style="margin:10px 0;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="tab-button" onclick="addCgCustomer()">+ Add Customer</button>
+          <button class="tab-button" onclick="exportCgCustomers()">Export JSON</button>
+          <button class="tab-button" onclick="exportCgCustomersCsv()">Export CSV</button>
+          <button class="tab-button" onclick="document.getElementById('cgCsvInput').click()">Import CSV</button>
+          <input type="file" id="cgCsvInput" accept=".csv,text/csv" style="display:none" onchange="importCgCustomersCsv(event)">
+          <button class="tab-button" onclick="resetCgCustomers()">Reset to Default</button>
+          <button class="tab-button" onclick="reapplyMatching()">Re-apply Matching</button>
+        </div>
+        <div style="overflow:auto;max-height:500px">
+          <table id="manageTable" class="data-table"><thead><tr><th style="cursor:pointer;user-select:none" onclick="sortManage('code')">Code <span id="sortInd_code"></span></th><th style="cursor:pointer;user-select:none" onclick="sortManage('name')">Name <span id="sortInd_name"></span></th><th style="cursor:pointer;user-select:none" onclick="sortManage('alt')">Alt <span id="sortInd_alt"></span></th><th style="cursor:pointer;user-select:none" onclick="sortManage('alt2')">Alt2 <span id="sortInd_alt2"></span></th><th style="cursor:pointer;user-select:none" onclick="sortManage('loads')">Loads <span id="sortInd_loads"></span></th><th style="cursor:pointer;user-select:none" onclick="sortManage('revenue')">Revenue <span id="sortInd_revenue"></span></th><th>Action</th></tr></thead><tbody></tbody></table>
+        </div>
+        <h3 style="margin-top:24px">Unmatched Bookings</h3>
+        <p style="color:#666;font-size:13px">Sheet customers that don't currently match any CG customer. Click "+ Add" to add them as new CG customers.</p>
+        <div style="overflow:auto;max-height:300px">
+          <table id="unmatchedTable" class="data-table"><thead><tr><th style="cursor:pointer;user-select:none" onclick="sortUnmatched('customer')">Sheet Customer <span id="umInd_customer"></span></th><th style="cursor:pointer;user-select:none" onclick="sortUnmatched('loads')">Loads <span id="umInd_loads"></span></th><th style="cursor:pointer;user-select:none" onclick="sortUnmatched('revenue')">Revenue <span id="umInd_revenue"></span></th><th>Action</th></tr></thead><tbody><tr><td colspan="4" class="text-center loading">Click Re-apply Matching to scan</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div id="insights" class="tab-content">
+      <div class="card">
+        <h2>Analyst Insights</h2>
+        <p style="color:#666;font-size:14px">Automated analysis across your CG customer base to help you keep volume continuous and growing. Recomputed from live data every time you open this tab. Respects your current FY/CY filter.</p>
+        <div style="margin:10px 0">
+          <label style="font-size:13px;color:#666">Compare window: </label>
+          <select id="insightWindow" onchange="renderInsightsTab()" style="padding:4px 8px">
+            <option value="30">Last 30 days vs prior 30</option>
+            <option value="60" selected>Last 60 days vs prior 60</option>
+            <option value="90">Last 90 days vs prior 90</option>
+          </select>
+        </div>
+        <div id="insightsKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0"></div>
+        <div id="insightsContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // CG Customers list
+    const CG_CUSTOMERS = [
+      {code:'CG021', name:'Jemark'},
+      {code:'CG022', name:'QF National', alt:'Queensland Freighters'},
+      {code:'CG023', name:'Thermakraft'},
+      {code:'CG024', name:'Bamboo Ware'},
+      {code:'CG025', name:'Supply Logistics'},
+      {code:'CG027', name:'Snackbrands'},
+      {code:'CG028', name:'Nu Trans'},
+      {code:'CG029', name:'Deliver Group'},
+      {code:'CG030', name:'PJ Sas'},
+      {code:'CG033', name:'Splyint'},
+      {code:'CG034', name:'efm Logistics'},
+      {code:'CG035', name:'Castlery'},
+      {code:'CG036', name:'Pearson Beverage'},
+      {code:'CG038', name:'Nyson Australia'},
+      {code:'CG039', name:'Allseas Global'},
+      {code:'CG040', name:'Morrows Logistics'},
+      {code:'CG041', name:'Black Hill Transport'},
+      {code:'CG042', name:'Ubeeco'},
+      {code:'CG043', name:'Premier Roofing'},
+      {code:'CG044', name:'Kangaroo Transport', alt:'KTI'},
+      {code:'CG045', name:'Advansa'},
+      {code:'CG046', name:'Ling Ling Tchung'},
+      {code:'CG047', name:'JCT Transport'},
+      {code:'CG048', name:'Department of Education'},
+      {code:'CG049B', name:'Netlogix Demurrage'},
+      {code:'CG051', name:'One Global Logistics'},
+      {code:'CG052', name:'Foamex'},
+      {code:'CG053', name:'API Services'},
+      {code:'CG054', name:'Makin Logistics'},
+      {code:'CG055', name:'Transport & Logistics Business Solutions'},
+      {code:'CG056', name:'Allcare Logistics'},
+      {code:'CG057', name:'Pivotal Creative'},
+      {code:'CG058', name:'Digital Services Australia', alt:'Ofload'},
+      {code:'CG059', name:'Arctic Ice'},
+      {code:'CG060', name:'Unique Development'},
+      {code:'CG061', name:'FTL Transport'},
+      {code:'CG063', name:'T6 Transport'},
+      {code:'CG064', name:'Avida Beverage'},
+      {code:'CG065', name:'Domestic Freight Express'},
+      {code:'CG066', name:'Infrabuild'},
+      {code:'CG068', name:'Hilco Global'},
+      {code:'CG069', name:'QBV'},
+      {code:'CG071', name:'Rubbertec'},
+      {code:'CG072', name:'Boucher Wines'},
+      {code:'CG074', name:'Morgans Transport'},
+      {code:'CG075', name:'Eureka Sustainability', alt:'Eureka Insulation'},
+      {code:'CG076', name:'Excavation & Structural'},
+      {code:'CG078', name:'Universal Property'},
+      {code:'CG079', name:'AMA Procurement'},
+      {code:'CG080', name:'Gooding\'s Transport'},
+      {code:'CG081', name:'Smart Energy'},
+      {code:'CG082', name:'Twinbro Trucking'},
+      {code:'CG083', name:'Road Freight Solutions'},
+      {code:'CG084', name:'Simon Paton'},
+      {code:'CG085', name:'Universal Freight Concepts'},
+      {code:'CG086', name:'Body Armour'},
+      {code:'CG089', name:'MTF Logistics'},
+      {code:'CG091', name:'Vitragroup'},
+      {code:'CG093', name:'M&L Australia'},
+      {code:'CG096', name:'FLSA Holdings'},
+      {code:'CG096B', name:'Simon National'},
+      {code:'CG097', name:'Petco Holdings'},
+      {code:'CG098', name:'Saunders Logistics'},
+      {code:'CG026', name:'3 Pillars Supply', alt:'Body Fit'},
+      {code:'CG037', name:'ACM Parts'},
+      {code:'CG010', name:'AEB Enterprises', alt:'Muve Logistics'},
+      {code:'CG020', name:'Andromeda Nominees', alt:'Formby Logistics'},
+      {code:'CG031', name:'Benchmark Logistics'},
+      {code:'CG031B', name:'Benchmark Logistics EX NSW'},
+      {code:'CG092', name:'Bonds Transport'},
+      {code:'CG050', name:'Brandlink'},
+      {code:'CG001', name:'Cora Group'},
+      {code:'CG011', name:'Ecowool Insulation'},
+      {code:'CG019', name:'Ecowool Insulation', alt:'ex NSW'},
+      {code:'CG007', name:'Elite Logistics'},
+      {code:'CG015', name:'Elite Supli Chain'},
+      {code:'CG004', name:'Encore Tissue'},
+      {code:'CG014', name:'Frank Green'},
+      {code:'CG032', name:'Freight Companies Australia'},
+      {code:'CG003', name:'Freight Hub Logistics'},
+      {code:'CG067', name:'Global Trade Supplies'},
+      {code:'CG006', name:'Gym Services'},
+      {code:'CG013', name:'Interpod'},
+      {code:'CG062', name:'Kandu Freight'},
+      {code:'CG099', name:'Lodgic'},
+      {code:'CG018', name:'Masterkraft', alt:'Gym Importers'},
+      {code:'CG094', name:'Melbourne Masonry'},
+      {code:'CG088', name:'Metecno'},
+      {code:'CG077', name:'Multigroup Logistics'},
+      {code:'CG100', name:'NBI Logistics'},
+      {code:'CG049', name:'NetLogix'},
+      {code:'CG087', name:'Plastic Recycling Hub'},
+      {code:'CG070', name:'Ricky Richards'},
+      {code:'CG009', name:'Sabrina Shopfitting'},
+      {code:'CG017', name:'Sancell'},
+      {code:'CG090', name:'Smarter Freight', alt:'Freight People'},
+      {code:'CG016', name:'Stone Solutions', alt:'Stoneclip'},
+      {code:'CG012', name:'Super Savvy Savings'},
+      {code:'CG008', name:'Sydmel', alt:'Necter Joinery', alt2:'Storepro'},
+      {code:'CG002', name:'Tuco'},
+      {code:'CG005', name:'Verge Safety Barriers'},
+      {code:'CG095', name:'Vic Cans'}
+    ];
+    // ===== Manage Customers: localStorage override =====
+    let CG_CUSTOMERS_RUNTIME = (function(){
+      try {
+        const o = localStorage.getItem('kubic_cg_override');
+        if (o) { const p = JSON.parse(o); if (Array.isArray(p)) return p; }
+      } catch(e) {}
+      return CG_CUSTOMERS.slice();
+    })();
+    function saveCGOverride() {
+      try { localStorage.setItem('kubic_cg_override', JSON.stringify(CG_CUSTOMERS_RUNTIME)); } catch(e) {}
+    }
+    function resetCGOverride() {
+      try { localStorage.removeItem('kubic_cg_override'); } catch(e) {}
+      CG_CUSTOMERS_RUNTIME = CG_CUSTOMERS.slice();
+    }
+
+
+    const SHEET_ID = '1TjvR5ODYR0SjxgjrJ_CVi4FPpfHkG96-ih7f-QLq8sE';
+    const TABS = ['2026', '2025', '2024', '2023', '2022', '2018 - 2021'];
+
+    // Column mappings — select customer, date, revenue, cost (we match CG after)
+    const COL_MAP = {
+      modern: { customer:'B', date:'C', revenue:'S', cost:'X' },  // 2023-2026
+      mid:    { customer:'B', date:'C', revenue:'P', cost:'U' },  // 2022
+      legacy: { customer:'A', date:'B', revenue:'N', cost:'T' }   // 2018-2021
+    };
+    function getColMap(tab) {
+      if (['2023','2024','2025','2026'].includes(tab)) return COL_MAP.modern;
+      if (tab === '2022') return COL_MAP.mid;
+      return COL_MAP.legacy;
+    }
+
+    let allData = [];
+    let unmatchedRows = [];
+    let filteredData = [];
+    let yearType = 'fy';
+    let charts = {};
+    let multiSelects = {};
+
+    // MultiSelect Class
+    class MultiSelect {
+      constructor({ containerId, placeholder = 'Select...', searchable = false, onChange = null }) {
+        this.containerId = containerId;
+        this.placeholder = placeholder;
+        this.searchable = searchable;
+        this.onChange = onChange;
+        this.options = [];
+        this.selected = new Set();
+        this.container = document.getElementById(containerId);
+        this.isOpen = false;
+        this.render();
+      }
+
+      setOptions(options) {
+        this.options = options;
+        // Preserve selections that still exist
+        const newValues = new Set(options.map(o => o.value));
+        const preserved = Array.from(this.selected).filter(v => newValues.has(v));
+        this.selected = new Set(preserved);
+        this.renderDropdown();
+      }
+
+      getSelected() {
+        return Array.from(this.selected);
+      }
+
+      setSelected(values) {
+        this.selected = new Set(values || []);
+        this.renderButton();
+        this.renderDropdown();
+      }
+
+      clear() {
+        this.selected.clear();
+        this.renderButton();
+        this.renderDropdown();
+      }
+
+      render() {
+        this.container.innerHTML = '';
+        this.container.classList.add('multi-select');
+
+        const btn = document.createElement('button');
+        btn.className = 'multi-select-btn';
+        btn.type = 'button';
+        btn.onclick = (e) => { e.stopPropagation(); this.toggleDropdown(); };
+        this.button = btn;
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'multi-select-dropdown';
+        this.dropdown = dropdown;
+
+        this.container.appendChild(btn);
+        this.container.appendChild(dropdown);
+
+        document.addEventListener('click', (e) => {
+          if (!this.container.contains(e.target)) {
+            this.closeDropdown();
+          }
+        });
+
+        this.renderButton();
+        this.renderDropdown();
+      }
+
+      renderButton() {
+        const count = this.selected.size;
+        let label = this.placeholder;
+        if (count > 0) {
+          const selected = this.options.filter(o => this.selected.has(o.value));
+          if (count <= 2) {
+            label = selected.map(o => o.label).join(', ');
+          } else {
+            label = selected.slice(0, 2).map(o => o.label).join(', ') + ` +${count - 2}`;
+          }
+        }
+        this.button.innerHTML = `${label}${count > 0 ? `<span class="multi-select-badge">${count}</span>` : ''}`;
+      }
+
+      renderDropdown() {
+        this.dropdown.innerHTML = '';
+
+        if (this.searchable) {
+          const search = document.createElement('div');
+          search.className = 'multi-select-search';
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.placeholder = 'Search...';
+          search.appendChild(input);
+          this.dropdown.appendChild(search);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'multi-select-actions';
+        const selectAll = document.createElement('span');
+        selectAll.textContent = 'Select All';
+        selectAll.onclick = () => {
+          this.options.forEach(o => this.selected.add(o.value));
+          this.renderButton();
+          this.renderDropdown();
+          this.onChange && this.onChange();
+        };
+
+        const clearAll = document.createElement('span');
+        clearAll.textContent = 'Clear All';
+        clearAll.onclick = () => {
+          this.selected.clear();
+          this.renderButton();
+          this.renderDropdown();
+          this.onChange && this.onChange();
+        };
+
+        actions.appendChild(selectAll);
+        actions.appendChild(clearAll);
+        this.dropdown.appendChild(actions);
+
+        this.options.forEach(option => {
+          const optionEl = document.createElement('label');
+          optionEl.className = 'multi-select-option';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.value = option.value;
+          checkbox.checked = this.selected.has(option.value);
+          checkbox.onchange = () => {
+            if (checkbox.checked) {
+              this.selected.add(option.value);
+            } else {
+              this.selected.delete(option.value);
+            }
+            this.renderButton();
+            this.onChange && this.onChange();
+          };
+
+          optionEl.appendChild(checkbox);
+          const text = document.createElement('span');
+          text.textContent = option.label;
+          optionEl.appendChild(text);
+          this.dropdown.appendChild(optionEl);
+        });
+      }
+
+      toggleDropdown() {
+        this.isOpen ? this.closeDropdown() : this.openDropdown();
+      }
+
+      openDropdown() {
+        this.isOpen = true;
+        this.dropdown.classList.add('open');
+        this.button.classList.add('open');
+      }
+
+      closeDropdown() {
+        this.isOpen = false;
+        this.dropdown.classList.remove('open');
+        this.button.classList.remove('open');
+      }
+    }
+
+    // JSONP fetch functions
+    function fetchViaJsonp(url) {
+      return new Promise((resolve, reject) => {
+        const cbName = 'gvizCb_' + Math.random().toString(36).substr(2, 9);
+        const timeout = setTimeout(() => { delete window[cbName]; reject(new Error('Timeout')); }, 30000);
+        window[cbName] = function(response) {
+          clearTimeout(timeout);
+          delete window[cbName];
+          const script = document.querySelector(`script[data-cb="${cbName}"]`);
+          if (script) script.remove();
+          resolve(response);
+        };
+        const script = document.createElement('script');
+        script.setAttribute('data-cb', cbName);
+        script.src = url + `&tqx=responseHandler:${cbName};out:json`;
+        script.onerror = () => { clearTimeout(timeout); delete window[cbName]; script.remove(); reject(new Error('Script load error')); };
+        document.head.appendChild(script);
+      });
+    }
+
+    async function fetchViaFetch(url) {
+      const resp = await fetch(url + '&tqx=out:json');
+      const text = await resp.text();
+      const match = text.match(/google\.visualization\.Query\.setResponse\((.+)\);?\s*$/);
+      if (!match) throw new Error('No match');
+      return JSON.parse(match[1]);
+    }
+
+    // Match customer to CG customer — bidirectional fuzzy matching
+    function matchCGCustomer(sheetCustomer) {
+      if (!sheetCustomer) return null;
+      const norm = sheetCustomer.toUpperCase().trim().replace(/^RCTI\s*[-\u2013]\s*/, '').replace(/\s+/g, ' ');
+      const COMMON_WORDS = new Set(['SUPPLY','FREIGHT','TRANSPORT','TRANSPORTS','LOGISTICS','EXPRESS','GLOBAL','NATIONAL','AUSTRALIAN','AUSTRALIA','AUS','GROUP','SERVICES','SOLUTIONS','PTY','LTD','THE','AND','CO','COMPANY','COMPANIES','INTERNATIONAL','BUSINESS','SAFETY','BARRIERS','SAF','DIGITAL','INDUSTRIES','CHAINS','ACTIVE','HOLDINGS','CONSULTING','CONSULTANTS','TRADING','TRADERS','PEOPLE','OFLOAD']);
+      const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wordRe = w => new RegExp('\\b' + esc(w) + '\\b');
+          for (const cg of CG_CUSTOMERS_RUNTIME) {
+        const cgName = cg.name.toUpperCase();
+        const cgAlt = cg.alt ? cg.alt.toUpperCase() : null;
+        const cgAlt2 = cg.alt2 ? cg.alt2.toUpperCase() : null;
+        const cgCode = cg.code.toUpperCase();
+        if (norm === cgName) return cg;
+        if (cgAlt && norm === cgAlt) return cg;
+        if (cgAlt2 && norm === cgAlt2) return cg;
+        if (wordRe(cgCode).test(norm)) return cg;
+        if (cgName.split(' ').length >= 2 && norm.includes(cgName)) return cg;
+        if (cgAlt && cgAlt.split(' ').length >= 2 && norm.includes(cgAlt)) return cg;
+        if (cgAlt2 && cgAlt2.split(' ').length >= 2 && norm.includes(cgAlt2)) return cg;
+        const tryUniqueWord = name => {
+          const words = name.split(' ').filter(w => w.length >= 4 && !COMMON_WORDS.has(w));
+          if (words.length === 1) return wordRe(words[0]).test(norm);
+          return false;
+        };
+        if (tryUniqueWord(cgName)) return cg;
+        if (cgAlt && tryUniqueWord(cgAlt)) return cg;
+        if (cgAlt2 && tryUniqueWord(cgAlt2)) return cg;
+      }
+      return null;
+    }
+
+    // Parse date
+    function parseDate(dateVal) {
+      let dt = null;
+      if (dateVal instanceof Date) {
+        dt = dateVal;
+      } else if (typeof dateVal === 'string' && dateVal.startsWith('Date(')) {
+        const parts = dateVal.match(/Date\((\d+),(\d+),(\d+)\)/);
+        if (parts) dt = new Date(+parts[1], +parts[2], +parts[3]);
+      } else if (typeof dateVal === 'string') {
+        dt = new Date(dateVal);
+      } else if (typeof dateVal === 'number') {
+        dt = new Date(dateVal);
+      }
+      return dt;
+    }
+
+    // Australian FY: Jul-Jun. FY2026 = Jul 2025 - Jun 2026
+    function getFY(dt) {
+      return dt.getMonth() >= 6 ? dt.getFullYear() + 1 : dt.getFullYear();
+    }
+    function getFYLabel(dt) {
+      const fy = getFY(dt);
+      return 'FY' + fy;
+    }
+    function getCYLabel(dt) {
+      return '' + dt.getFullYear();
+    }
+    function getFYQuarter(month) {
+      if (month >= 6 && month <= 8) return 'Q1';
+      if (month >= 9 && month <= 11) return 'Q2';
+      if (month >= 0 && month <= 2) return 'Q3';
+      return 'Q4';
+    }
+    function getCYQuarter(month) {
+      if (month <= 2) return 'Q1';
+      if (month <= 5) return 'Q2';
+      if (month <= 8) return 'Q3';
+      return 'Q4';
+    }
+
+    // Fetch a single sheet tab using gviz SQL query
+    async function fetchSheetTab(tabName) {
+      const cm = getColMap(tabName);
+      const query = `select ${cm.customer},${cm.date},${cm.revenue},${cm.cost} where ${cm.date} is not null`;
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(tabName)}&tq=${encodeURIComponent(query)}&headers=1`;
+
+      try {
+        let json;
+        try {
+          json = await fetchViaJsonp(url);
+        } catch(e) {
+          console.warn(`JSONP failed for ${tabName}, trying fetch:`, e);
+          json = await fetchViaFetch(url);
+        }
+        if (!json || json.status === 'error') return [];
+
+        return json.table.rows.map(r => {
+          const c = r.c;
+          if (!c || !c[0] || !c[1]) return null;
+
+          // Parse date
+          const dateVal = c[1]?.v;
+          const dt = parseDate(dateVal);
+          if (!dt || isNaN(dt.getTime())) return null;
+
+          // Parse customer and match to CG
+          const customerVal = (c[0]?.v || '').toString().trim();
+          const cgCustomer = matchCGCustomer(customerVal);
+          const revenue = parseFloat(c[2]?.v) || 0;
+          const cost = parseFloat(c[3]?.v) || 0;
+          const profit = revenue - cost;
+          const margin = revenue > 0 ? (profit / revenue * 100) : 0;
+          if (!cgCustomer) { unmatchedRows.push({customer: customerVal, date: dt, revenue: revenue, cost: cost, profit: profit, margin: margin}); return null; }
+
+          const month = dt.getMonth();
+          return {
+            customer: customerVal,
+            cgCode: cgCustomer.code,
+            cgName: cgCustomer.name,
+            date: dt,
+            fyYear: getFYLabel(dt),
+            cyYear: getCYLabel(dt),
+            fyQuarter: getFYQuarter(month),
+            cyQuarter: getCYQuarter(month),
+            month: month + 1,
+            monthIdx: month,
+            revenue: revenue,
+            cost: cost,
+            profit: profit,
+            margin: margin,
+            commission: revenue * 0.015
+          };
+        }).filter(Boolean);
+      } catch(e) {
+        console.error(`Error fetching ${tabName}:`, e);
+        return [];
+      }
+    }
+
+    // Load all data from all sheets
+    async function loadData() {
+      try {
+      unmatchedRows = [];
+        const promises = TABS.map(t => fetchSheetTab(t));
+        const results = await Promise.all(promises);
+        allData = results.flat().sort((a,b) => a.date - b.date);
+
+        console.log('CG Commission data loaded:', allData.length, 'matched rows');
+        const fyDist = {};
+        allData.forEach(d => { fyDist[d.fyYear] = (fyDist[d.fyYear]||0)+1; });
+        console.log('FY distribution:', fyDist);
+
+        populateFilters();
+        applyFilters();
+        updateLastUpdated();
+        startAutoRefresh();
+      } catch (error) {
+        console.error('Load error:', error);
+      }
+    }
+
+    function populateFilters() {
+      if (!multiSelects.year) {
+        multiSelects.year = new MultiSelect({
+          containerId: 'filterYear',
+          placeholder: 'Select Year',
+          onChange: applyFilters
+        });
+        multiSelects.quarter = new MultiSelect({
+          containerId: 'filterQuarter',
+          placeholder: 'All Quarters',
+          onChange: applyFilters
+        });
+        multiSelects.month = new MultiSelect({
+          containerId: 'filterMonth',
+          placeholder: 'All Months',
+          onChange: applyFilters
+        });
+        multiSelects.customer = new MultiSelect({
+          containerId: 'filterCustomer',
+          placeholder: 'All Customers',
+          searchable: true,
+          onChange: applyFilters
+        });
+      }
+
+      updateYearFilter();
+    }
+
+    function updateYearFilter() {
+      const yearSet = new Set();
+      for (const row of allData) {
+        if (yearType === 'fy') {
+          yearSet.add(row.fyYear);
+        } else {
+          yearSet.add(row.cyYear);
+        }
+      }
+
+      const years = Array.from(yearSet).sort().reverse();
+      const options = years.map(y => ({ value: y, label: y }));
+      multiSelects.year.setOptions(options);
+
+      if (years.length > 0 && multiSelects.year.getSelected().length === 0) {
+        multiSelects.year.setSelected([years[0]]);
+      }
+    }
+
+    function toggleYearType(type) {
+      yearType = type;
+      document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      updateYearFilter();
+      applyFilters();
+    }
+
+    function applyFilters() {
+      const selectedYears = multiSelects.year.getSelected();
+      const selectedQuarters = multiSelects.quarter.getSelected();
+      const selectedMonths = multiSelects.month.getSelected();
+      const selectedCustomers = multiSelects.customer.getSelected();
+
+      // Step 1: Filter by selected years
+      let subset = allData.filter(row => {
+        const year = yearType === 'fy' ? row.fyYear : row.cyYear;
+        return selectedYears.length === 0 || selectedYears.includes(year);
+      });
+
+      // Step 2: Update Quarter options based on filtered data
+      const getQtr = (r) => yearType === 'fy' ? r.fyQuarter : r.cyQuarter;
+      const availableQuarters = new Set(subset.map(r => getQtr(r)));
+      const quarterOptions = ['Q1', 'Q2', 'Q3', 'Q4']
+        .filter(q => availableQuarters.has(q))
+        .map(q => ({ value: q, label: q }));
+      multiSelects.quarter.setOptions(quarterOptions);
+
+      // Step 3: Filter by selected quarters
+      subset = subset.filter(row =>
+        selectedQuarters.length === 0 || selectedQuarters.includes(getQtr(row))
+      );
+
+      // Step 4: Update Month options based on filtered data
+      const availableMonths = new Set(subset.map(r => r.month));
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+      const monthOptions = monthNames
+        .map((name, idx) => ({ value: (idx + 1).toString(), label: name }))
+        .filter(m => availableMonths.has(parseInt(m.value)));
+      multiSelects.month.setOptions(monthOptions);
+
+      // Step 5: Filter by selected months
+      subset = subset.filter(row =>
+        selectedMonths.length === 0 || selectedMonths.includes(row.month.toString())
+      );
+
+      // Step 6: Update Customer options based on filtered data
+      const customerMap = new Map();
+      for (const row of subset) {
+        if (!customerMap.has(row.cgCode)) {
+          customerMap.set(row.cgCode, row.cgName);
+        }
+      }
+      const customerOptions = Array.from(customerMap.entries())
+        .sort()
+        .map(([code, name]) => ({ value: code, label: `${name} (${code})` }));
+      multiSelects.customer.setOptions(customerOptions);
+
+      // Step 7: Filter by selected customers
+      filteredData = subset.filter(row =>
+        selectedCustomers.length === 0 || selectedCustomers.includes(row.cgCode)
+      );
+
+      // Step 8: Update dashboard
+      updateKPIs();
+      renderOverviewTab();
+      renderCustomersTab();
+      renderComparisonTab();
+      renderQuarterlyTab();
+    }
+
+    function resetFilters() {
+      if (multiSelects.year) multiSelects.year.clear();
+      if (multiSelects.quarter) multiSelects.quarter.clear();
+      if (multiSelects.month) multiSelects.month.clear();
+      if (multiSelects.customer) multiSelects.customer.clear();
+      applyFilters();
+    }
+
+    function updateKPIs() {
+      let totalCommission = 0, totalRevenue = 0, totalCost = 0, totalLoads = 0;
+      const customerSet = new Set();
+
+      for (const row of filteredData) {
+        totalCommission += row.commission;
+        totalRevenue += row.revenue;
+        totalCost += row.cost;
+        totalLoads += 1;
+        customerSet.add(row.cgCode);
+      }
+
+      const totalProfit = totalRevenue - totalCost;
+      const avgMargin = totalRevenue > 0 ? (totalProfit / totalRevenue * 100) : 0;
+
+      document.getElementById('totalCommission').textContent = '$' + totalCommission.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      document.getElementById('totalRevenue').textContent = '$' + totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      document.getElementById('totalLoads').textContent = totalLoads;
+      document.getElementById('activeCustomers').textContent = customerSet.size;
+      const marginDollarEl = document.getElementById('totalMarginDollar');
+      if (marginDollarEl) {
+        marginDollarEl.textContent = '$' + totalProfit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        marginDollarEl.style.color = totalProfit >= 0 ? '#10b981' : '#ef4444';
+      }
+      const marginEl = document.getElementById('avgMargin');
+      if (marginEl) {
+        marginEl.textContent = avgMargin.toFixed(1) + '%';
+        marginEl.style.color = avgMargin >= 0 ? '#8b5cf6' : '#ef4444';
+      }
+    }
+
+    function renderOverviewTab() {
+      // Group by month/period
+      const monthMap = new Map();
+      for (const row of filteredData) {
+        const key = `${row.fyYear || row.cyYear}-${String(row.month).padStart(2, '0')}`;
+        if (!monthMap.has(key)) {
+          monthMap.set(key, {date: row.date, loads: 0, revenue: 0, cost: 0, commission: 0});
+        }
+        const m = monthMap.get(key);
+        m.loads++;
+        m.revenue += row.revenue;
+        m.cost += row.cost;
+        m.commission += row.commission;
+      }
+
+      const months = Array.from(monthMap.entries()).sort((a, b) => a[1].date - b[1].date);
+
+      // Render table
+      const tbody = document.querySelector('#monthlyTable tbody');
+      tbody.innerHTML = months.map(([key, data]) => {
+        const monthName = new Date(data.date.getFullYear(), data.date.getMonth()).toLocaleDateString('en-US', {month: 'short', year: 'numeric'});
+        const avgCommission = data.loads > 0 ? data.commission / data.loads : 0;
+        const monthProfit = data.revenue - data.cost;
+        const monthMargin = data.revenue > 0 ? (monthProfit / data.revenue * 100) : 0;
+        const marginColor = monthMargin >= 15 ? '#22c55e' : monthMargin >= 5 ? '#f59e0b' : '#ef4444';
+        return `<tr>
+          <td>${monthName}</td>
+          <td class="text-right">${data.loads}</td>
+          <td class="text-right">$${data.revenue.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+          <td class="text-right" style="color:${marginColor};font-weight:600">${monthMargin.toFixed(1)}%</td>
+          <td class="text-right accent-primary">$${data.commission.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+          <td class="text-right">${avgCommission > 0 ? '$' + avgCommission.toLocaleString('en-US', {minimumFractionDigits: 2}) : '-'}</td>
+        </tr>`;
+      }).join('');
+
+      // Chart data
+      const labels = months.map(([key, data]) => new Date(data.date.getFullYear(), data.date.getMonth()).toLocaleDateString('en-US', {month: 'short', year: '2-digit'}));
+      const commissions = months.map(([, data]) => data.commission);
+      const cumulative = commissions.reduce((acc, val) => [...acc, (acc.length ? acc[acc.length - 1] : 0) + val], []);
+
+      updateChart('trendChart', {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Monthly Commission',
+            data: commissions,
+            backgroundColor: '#3b82f6',
+            borderColor: '#3b82f6',
+            borderWidth: 0,
+            borderRadius: 4
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}} }
+      });
+
+      updateChart('cumulativeChart', {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Cumulative Commission',
+            data: cumulative,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.05)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: '#10b981',
+            pointBorderColor: '#10b981'
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}} }
+      });
+    }
+
+    function renderCustomersTab() {
+      const custMap = new Map();
+      for (const row of filteredData) {
+        if (!custMap.has(row.cgCode)) {
+          custMap.set(row.cgCode, {name: row.cgName, code: row.cgCode, loads: 0, revenue: 0, cost: 0, commission: 0});
+        }
+        const c = custMap.get(row.cgCode);
+        c.loads++;
+        c.revenue += row.revenue;
+        c.cost += row.cost;
+        c.commission += row.commission;
+      }
+
+      const custs = Array.from(custMap.values()).sort((a,b) => b.commission - a.commission);
+      const total = custs.reduce((s,c) => s + c.commission, 0);
+
+      // Table
+      const tbody = document.querySelector('#customersTable tbody');
+      tbody.innerHTML = custs.map(c => {
+        const custProfit = c.revenue - c.cost;
+        const custMargin = c.revenue > 0 ? (custProfit / c.revenue * 100) : 0;
+        const marginColor = custMargin >= 15 ? '#22c55e' : custMargin >= 5 ? '#f59e0b' : '#ef4444';
+        return `<tr>
+        <td>${c.name}</td>
+        <td>${c.code}</td>
+        <td class="text-right">${c.loads}</td>
+        <td class="text-right">$${c.revenue.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        <td class="text-right" style="color:${marginColor};font-weight:600">${custMargin.toFixed(1)}%</td>
+        <td class="text-right accent-primary">$${c.commission.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        <td class="text-right">${total > 0 ? (c.commission / total * 100).toFixed(1) : 0}%</td>
+      </tr>`;
+      }).join('');
+
+      // Top 15 chart
+      const top15 = custs.slice(0, 15);
+      updateChart('topCustomersChart', {
+        type: 'bar',
+        data: {
+          labels: top15.map(c => `${c.name} (${c.code})`),
+          datasets: [{
+            label: 'Commission',
+            data: top15.map(c => c.commission),
+            backgroundColor: '#3b82f6'
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {display: false},
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const c = top15[ctx.dataIndex];
+                  const fmt = n => '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                  const cMargin = c.revenue > 0 ? ((c.revenue - (c.cost||0)) / c.revenue * 100) : 0;
+                  return [
+                    'Commission: ' + fmt(c.commission),
+                    'Revenue: ' + fmt(c.revenue),
+                    'Margin: ' + cMargin.toFixed(1) + '%',
+                    'Loads: ' + c.loads.toLocaleString()
+                  ];
+                }
+              }
+            }
+          },
+          scales: {x: {beginAtZero: true}}
+        }
+      });
+
+      // Distribution pie
+      updateChart('distributionChart', {
+        type: 'doughnut',
+        data: {
+          labels: custs.slice(0, 8).map(c => c.name),
+          datasets: [{
+            data: custs.slice(0, 8).map(c => c.commission),
+            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: {legend: {position: 'right'}} }
+      });
+    }
+
+    function renderComparisonTab() {
+      const yearMap = new Map();
+      for (const row of allData) {
+        const year = yearType === 'fy' ? row.fyYear : row.cyYear;
+        if (!yearMap.has(year)) {
+          yearMap.set(year, {loads: 0, revenue: 0, cost: 0, commission: 0});
+        }
+        const y = yearMap.get(year);
+        y.loads++;
+        y.revenue += row.revenue;
+        y.cost += row.cost;
+        y.commission += row.commission;
+      }
+
+      const years = Array.from(yearMap.keys()).sort();
+
+      // Build dynamic headers
+      const thead = document.getElementById('comparisonHead');
+      thead.innerHTML = `<tr><th>Metric</th>${years.map(y => `<th class="text-right">${y}</th>`).join('')}</tr>`;
+
+      // Table
+      const tbody = document.querySelector('#comparisonTable tbody');
+      tbody.innerHTML = `
+        <tr><td>Loads</td>${years.map(y => `<td class="text-right">${yearMap.get(y).loads.toLocaleString()}</td>`).join('')}</tr>
+        <tr><td>Revenue</td>${years.map(y => `<td class="text-right">$${yearMap.get(y).revenue.toLocaleString('en-US', {minimumFractionDigits: 0})}</td>`).join('')}</tr>
+        <tr><td><strong>Margin</strong></td>${years.map(y => {
+          const data = yearMap.get(y);
+          const yrProfit = data.revenue - data.cost;
+          const yrMargin = data.revenue > 0 ? (yrProfit / data.revenue * 100) : 0;
+          const mColor = yrMargin >= 15 ? '#22c55e' : yrMargin >= 5 ? '#f59e0b' : '#ef4444';
+          return `<td class="text-right" style="color:${mColor};font-weight:600">${yrMargin.toFixed(1)}%</td>`;
+        }).join('')}</tr>
+        <tr><td><strong>Commission (1.5%)</strong></td>${years.map(y => `<td class="text-right accent-primary"><strong>$${yearMap.get(y).commission.toLocaleString('en-US', {minimumFractionDigits: 0})}</strong></td>`).join('')}</tr>
+        <tr><td>Avg Commission/Load</td>${years.map(y => {
+          const data = yearMap.get(y);
+          const avg = data.loads > 0 ? data.commission / data.loads : 0;
+          return `<td class="text-right">$${avg.toLocaleString('en-US', {minimumFractionDigits: 0})}</td>`;
+        }).join('')}</tr>
+        <tr><td>YoY Commission Growth</td>${years.map((y, i) => {
+          if (i === 0) return '<td class="text-right">-</td>';
+          const prev = yearMap.get(years[i-1]).commission;
+          const curr = yearMap.get(y).commission;
+          const growth = prev > 0 ? ((curr - prev) / prev * 100) : 0;
+          const color = growth >= 0 ? '#22c55e' : '#ef4444';
+          return `<td class="text-right" style="color:${color}">${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%</td>`;
+        }).join('')}</tr>
+      `;
+
+      // Chart — show all years chronologically
+      updateChart('multiYearChart', {
+        type: 'bar',
+        data: {
+          labels: years,
+          datasets: [{
+            label: 'Commission',
+            data: years.map(y => yearMap.get(y).commission),
+            backgroundColor: 'rgba(79,140,255,0.7)',
+            borderRadius: 4
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: {legend: {display: false}}, scales: {x:{grid:{display:false},ticks:{color:'#8b8fa3'}}, y: {beginAtZero: true, grid:{color:'rgba(42,46,63,0.5)'}, ticks:{color:'#8b8fa3'}}} }
+      });
+    }
+
+    function renderQuarterlyTab() {
+      const quarterMap = new Map();
+      for (const row of filteredData) {
+        const year = yearType === 'fy' ? row.fyYear : row.cyYear;
+        const qtr = yearType === 'fy' ? row.fyQuarter : row.cyQuarter;
+        const key = year + '-' + qtr;
+        if (!quarterMap.has(key)) {
+          quarterMap.set(key, {year, quarter: qtr, commission: 0, revenue: 0, cost: 0, loads: 0});
+        }
+        const m = quarterMap.get(key);
+        m.commission += row.commission;
+        m.revenue += row.revenue;
+        m.cost += row.cost;
+        m.loads++;
+      }
+      const years = Array.from(new Set(Array.from(quarterMap.values()).map(q => q.year))).sort().reverse();
+      const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+      // Build multi-metric table: rows = (year, metric)
+      const fmt0 = n => '$' + Math.round(n).toLocaleString('en-US');
+      const fmt2 = n => '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      const tbody = document.querySelector('#quarterlyTable tbody');
+      if (tbody) {
+        tbody.innerHTML = years.map(year => {
+          const qd = quarters.map(q => quarterMap.get(year + '-' + q) || {commission: 0, revenue: 0, cost: 0, loads: 0});
+          const totLoads = qd.reduce((s,d) => s + d.loads, 0);
+          const totRev = qd.reduce((s,d) => s + d.revenue, 0);
+          const totCost = qd.reduce((s,d) => s + (d.cost||0), 0);
+          const totComm = qd.reduce((s,d) => s + d.commission, 0);
+          const totMargin = totRev > 0 ? ((totRev - totCost) / totRev * 100) : 0;
+          const cellLoads = qd.map(d => '<td class="text-right">' + (d.loads ? d.loads.toLocaleString() : '-') + '</td>').join('');
+          const cellRev = qd.map(d => '<td class="text-right">' + (d.revenue ? fmt0(d.revenue) : '-') + '</td>').join('');
+          const cellMargin = qd.map(d => {
+            if (!d.loads) return '<td class="text-right">-</td>';
+            const qm = d.revenue > 0 ? ((d.revenue - (d.cost||0)) / d.revenue * 100) : 0;
+            const mc = qm >= 15 ? '#22c55e' : qm >= 5 ? '#f59e0b' : '#ef4444';
+            return '<td class="text-right" style="color:' + mc + ';font-weight:600">' + qm.toFixed(1) + '%</td>';
+          }).join('');
+          const totMarginColor = totMargin >= 15 ? '#22c55e' : totMargin >= 5 ? '#f59e0b' : '#ef4444';
+          const cellComm = qd.map(d => '<td class="text-right accent-primary">' + (d.commission ? fmt0(d.commission) : '-') + '</td>').join('');
+          const cellAvg = qd.map(d => '<td class="text-right">' + (d.loads ? fmt2(d.commission / d.loads) : '-') + '</td>').join('');
+          return '<tr class="year-group"><td rowspan="5"><strong>' + year + '</strong></td>' +
+                 '<td>Loads</td>' + cellLoads + '<td class="text-right"><strong>' + totLoads.toLocaleString() + '</strong></td></tr>' +
+                 '<tr><td>Revenue</td>' + cellRev + '<td class="text-right"><strong>' + fmt0(totRev) + '</strong></td></tr>' +
+                 '<tr><td><strong>Margin</strong></td>' + cellMargin + '<td class="text-right" style="color:' + totMarginColor + ';font-weight:600"><strong>' + totMargin.toFixed(1) + '%</strong></td></tr>' +
+                 '<tr><td><strong>Commission (1.5%)</strong></td>' + cellComm + '<td class="text-right accent-primary"><strong>' + fmt0(totComm) + '</strong></td></tr>' +
+                 '<tr><td>Avg Comm/Load</td>' + cellAvg + '<td class="text-right">' + (totLoads ? fmt2(totComm / totLoads) : '-') + '</td></tr>';
+        }).join('');
+      }
+
+      // Render grouped bar chart
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#6366f1'];
+      const datasets = years.map((year, idx) => ({
+        label: String(year),
+        data: quarters.map(q => {
+          const data = quarterMap.get(year + '-' + q);
+          return data ? data.commission : 0;
+        }),
+        backgroundColor: colors[idx % colors.length],
+        borderRadius: 4
+      }));
+      updateChart('quarterlyChart', {
+        type: 'bar',
+        data: { labels: quarters, datasets: datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'top', labels: { color: '#8b8fa3' } },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const year = ctx.dataset.label;
+                  const q = ctx.label;
+                  const d = quarterMap.get(year + '-' + q) || {commission: 0, revenue: 0, cost: 0, loads: 0};
+                  const qMargin = d.revenue > 0 ? ((d.revenue - (d.cost||0)) / d.revenue * 100) : 0;
+                  return [
+                    'Commission: ' + fmt0(d.commission),
+                    'Revenue: ' + fmt0(d.revenue),
+                    'Margin: ' + qMargin.toFixed(1) + '%',
+                    'Loads: ' + d.loads.toLocaleString()
+                  ];
+                }
+              }
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#8b8fa3' } },
+            y: { beginAtZero: true, grid: { color: 'rgba(42,46,63,0.5)' }, ticks: { color: '#8b8fa3' } }
+          }
+        }
+      });
+    }
+
+    function renderManageTab() {
+      const tbody = document.querySelector('#manageTable tbody');
+      if (!window.__manageSort) window.__manageSort = {key:'code', dir:1};
+      const stats = {};
+      (typeof allData !== "undefined" ? allData : []).forEach(r => {
+        if (!r.cgCode) return;
+        if (!stats[r.cgCode]) stats[r.cgCode] = {loads:0, revenue:0};
+        stats[r.cgCode].loads++;
+        stats[r.cgCode].revenue += (r.revenue||0);
+      });
+      // Build rows with original index and stats
+      const rows = CG_CUSTOMERS_RUNTIME.map((c, i) => {
+        const s = stats[c.code] || {loads:0,revenue:0};
+        return {orig:i, code:c.code||'', name:c.name||'', alt:c.alt||'', alt2:c.alt2||'', loads:s.loads, revenue:s.revenue};
+      });
+      const {key, dir} = window.__manageSort;
+      rows.sort((a,b) => {
+        let x = a[key], y = b[key];
+        if (typeof x === 'string') { x = x.toLowerCase(); y = y.toLowerCase(); }
+        if (x < y) return -1*dir;
+        if (x > y) return 1*dir;
+        return 0;
+      });
+      // Update indicators
+      ['code','name','alt','alt2','loads','revenue'].forEach(k => {
+        const el = document.getElementById('sortInd_'+k);
+        if (el) el.textContent = (k===key) ? (dir===1?'\u25B2':'\u25BC') : '';
+      });
+      const esc = v => String(v).replace(/"/g,'&quot;');
+      tbody.innerHTML = rows.map(r => {
+        return '<tr>' +
+          '<td><input data-i="'+r.orig+'" data-f="code" value="'+esc(r.code)+'" style="width:80px"></td>' +
+          '<td><input data-i="'+r.orig+'" data-f="name" value="'+esc(r.name)+'" style="width:200px"></td>' +
+          '<td><input data-i="'+r.orig+'" data-f="alt" value="'+esc(r.alt)+'" style="width:160px"></td>' +
+          '<td><input data-i="'+r.orig+'" data-f="alt2" value="'+esc(r.alt2)+'" style="width:160px"></td>' +
+          '<td>'+r.loads+'</td>' +
+          '<td>$'+r.revenue.toLocaleString('en-AU',{maximumFractionDigits:0})+'</td>' +
+          '<td><button onclick="deleteCgCustomer('+r.orig+')">Delete</button></td>' +
+          '</tr>';
+      }).join('');
+      tbody.querySelectorAll('input').forEach(inp => {
+        inp.addEventListener('change', e => {
+          const i = +e.target.dataset.i, f = e.target.dataset.f;
+          CG_CUSTOMERS_RUNTIME[i][f] = e.target.value.trim();
+          if (!CG_CUSTOMERS_RUNTIME[i][f]) delete CG_CUSTOMERS_RUNTIME[i][f];
+          saveCGOverride();
+          showManageStatus('Saved. Click "Re-apply Matching" to update dashboards.', 'info');
+        });
+      });
+      refreshUnmatched();
+    }
+    function sortManage(key) {
+      if (!window.__manageSort) window.__manageSort = {key, dir:1};
+      else if (window.__manageSort.key === key) window.__manageSort.dir *= -1;
+      else window.__manageSort = {key, dir:1};
+      renderManageTab();
+    }
+        function addCgCustomer() {
+      const code = prompt('CG Code (e.g. CG999):');
+      if (!code) return;
+      const name = prompt('Customer Name:');
+      if (!name) return;
+      CG_CUSTOMERS_RUNTIME.push({code:code.trim(), name:name.trim()});
+      saveCGOverride();
+      renderManageTab();
+      showManageStatus('Added. Click "Re-apply Matching" to update.', 'info');
+    }
+    function deleteCgCustomer(i) {
+      if (!confirm('Delete '+CG_CUSTOMERS_RUNTIME[i].name+'?')) return;
+      CG_CUSTOMERS_RUNTIME.splice(i,1);
+      saveCGOverride();
+      renderManageTab();
+      showManageStatus('Deleted. Click "Re-apply Matching" to update.', 'info');
+    }
+    function exportCgCustomers() {
+      const json = JSON.stringify(CG_CUSTOMERS_RUNTIME, null, 2);
+      const blob = new Blob([json], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'cg_customers.json'; a.click();
+      URL.revokeObjectURL(url);
+    }
+    function exportCgCustomersCsv() {
+      const esc = v => {
+        if (v == null) return '';
+        const s = String(v);
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g,'""') + '"';
+        return s;
+      };
+      const lines = ['code,name,alt,alt2'];
+      CG_CUSTOMERS_RUNTIME.forEach(c => {
+        lines.push([esc(c.code), esc(c.name), esc(c.alt||''), esc(c.alt2||'')].join(','));
+      });
+      const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'cg_customers.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
+    function importCgCustomersCsv(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const text = e.target.result;
+          // Simple CSV parser
+          const parseCsv = str => {
+            const rows = [];
+            let row = [], field = '', inQ = false;
+            for (let i = 0; i < str.length; i++) {
+              const c = str[i];
+              if (inQ) {
+                if (c === '"' && str[i+1] === '"') { field += '"'; i++; }
+                else if (c === '"') inQ = false;
+                else field += c;
+              } else {
+                if (c === '"') inQ = true;
+                else if (c === ',') { row.push(field); field = ''; }
+                else if (c === '\n' || c === '\r') {
+                  if (field.length || row.length) { row.push(field); rows.push(row); row = []; field = ''; }
+                  if (c === '\r' && str[i+1] === '\n') i++;
+                } else field += c;
+              }
+            }
+            if (field.length || row.length) { row.push(field); rows.push(row); }
+            return rows;
+          };
+          const rows = parseCsv(text);
+          if (!rows.length) { showManageStatus('Empty CSV', 'error'); return; }
+          const header = rows[0].map(h => h.trim().toLowerCase());
+          const idxCode = header.indexOf('code');
+          const idxName = header.indexOf('name');
+          const idxAlt = header.indexOf('alt');
+          const idxAlt2 = header.indexOf('alt2');
+          if (idxCode < 0 || idxName < 0) { showManageStatus('CSV must have code and name columns', 'error'); return; }
+          if (!confirm('Replace current CG customer list with '+(rows.length-1)+' rows from CSV?')) { ev.target.value=''; return; }
+          const next = [];
+          for (let i = 1; i < rows.length; i++) {
+            const r = rows[i];
+            if (!r[idxCode] && !r[idxName]) continue;
+            const obj = {code: (r[idxCode]||'').trim(), name: (r[idxName]||'').trim()};
+            if (idxAlt >= 0 && r[idxAlt] && r[idxAlt].trim()) obj.alt = r[idxAlt].trim();
+            if (idxAlt2 >= 0 && r[idxAlt2] && r[idxAlt2].trim()) obj.alt2 = r[idxAlt2].trim();
+            next.push(obj);
+          }
+          CG_CUSTOMERS_RUNTIME.length = 0;
+          next.forEach(n => CG_CUSTOMERS_RUNTIME.push(n));
+          saveCGOverride();
+          renderManageTab();
+          showManageStatus('Imported '+next.length+' customers. Click "Re-apply Matching" to update.', 'success');
+        } catch(err) {
+          showManageStatus('Import failed: '+err.message, 'error');
+        }
+        ev.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+        function resetCgCustomers() {
+      if (!confirm('Reset to default CG customer list? This discards your edits.')) return;
+      resetCGOverride();
+      renderManageTab();
+      showManageStatus('Reset. Click "Re-apply Matching" to update.', 'info');
+    }
+    function reapplyMatching() {
+      showManageStatus('Re-matching... please wait', 'info');
+      // Re-match rows already in allData (may unmatch and move out)
+      const keep = [];
+      allData.forEach(r => {
+        const m = matchCGCustomer(r.customer);
+        if (m) { r.cgCode = m.code; r.cgName = m.name; keep.push(r); }
+        else { unmatchedRows.push({customer: r.customer, date: r.date, revenue: r.revenue, cost: r.cost||0, profit: r.profit||0, margin: r.margin||0}); }
+      });
+      allData.length = 0;
+      keep.forEach(r => allData.push(r));
+      // Try matching unmatchedRows — move matched ones into allData
+      const stillUnmatched = [];
+      unmatchedRows.forEach(u => {
+        const m = matchCGCustomer(u.customer);
+        if (m && u.date) {
+          const monthIdx = u.date.getMonth();
+          const _rev = u.revenue||0;
+          const _cost = u.cost||0;
+          const _profit = _rev - _cost;
+          const _margin = _rev > 0 ? (_profit / _rev * 100) : 0;
+          allData.push({
+            customer: u.customer, cgCode: m.code, cgName: m.name,
+            date: u.date,
+            fyYear: getFYLabel(u.date), cyYear: getCYLabel(u.date),
+            fyQuarter: getFYQuarter(monthIdx), cyQuarter: getCYQuarter(monthIdx),
+            month: monthIdx+1, monthIdx: monthIdx,
+            revenue: _rev, cost: _cost, profit: _profit, margin: _margin,
+            commission: _rev*0.015
+          });
+        } else {
+          stillUnmatched.push(u);
+        }
+      });
+      unmatchedRows.length = 0;
+      stillUnmatched.forEach(u => unmatchedRows.push(u));
+      applyFilters();
+      renderManageTab();
+      showManageStatus('Done. allData='+allData.length+', unmatched='+unmatchedRows.length, 'success');
+    }
+    function showManageStatus(msg, type) {
+      const el = document.getElementById('manageStatus');
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.background = type==='success' ? '#d4edda' : (type==='error'?'#f8d7da':'#d1ecf1');
+      el.style.color = type==='success' ? '#155724' : (type==='error'?'#721c24':'#0c5460');
+      setTimeout(()=>{ el.style.display='none'; }, 4000);
+    }
+    function refreshUnmatched() {
+      const tbody = document.querySelector('#unmatchedTable tbody');
+      if (!window.__umSort) window.__umSort = {key:'loads', dir:-1};
+      const um = {};
+      (typeof unmatchedRows !== 'undefined' ? unmatchedRows : []).forEach(r => {
+        const k = r.customer || '(blank)';
+        if (!um[k]) um[k] = {customer:k, loads:0, revenue:0};
+        um[k].loads++;
+        um[k].revenue += (r.revenue||0);
+      });
+      const arr = Object.values(um);
+      const {key, dir} = window.__umSort;
+      arr.sort((a,b) => {
+        let x = a[key], y = b[key];
+        if (typeof x === 'string') { x = x.toLowerCase(); y = y.toLowerCase(); }
+        if (x < y) return -1*dir;
+        if (x > y) return 1*dir;
+        return 0;
+      });
+      ['customer','loads','revenue'].forEach(k => {
+        const el = document.getElementById('umInd_'+k);
+        if (el) el.textContent = (k===key) ? (dir===1?'\u25B2':'\u25BC') : '';
+      });
+      if (!arr.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-center">No unmatched bookings</td></tr>'; return; }
+      tbody.innerHTML = arr.map(s =>
+        '<tr><td>'+s.customer.replace(/</g,'&lt;')+'</td><td>'+s.loads+'</td><td>$'+s.revenue.toLocaleString('en-AU',{maximumFractionDigits:0})+'</td>' +
+        '<td><button onclick="addUnmatchedAsNew(\''+s.customer.replace(/'/g,"\\'")+'\')">+ Add</button></td></tr>'
+      ).join('');
+    }
+    function sortUnmatched(key) {
+      if (!window.__umSort) window.__umSort = {key, dir:1};
+      else if (window.__umSort.key === key) window.__umSort.dir *= -1;
+      else window.__umSort = {key, dir: key==='customer'?1:-1};
+      refreshUnmatched();
+    }
+    function addUnmatchedAsNew(name) {
+      const code = prompt('CG Code for "'+name+'":');
+      if (!code) return;
+      CG_CUSTOMERS_RUNTIME.push({code:code.trim(), name:name});
+      saveCGOverride();
+      reapplyMatching();
+    }
+
+
+    
+    function renderInsightsTab() {
+      const src = (typeof allData !== 'undefined' ? allData : []);
+      const kpis = document.getElementById('insightsKpis');
+      const content = document.getElementById('insightsContent');
+      if (!src.length) { content.innerHTML = '<p style="color:#888">No data loaded yet.</p>'; kpis.innerHTML = ''; return; }
+      const windowDays = parseInt(document.getElementById('insightWindow').value) || 60;
+      const now = new Date();
+      const msDay = 86400000;
+      const cutoffA = new Date(now.getTime() - windowDays*msDay);
+      const cutoffB = new Date(now.getTime() - 2*windowDays*msDay);
+      // Aggregate per customer
+      const map = {};
+      src.forEach(r => {
+        if (!r.cgCode || !r.date) return;
+        if (!map[r.cgCode]) map[r.cgCode] = {code:r.cgCode, name:r.cgName||r.cgCode, curr:0, prev:0, currRev:0, prevRev:0, total:0, totalRev:0, lastDate:null, firstDate:null};
+        const m = map[r.cgCode];
+        m.total++; m.totalRev += (r.revenue||0);
+        if (!m.lastDate || r.date > m.lastDate) m.lastDate = r.date;
+        if (!m.firstDate || r.date < m.firstDate) m.firstDate = r.date;
+        if (r.date >= cutoffA) { m.curr++; m.currRev += (r.revenue||0); }
+        else if (r.date >= cutoffB) { m.prev++; m.prevRev += (r.revenue||0); }
+      });
+      const rows = Object.values(map);
+      // KPIs
+      const totalCustomers = rows.length;
+      const activeNow = rows.filter(r => r.curr > 0).length;
+      const dormant = rows.filter(r => r.lastDate && (now - r.lastDate)/msDay > windowDays).length;
+      const totalLoadsCurr = rows.reduce((s,r)=>s+r.curr,0);
+      const totalLoadsPrev = rows.reduce((s,r)=>s+r.prev,0);
+      const totalRevCurr = rows.reduce((s,r)=>s+r.currRev,0);
+      const totalRevPrev = rows.reduce((s,r)=>s+r.prevRev,0);
+      const pctChange = (a,b) => b>0 ? ((a-b)/b*100) : (a>0?100:0);
+      const volDelta = pctChange(totalLoadsCurr, totalLoadsPrev);
+      const revDelta = pctChange(totalRevCurr, totalRevPrev);
+      const fmt$ = v => '$'+Math.round(v).toLocaleString('en-AU');
+      const fmtPct = v => (v>=0?'+':'')+v.toFixed(1)+'%';
+      const clr = v => v>=0 ? '#10b981' : '#ef4444';
+      kpis.innerHTML =
+        '<div style="padding:12px;background:#1e293b;border-radius:6px"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase">Active Customers</div><div style="font-size:22px;font-weight:bold">'+activeNow+' <span style="font-size:12px;color:#94a3b8">/ '+totalCustomers+'</span></div></div>' +
+        '<div style="padding:12px;background:#1e293b;border-radius:6px"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase">Dormant (>'+windowDays+'d)</div><div style="font-size:22px;font-weight:bold;color:#ef4444">'+dormant+'</div></div>' +
+        '<div style="padding:12px;background:#1e293b;border-radius:6px"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase">Volume vs Prior</div><div style="font-size:22px;font-weight:bold;color:'+clr(volDelta)+'">'+fmtPct(volDelta)+'</div><div style="font-size:11px;color:#94a3b8">'+totalLoadsCurr+' vs '+totalLoadsPrev+' loads</div></div>' +
+        '<div style="padding:12px;background:#1e293b;border-radius:6px"><div style="font-size:11px;color:#94a3b8;text-transform:uppercase">Revenue vs Prior</div><div style="font-size:22px;font-weight:bold;color:'+clr(revDelta)+'">'+fmtPct(revDelta)+'</div><div style="font-size:11px;color:#94a3b8">'+fmt$(totalRevCurr)+' vs '+fmt$(totalRevPrev)+'</div></div>';
+      // Analyst sections
+      const sections = [];
+      // 1. At-risk: had volume in prev window, dropped >=30% in current
+      const atRisk = rows.filter(r => r.prev >= 3 && pctChange(r.curr, r.prev) <= -30).map(r => ({...r, delta: pctChange(r.curr, r.prev)})).sort((a,b) => a.delta - b.delta);
+      sections.push({title:'\ud83d\udea8 At-Risk Customers', subtitle:'Previously active, volume down 30%+ in current window. Call them this week.', rows: atRisk.slice(0,15), cols:['Customer','Prev Loads','Curr Loads','Change','Last Load','Action'], build: r => [r.name, r.prev, r.curr, '<span style="color:'+clr(r.delta)+'">'+fmtPct(r.delta)+'</span>', r.lastDate?r.lastDate.toISOString().slice(0,10):'-', '<em>Reach out - check pipeline</em>']});
+      // 2. Dormant
+      const dormantRows = rows.filter(r => r.lastDate && (now - r.lastDate)/msDay > windowDays && r.total >= 2).map(r => ({...r, daysSince: Math.round((now - r.lastDate)/msDay)})).sort((a,b) => a.daysSince - b.daysSince);
+      sections.push({title:'\u23f0 Dormant Customers', subtitle:'Have traded historically but nothing in the last '+windowDays+' days. Re-engage.', rows: dormantRows.slice(0,15), cols:['Customer','Total Loads','Last Load','Days Since','Lifetime Rev','Action'], build: r => [r.name, r.total, r.lastDate.toISOString().slice(0,10), r.daysSince, fmt$(r.totalRev), '<em>Win-back call</em>']});
+      // 3. Rising stars
+      const rising = rows.filter(r => r.curr >= 3 && pctChange(r.curr, r.prev) >= 30).map(r => ({...r, delta: pctChange(r.curr, r.prev)})).sort((a,b) => b.delta - a.delta);
+      sections.push({title:'\ud83d\ude80 Rising Stars', subtitle:'Volume growing 30%+. Lock in capacity and explore expansion.', rows: rising.slice(0,15), cols:['Customer','Prev Loads','Curr Loads','Change','Curr Revenue','Action'], build: r => [r.name, r.prev, r.curr, '<span style="color:'+clr(r.delta)+'">'+fmtPct(r.delta)+'</span>', fmt$(r.currRev), '<em>Ask for more lanes / rate lock</em>']});
+      // 4. New customers (first load in current window)
+      const newCust = rows.filter(r => r.firstDate && r.firstDate >= cutoffA).sort((a,b) => b.curr - a.curr);
+      sections.push({title:'\u2728 New Customers', subtitle:'First load in the current window. Nurture to ensure they repeat.', rows: newCust.slice(0,15), cols:['Customer','Loads','Revenue','First Load','Action'], build: r => [r.name, r.curr, fmt$(r.currRev), r.firstDate.toISOString().slice(0,10), '<em>Schedule follow-up, ask for commitments</em>']});
+      // 5. Concentration risk
+      const sorted = rows.slice().sort((a,b) => b.totalRev - a.totalRev);
+      const totalAll = sorted.reduce((s,r)=>s+r.totalRev,0);
+      let cum = 0;
+      const top = sorted.slice(0,10).map(r => { cum += r.totalRev; return {...r, pct: totalAll>0 ? r.totalRev/totalAll*100 : 0, cumPct: totalAll>0 ? cum/totalAll*100 : 0}; });
+      const top5Pct = top.slice(0,5).reduce((s,r)=>s+r.pct,0);
+      sections.push({title:'\u2696\ufe0f Concentration Risk', subtitle:'Top 5 customers = '+top5Pct.toFixed(1)+'% of lifetime revenue. Diversify if over 60%.', rows: top, cols:['Rank','Customer','Lifetime Rev','% of Total','Cumulative %','Curr Trend'], build: (r,i) => [i+1, r.name, fmt$(r.totalRev), r.pct.toFixed(1)+'%', r.cumPct.toFixed(1)+'%', r.curr>0 ? '<span style="color:#10b981">Active</span>' : '<span style="color:#ef4444">Silent</span>']});
+      // 6. Lane insight (no lane data)
+      sections.push({title:'\ud83d\udee3\ufe0f Lane Targeting', subtitle:'Lane-level analysis not yet available', rows: [], cols:[], build: r=>[], note: 'No origin/destination columns found in the source sheet. To enable lane targeting, add Origin and Destination columns to your booking sheet and let me know which columns they live in — I will wire them into the dashboard and surface top lanes, under-served lanes, and per-customer lane mix here.'});
+      // Render sections
+      content.innerHTML = sections.map((s,si) => {
+        let html = '<div style="margin:24px 0;padding:16px;background:#111827;border-radius:8px;border:1px solid #1f2937">';
+        html += '<h3 style="margin:0 0 4px 0">'+s.title+'</h3>';
+        html += '<div style="color:#94a3b8;font-size:13px;margin-bottom:10px">'+s.subtitle+'</div>';
+        if (s.note) { html += '<div style="padding:10px;background:#1e293b;border-radius:4px;color:#cbd5e1;font-size:13px">'+s.note+'</div>'; }
+        else if (!s.rows.length) { html += '<div style="color:#64748b;font-style:italic">Nothing flagged in this category right now \ud83c\udf89</div>'; }
+        else {
+          html += '<table class="data-table" style="width:100%;font-size:13px"><thead><tr>' + s.cols.map(c => '<th>'+c+'</th>').join('') + '</tr></thead><tbody>';
+          html += s.rows.map((r,i) => '<tr>'+s.build(r,i).map(v => '<td>'+v+'</td>').join('')+'</tr>').join('');
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+        return html;
+      }).join('');
+    }
+        function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabName).classList.add('active');
+      event.target.classList.add('active');
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (tabName === 'quarterly') renderQuarterlyTab();
+          if (tabName === 'overview') renderOverviewTab();
+          if (tabName === 'customers') renderCustomersTab();
+          if (tabName === 'comparison') renderComparisonTab();
+          if (tabName === 'manage') renderManageTab();
+          if (tabName === 'insights') renderInsightsTab();
+        }, 50);
+      });
+    }
+
+    function updateChart(id, config) {
+      const canvas = document.getElementById(id);
+      if (!canvas) return;
+      if (charts[id]) { charts[id].destroy(); charts[id] = null; }
+      canvas.removeAttribute('width');
+      canvas.removeAttribute('height');
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.maxHeight = '100%';
+      charts[id] = new Chart(canvas, config);
+    }
+
+    function updateLastUpdated() {
+      const now = new Date();
+      document.getElementById('lastUpdated').textContent = `Updated ${now.toLocaleTimeString()}`;
+    }
+
+    function refreshData() {
+      document.getElementById('refreshBtn').disabled = true;
+      loadData().then(() => {
+        document.getElementById('refreshBtn').disabled = false;
+      });
+    }
+
+    let autoRefreshInterval;
+    function startAutoRefresh() {
+      if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+      autoRefreshInterval = setInterval(() => loadData(), 5 * 60 * 1000);
+    }
+
+    // ===== Double-click export =====
+    function exportRowsCsv(rows, filename) {
+      if (!rows || !rows.length) { alert('No data to export'); return; }
+      const esc = v => {
+        if (v == null) return '';
+        const s = String(v);
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g,'""') + '"';
+        return s;
+      };
+      const headers = ['Date','Customer','CG Code','CG Name','FY','FY Quarter','CY','CY Quarter','Month','Revenue','Cost','Profit','Margin %','Commission'];
+      const lines = [headers.join(',')];
+      rows.forEach(r => {
+        const dt = r.date instanceof Date ? r.date.toISOString().slice(0,10) : (r.date||'');
+        lines.push([
+          esc(dt), esc(r.customer), esc(r.cgCode||''), esc(r.cgName||''),
+          esc(r.fyYear||''), esc(r.fyQuarter||''), esc(r.cyYear||''), esc(r.cyQuarter||''),
+          esc(r.month||''), esc(r.revenue||0), esc(r.cost||0), esc(r.profit||0), esc(r.margin != null ? r.margin.toFixed(1) : '0.0'), esc(r.commission||0)
+        ].join(','));
+      });
+      const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+    function handleDblExport(e) {
+      const tgt = e.target.closest('canvas, .kpi-card, .kpi, .card, .chart-container, table');
+      if (!tgt) return;
+      const src = (typeof filteredData !== 'undefined' && filteredData.length) ? filteredData : (typeof allData !== 'undefined' ? allData : []);
+      if (!src.length) { alert('No data loaded yet'); return; }
+      let rows = src;
+      let label = 'all';
+      const canvas = e.target.closest('canvas');
+      if (canvas && window.Chart) {
+        const chart = Chart.getChart(canvas);
+        if (chart) {
+          const pts = chart.getElementsAtEventForMode(e, 'nearest', {intersect:true}, true);
+          if (pts && pts.length) {
+            const pt = pts[0];
+            const lbl = String(chart.data.labels[pt.index]);
+            label = lbl.replace(/[^a-z0-9]+/gi,'_');
+            const qMatch = lbl.match(/Q([1-4])/i);
+            const yMatch = lbl.match(/(FY|CY)?\s*(20\d\d)/i);
+            const filtered = src.filter(r => {
+              if (r.month === lbl) return true;
+              if (r.cgName === lbl || r.customer === lbl) return true;
+              if (r.fyYear === lbl || r.cyYear === lbl) return true;
+              if (String(r.fyQuarter) === lbl) return true;
+              if (qMatch) {
+                const q = 'Q'+qMatch[1];
+                if (yMatch) {
+                  const yr = yMatch[2];
+                  if ((r.fyYear||'').endsWith(yr) && r.fyQuarter === q) return true;
+                  if ((r.cyYear||'').endsWith(yr) && r.cyQuarter === q) return true;
+                } else {
+                  if (r.fyQuarter === q || r.cyQuarter === q) return true;
+                }
+              }
+              return false;
+            });
+            if (filtered.length) rows = filtered;
+          }
+        }
+      }
+      if (!confirm('Export '+rows.length+' rows (one per load) to CSV?\n\nLabel: '+label)) return;
+      exportRowsCsv(rows, 'kubic_export_'+label+'_'+Date.now()+'.csv');
+    }
+    document.addEventListener('dblclick', handleDblExport);
+
+    // Initialize
+    loadData();
+  </script>
+</body>
+</html>
