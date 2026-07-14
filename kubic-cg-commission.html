@@ -334,7 +334,7 @@
     /* KPI Cards */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 20px;
       margin-bottom: 30px;
     }
@@ -700,6 +700,11 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         <div class="kpi-value" id="activeCustomers">0</div>
         <div class="kpi-subtext">In current data</div>
       </div>
+      <div class="kpi-card" style="border-left:3px solid #8b5cf6;">
+        <div class="kpi-label">Avg Margin</div>
+        <div class="kpi-value" id="avgMargin">0%</div>
+        <div class="kpi-subtext">Weighted by revenue</div>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -739,6 +744,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
               <th>Month</th>
               <th class="text-right"># of Loads</th>
               <th class="text-right">Revenue</th>
+              <th class="text-right">Margin</th>
               <th class="text-right">Commission (1.5%)</th>
               <th class="text-right">Avg Commission/Load</th>
             </tr>
@@ -776,6 +782,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
               <th>CG Code</th>
               <th class="text-right">Loads</th>
               <th class="text-right">Revenue</th>
+              <th class="text-right">Margin</th>
               <th class="text-right">Commission</th>
               <th class="text-right">% of Total</th>
             </tr>
@@ -1005,11 +1012,11 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     const SHEET_ID = '1TjvR5ODYR0SjxgjrJ_CVi4FPpfHkG96-ih7f-QLq8sE';
     const TABS = ['2026', '2025', '2024', '2023', '2022', '2018 - 2021'];
 
-    // Column mappings — select customer, date, revenue only (we match CG after)
+    // Column mappings — select customer, date, revenue, cost (we match CG after)
     const COL_MAP = {
-      modern: { customer:'B', date:'C', revenue:'S' },  // 2023-2026
-      mid:    { customer:'B', date:'C', revenue:'P' },  // 2022
-      legacy: { customer:'A', date:'B', revenue:'N' }   // 2018-2021
+      modern: { customer:'B', date:'C', revenue:'S', cost:'X' },  // 2023-2026
+      mid:    { customer:'B', date:'C', revenue:'P', cost:'U' },  // 2022
+      legacy: { customer:'A', date:'B', revenue:'N', cost:'T' }   // 2018-2021
     };
     function getColMap(tab) {
       if (['2023','2024','2025','2026'].includes(tab)) return COL_MAP.modern;
@@ -1285,7 +1292,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     // Fetch a single sheet tab using gviz SQL query
     async function fetchSheetTab(tabName) {
       const cm = getColMap(tabName);
-      const query = `select ${cm.customer},${cm.date},${cm.revenue} where ${cm.date} is not null`;
+      const query = `select ${cm.customer},${cm.date},${cm.revenue},${cm.cost} where ${cm.date} is not null`;
       const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(tabName)}&tq=${encodeURIComponent(query)}&headers=1`;
 
       try {
@@ -1311,7 +1318,10 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
           const customerVal = (c[0]?.v || '').toString().trim();
           const cgCustomer = matchCGCustomer(customerVal);
           const revenue = parseFloat(c[2]?.v) || 0;
-          if (!cgCustomer) { unmatchedRows.push({customer: customerVal, date: dt, revenue: revenue}); return null; }
+          const cost = parseFloat(c[3]?.v) || 0;
+          const profit = revenue - cost;
+          const margin = revenue > 0 ? (profit / revenue * 100) : 0;
+          if (!cgCustomer) { unmatchedRows.push({customer: customerVal, date: dt, revenue: revenue, cost: cost, profit: profit, margin: margin}); return null; }
 
           const month = dt.getMonth();
           return {
@@ -1326,6 +1336,9 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
             month: month + 1,
             monthIdx: month,
             revenue: revenue,
+            cost: cost,
+            profit: profit,
+            margin: margin,
             commission: revenue * 0.015
           };
         }).filter(Boolean);
@@ -1485,20 +1498,29 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     }
 
     function updateKPIs() {
-      let totalCommission = 0, totalRevenue = 0, totalLoads = 0;
+      let totalCommission = 0, totalRevenue = 0, totalCost = 0, totalLoads = 0;
       const customerSet = new Set();
 
       for (const row of filteredData) {
         totalCommission += row.commission;
         totalRevenue += row.revenue;
+        totalCost += row.cost;
         totalLoads += 1;
         customerSet.add(row.cgCode);
       }
+
+      const totalProfit = totalRevenue - totalCost;
+      const avgMargin = totalRevenue > 0 ? (totalProfit / totalRevenue * 100) : 0;
 
       document.getElementById('totalCommission').textContent = '$' + totalCommission.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
       document.getElementById('totalRevenue').textContent = '$' + totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
       document.getElementById('totalLoads').textContent = totalLoads;
       document.getElementById('activeCustomers').textContent = customerSet.size;
+      const marginEl = document.getElementById('avgMargin');
+      if (marginEl) {
+        marginEl.textContent = avgMargin.toFixed(1) + '%';
+        marginEl.style.color = avgMargin >= 0 ? '#8b5cf6' : '#ef4444';
+      }
     }
 
     function renderOverviewTab() {
@@ -1507,11 +1529,12 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       for (const row of filteredData) {
         const key = `${row.fyYear || row.cyYear}-${String(row.month).padStart(2, '0')}`;
         if (!monthMap.has(key)) {
-          monthMap.set(key, {date: row.date, loads: 0, revenue: 0, commission: 0});
+          monthMap.set(key, {date: row.date, loads: 0, revenue: 0, cost: 0, commission: 0});
         }
         const m = monthMap.get(key);
         m.loads++;
         m.revenue += row.revenue;
+        m.cost += row.cost;
         m.commission += row.commission;
       }
 
@@ -1522,10 +1545,14 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       tbody.innerHTML = months.map(([key, data]) => {
         const monthName = new Date(data.date.getFullYear(), data.date.getMonth()).toLocaleDateString('en-US', {month: 'short', year: 'numeric'});
         const avgCommission = data.loads > 0 ? data.commission / data.loads : 0;
+        const monthProfit = data.revenue - data.cost;
+        const monthMargin = data.revenue > 0 ? (monthProfit / data.revenue * 100) : 0;
+        const marginColor = monthMargin >= 15 ? '#22c55e' : monthMargin >= 5 ? '#f59e0b' : '#ef4444';
         return `<tr>
           <td>${monthName}</td>
           <td class="text-right">${data.loads}</td>
           <td class="text-right">$${data.revenue.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+          <td class="text-right" style="color:${marginColor};font-weight:600">${monthMargin.toFixed(1)}%</td>
           <td class="text-right accent-primary">$${data.commission.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
           <td class="text-right">${avgCommission > 0 ? '$' + avgCommission.toLocaleString('en-US', {minimumFractionDigits: 2}) : '-'}</td>
         </tr>`;
@@ -1576,11 +1603,12 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       const custMap = new Map();
       for (const row of filteredData) {
         if (!custMap.has(row.cgCode)) {
-          custMap.set(row.cgCode, {name: row.cgName, code: row.cgCode, loads: 0, revenue: 0, commission: 0});
+          custMap.set(row.cgCode, {name: row.cgName, code: row.cgCode, loads: 0, revenue: 0, cost: 0, commission: 0});
         }
         const c = custMap.get(row.cgCode);
         c.loads++;
         c.revenue += row.revenue;
+        c.cost += row.cost;
         c.commission += row.commission;
       }
 
@@ -1589,14 +1617,20 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
 
       // Table
       const tbody = document.querySelector('#customersTable tbody');
-      tbody.innerHTML = custs.map(c => `<tr>
+      tbody.innerHTML = custs.map(c => {
+        const custProfit = c.revenue - c.cost;
+        const custMargin = c.revenue > 0 ? (custProfit / c.revenue * 100) : 0;
+        const marginColor = custMargin >= 15 ? '#22c55e' : custMargin >= 5 ? '#f59e0b' : '#ef4444';
+        return `<tr>
         <td>${c.name}</td>
         <td>${c.code}</td>
         <td class="text-right">${c.loads}</td>
         <td class="text-right">$${c.revenue.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        <td class="text-right" style="color:${marginColor};font-weight:600">${custMargin.toFixed(1)}%</td>
         <td class="text-right accent-primary">$${c.commission.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
         <td class="text-right">${total > 0 ? (c.commission / total * 100).toFixed(1) : 0}%</td>
-      </tr>`).join('');
+      </tr>`;
+      }).join('');
 
       // Top 15 chart
       const top15 = custs.slice(0, 15);
@@ -1621,9 +1655,11 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
                 label: function(ctx) {
                   const c = top15[ctx.dataIndex];
                   const fmt = n => '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                  const cMargin = c.revenue > 0 ? ((c.revenue - (c.cost||0)) / c.revenue * 100) : 0;
                   return [
                     'Commission: ' + fmt(c.commission),
                     'Revenue: ' + fmt(c.revenue),
+                    'Margin: ' + cMargin.toFixed(1) + '%',
                     'Loads: ' + c.loads.toLocaleString()
                   ];
                 }
@@ -1653,11 +1689,12 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       for (const row of allData) {
         const year = yearType === 'fy' ? row.fyYear : row.cyYear;
         if (!yearMap.has(year)) {
-          yearMap.set(year, {loads: 0, revenue: 0, commission: 0});
+          yearMap.set(year, {loads: 0, revenue: 0, cost: 0, commission: 0});
         }
         const y = yearMap.get(year);
         y.loads++;
         y.revenue += row.revenue;
+        y.cost += row.cost;
         y.commission += row.commission;
       }
 
@@ -1672,6 +1709,13 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       tbody.innerHTML = `
         <tr><td>Loads</td>${years.map(y => `<td class="text-right">${yearMap.get(y).loads.toLocaleString()}</td>`).join('')}</tr>
         <tr><td>Revenue</td>${years.map(y => `<td class="text-right">$${yearMap.get(y).revenue.toLocaleString('en-US', {minimumFractionDigits: 0})}</td>`).join('')}</tr>
+        <tr><td><strong>Margin</strong></td>${years.map(y => {
+          const data = yearMap.get(y);
+          const yrProfit = data.revenue - data.cost;
+          const yrMargin = data.revenue > 0 ? (yrProfit / data.revenue * 100) : 0;
+          const mColor = yrMargin >= 15 ? '#22c55e' : yrMargin >= 5 ? '#f59e0b' : '#ef4444';
+          return `<td class="text-right" style="color:${mColor};font-weight:600">${yrMargin.toFixed(1)}%</td>`;
+        }).join('')}</tr>
         <tr><td><strong>Commission (1.5%)</strong></td>${years.map(y => `<td class="text-right accent-primary"><strong>$${yearMap.get(y).commission.toLocaleString('en-US', {minimumFractionDigits: 0})}</strong></td>`).join('')}</tr>
         <tr><td>Avg Commission/Load</td>${years.map(y => {
           const data = yearMap.get(y);
@@ -1711,11 +1755,12 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         const qtr = yearType === 'fy' ? row.fyQuarter : row.cyQuarter;
         const key = year + '-' + qtr;
         if (!quarterMap.has(key)) {
-          quarterMap.set(key, {year, quarter: qtr, commission: 0, revenue: 0, loads: 0});
+          quarterMap.set(key, {year, quarter: qtr, commission: 0, revenue: 0, cost: 0, loads: 0});
         }
         const m = quarterMap.get(key);
         m.commission += row.commission;
         m.revenue += row.revenue;
+        m.cost += row.cost;
         m.loads++;
       }
       const years = Array.from(new Set(Array.from(quarterMap.values()).map(q => q.year))).sort().reverse();
@@ -1727,17 +1772,27 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       const tbody = document.querySelector('#quarterlyTable tbody');
       if (tbody) {
         tbody.innerHTML = years.map(year => {
-          const qd = quarters.map(q => quarterMap.get(year + '-' + q) || {commission: 0, revenue: 0, loads: 0});
+          const qd = quarters.map(q => quarterMap.get(year + '-' + q) || {commission: 0, revenue: 0, cost: 0, loads: 0});
           const totLoads = qd.reduce((s,d) => s + d.loads, 0);
           const totRev = qd.reduce((s,d) => s + d.revenue, 0);
+          const totCost = qd.reduce((s,d) => s + (d.cost||0), 0);
           const totComm = qd.reduce((s,d) => s + d.commission, 0);
+          const totMargin = totRev > 0 ? ((totRev - totCost) / totRev * 100) : 0;
           const cellLoads = qd.map(d => '<td class="text-right">' + (d.loads ? d.loads.toLocaleString() : '-') + '</td>').join('');
           const cellRev = qd.map(d => '<td class="text-right">' + (d.revenue ? fmt0(d.revenue) : '-') + '</td>').join('');
+          const cellMargin = qd.map(d => {
+            if (!d.loads) return '<td class="text-right">-</td>';
+            const qm = d.revenue > 0 ? ((d.revenue - (d.cost||0)) / d.revenue * 100) : 0;
+            const mc = qm >= 15 ? '#22c55e' : qm >= 5 ? '#f59e0b' : '#ef4444';
+            return '<td class="text-right" style="color:' + mc + ';font-weight:600">' + qm.toFixed(1) + '%</td>';
+          }).join('');
+          const totMarginColor = totMargin >= 15 ? '#22c55e' : totMargin >= 5 ? '#f59e0b' : '#ef4444';
           const cellComm = qd.map(d => '<td class="text-right accent-primary">' + (d.commission ? fmt0(d.commission) : '-') + '</td>').join('');
           const cellAvg = qd.map(d => '<td class="text-right">' + (d.loads ? fmt2(d.commission / d.loads) : '-') + '</td>').join('');
-          return '<tr class="year-group"><td rowspan="4"><strong>' + year + '</strong></td>' +
+          return '<tr class="year-group"><td rowspan="5"><strong>' + year + '</strong></td>' +
                  '<td>Loads</td>' + cellLoads + '<td class="text-right"><strong>' + totLoads.toLocaleString() + '</strong></td></tr>' +
                  '<tr><td>Revenue</td>' + cellRev + '<td class="text-right"><strong>' + fmt0(totRev) + '</strong></td></tr>' +
+                 '<tr><td><strong>Margin</strong></td>' + cellMargin + '<td class="text-right" style="color:' + totMarginColor + ';font-weight:600"><strong>' + totMargin.toFixed(1) + '%</strong></td></tr>' +
                  '<tr><td><strong>Commission (1.5%)</strong></td>' + cellComm + '<td class="text-right accent-primary"><strong>' + fmt0(totComm) + '</strong></td></tr>' +
                  '<tr><td>Avg Comm/Load</td>' + cellAvg + '<td class="text-right">' + (totLoads ? fmt2(totComm / totLoads) : '-') + '</td></tr>';
         }).join('');
@@ -1767,10 +1822,12 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
                 label: function(ctx) {
                   const year = ctx.dataset.label;
                   const q = ctx.label;
-                  const d = quarterMap.get(year + '-' + q) || {commission: 0, revenue: 0, loads: 0};
+                  const d = quarterMap.get(year + '-' + q) || {commission: 0, revenue: 0, cost: 0, loads: 0};
+                  const qMargin = d.revenue > 0 ? ((d.revenue - (d.cost||0)) / d.revenue * 100) : 0;
                   return [
                     'Commission: ' + fmt0(d.commission),
                     'Revenue: ' + fmt0(d.revenue),
+                    'Margin: ' + qMargin.toFixed(1) + '%',
                     'Loads: ' + d.loads.toLocaleString()
                   ];
                 }
@@ -1956,7 +2013,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       allData.forEach(r => {
         const m = matchCGCustomer(r.customer);
         if (m) { r.cgCode = m.code; r.cgName = m.name; keep.push(r); }
-        else { unmatchedRows.push({customer: r.customer, date: r.date, revenue: r.revenue}); }
+        else { unmatchedRows.push({customer: r.customer, date: r.date, revenue: r.revenue, cost: r.cost||0, profit: r.profit||0, margin: r.margin||0}); }
       });
       allData.length = 0;
       keep.forEach(r => allData.push(r));
@@ -1966,13 +2023,18 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         const m = matchCGCustomer(u.customer);
         if (m && u.date) {
           const monthIdx = u.date.getMonth();
+          const _rev = u.revenue||0;
+          const _cost = u.cost||0;
+          const _profit = _rev - _cost;
+          const _margin = _rev > 0 ? (_profit / _rev * 100) : 0;
           allData.push({
             customer: u.customer, cgCode: m.code, cgName: m.name,
             date: u.date,
             fyYear: getFYLabel(u.date), cyYear: getCYLabel(u.date),
             fyQuarter: getFYQuarter(monthIdx), cyQuarter: getCYQuarter(monthIdx),
             month: monthIdx+1, monthIdx: monthIdx,
-            revenue: u.revenue||0, commission: (u.revenue||0)*0.015
+            revenue: _rev, cost: _cost, profit: _profit, margin: _margin,
+            commission: _rev*0.015
           });
         } else {
           stillUnmatched.push(u);
@@ -2174,14 +2236,14 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g,'""') + '"';
         return s;
       };
-      const headers = ['Date','Customer','CG Code','CG Name','FY','FY Quarter','CY','CY Quarter','Month','Revenue','Commission'];
+      const headers = ['Date','Customer','CG Code','CG Name','FY','FY Quarter','CY','CY Quarter','Month','Revenue','Cost','Profit','Margin %','Commission'];
       const lines = [headers.join(',')];
       rows.forEach(r => {
         const dt = r.date instanceof Date ? r.date.toISOString().slice(0,10) : (r.date||'');
         lines.push([
           esc(dt), esc(r.customer), esc(r.cgCode||''), esc(r.cgName||''),
           esc(r.fyYear||''), esc(r.fyQuarter||''), esc(r.cyYear||''), esc(r.cyQuarter||''),
-          esc(r.month||''), esc(r.revenue||0), esc(r.commission||0)
+          esc(r.month||''), esc(r.revenue||0), esc(r.cost||0), esc(r.profit||0), esc(r.margin != null ? r.margin.toFixed(1) : '0.0'), esc(r.commission||0)
         ].join(','));
       });
       const blob = new Blob([lines.join('\n')], {type:'text/csv'});
