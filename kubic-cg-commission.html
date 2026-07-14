@@ -700,8 +700,13 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         <div class="kpi-value" id="activeCustomers">0</div>
         <div class="kpi-subtext">In current data</div>
       </div>
+      <div class="kpi-card" style="border-left:3px solid #10b981;">
+        <div class="kpi-label">Total Margin $</div>
+        <div class="kpi-value" id="totalMarginDollar">$0.00</div>
+        <div class="kpi-subtext">Revenue − Cost</div>
+      </div>
       <div class="kpi-card" style="border-left:3px solid #8b5cf6;">
-        <div class="kpi-label">Avg Margin</div>
+        <div class="kpi-label">Avg Margin %</div>
         <div class="kpi-value" id="avgMargin">0%</div>
         <div class="kpi-subtext">Weighted by revenue</div>
       </div>
@@ -1516,6 +1521,11 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       document.getElementById('totalRevenue').textContent = '$' + totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
       document.getElementById('totalLoads').textContent = totalLoads;
       document.getElementById('activeCustomers').textContent = customerSet.size;
+      const marginDollarEl = document.getElementById('totalMarginDollar');
+      if (marginDollarEl) {
+        marginDollarEl.textContent = '$' + totalProfit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        marginDollarEl.style.color = totalProfit >= 0 ? '#10b981' : '#ef4444';
+      }
       const marginEl = document.getElementById('avgMargin');
       if (marginEl) {
         marginEl.textContent = avgMargin.toFixed(1) + '%';
