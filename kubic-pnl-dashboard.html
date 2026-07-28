@@ -342,6 +342,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
             <button class="tab-btn" onclick="switchTab('carriercompliance')">Carrier Compliance</button>
             
             <button class="tab-btn" onclick="switchTab('csr')">CSR</button>
+            <button class="tab-btn" onclick="switchTab('bianalyst')" style="background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(59,130,246,0.15));border:1px solid #8b5cf6;">&#x1f4ca; BI Analyst</button>
   </div>
 
   <!-- TAB: P&L -->
@@ -523,6 +524,24 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
               <tbody id="csrPnlBody"></tbody>
               <tfoot id="csrPnlFoot"></tfoot>
             </table>
+          </div>
+        </div>
+
+        <!-- BI Analyst Tab -->
+        <div class="tab-content" id="tab-bianalyst">
+          <div style="background:var(--card);border-radius:12px;padding:24px;border:1px solid var(--border);border-top:3px solid #8b5cf6;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+              <div style="width:40px;height:40px;background:linear-gradient(135deg,#8b5cf6,#3b82f6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">&#x1f4ca;</div>
+              <div>
+                <h2 style="margin:0;">BI Analyst — Business Intelligence</h2>
+                <p style="color:#94a3b8;font-size:13px;margin:2px 0 0 0;">Automated risk, opportunity &amp; engagement analysis across all customers. 30-day risk window.</p>
+              </div>
+            </div>
+            <div id="biSummaryKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;"></div>
+            <div id="biRiskSection"></div>
+            <div id="biOpportunitySection" style="margin-top:24px;"></div>
+            <div id="biEngagementSection" style="margin-top:24px;"></div>
+            <div id="biConcentrationSection" style="margin-top:24px;"></div>
           </div>
         </div>
 
@@ -2568,8 +2587,304 @@ function renderAllFYSnippet() {
   });
 }
 
+// ============================================================
+// BI ANALYST TAB
+// ============================================================
+function renderBIAnalystTab() {
+  const now = new Date();
+  const RISK_DAYS = 30;
+  const cutoff30 = new Date(now); cutoff30.setDate(cutoff30.getDate() - RISK_DAYS);
+  const cutoff60 = new Date(now); cutoff60.setDate(cutoff60.getDate() - 60);
+  const src = filteredData && filteredData.length ? filteredData : allData;
+  if (!src || !src.length) {
+    document.getElementById('biRiskSection').innerHTML = '<p style="color:#94a3b8">No data loaded yet.</p>';
+    return;
+  }
+
+  // --- Build customer profiles ---
+  const profiles = {};
+  src.forEach(r => {
+    const key = r.customer || 'Unknown';
+    if (!profiles[key]) {
+      profiles[key] = {
+        name: key, loads: 0, revenue: 0, cost: 0, profit: 0,
+        dates: [], recentLoads: 0, recentRev: 0, recentCost: 0,
+        priorLoads: 0, priorRev: 0, priorCost: 0, monthlyRev: {},
+        carriers: new Set(), lanes: new Set(), vehicles: new Set()
+      };
+    }
+    const p = profiles[key];
+    p.loads++;
+    p.revenue += r.revenue;
+    p.cost += r.cost;
+    p.profit += r.profit;
+    p.dates.push(r.date);
+    if (r.carrier) p.carriers.add(r.carrier);
+    if (r.pickupState && r.deliveryState) p.lanes.add(r.pickupState + '-' + r.deliveryState);
+    if (r.vehicle) p.vehicles.add(r.vehicle);
+
+    if (r.date >= cutoff30) { p.recentLoads++; p.recentRev += r.revenue; p.recentCost += r.cost; }
+    else if (r.date >= cutoff60) { p.priorLoads++; p.priorRev += r.revenue; p.priorCost += r.cost; }
+
+    const mk = r.date.getFullYear() + '-' + String(r.date.getMonth()+1).padStart(2,'0');
+    p.monthlyRev[mk] = (p.monthlyRev[mk] || 0) + r.revenue;
+  });
+
+  const customers = Object.values(profiles);
+  customers.forEach(c => {
+    c.lastLoad = c.dates.length ? new Date(Math.max(...c.dates.map(d => d.getTime()))) : null;
+    c.daysSinceLast = c.lastLoad ? Math.floor((now - c.lastLoad) / 86400000) : 999;
+    c.margin = c.revenue > 0 ? ((c.revenue - c.cost) / c.revenue * 100) : 0;
+    c.recentMargin = c.recentRev > 0 ? ((c.recentRev - c.recentCost) / c.recentRev * 100) : null;
+    c.recentProfit = c.recentRev - c.recentCost;
+    c.priorProfit = c.priorRev - c.priorCost;
+    c.revTrend = c.priorRev > 0 ? ((c.recentRev - c.priorRev) / c.priorRev * 100) : (c.recentRev > 0 ? 100 : 0);
+    c.loadTrend = c.priorLoads > 0 ? ((c.recentLoads - c.priorLoads) / c.priorLoads * 100) : (c.recentLoads > 0 ? 100 : 0);
+    c.profitTrend = c.priorProfit > 0 ? ((c.recentProfit - c.priorProfit) / c.priorProfit * 100) : (c.recentProfit > 0 ? 100 : 0);
+
+    const sortedMonths = Object.keys(c.monthlyRev).sort().slice(-6);
+    if (sortedMonths.length >= 3) {
+      const half = Math.floor(sortedMonths.length / 2);
+      const firstHalf = sortedMonths.slice(0, half).reduce((s, k) => s + c.monthlyRev[k], 0) / half;
+      const secondHalf = sortedMonths.slice(half).reduce((s, k) => s + c.monthlyRev[k], 0) / (sortedMonths.length - half);
+      c.monthTrend = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf * 100) : 0;
+    } else { c.monthTrend = 0; }
+
+    if (c.daysSinceLast <= 14 && c.recentLoads >= 2) c.engagement = 'Hot';
+    else if (c.daysSinceLast <= 30) c.engagement = 'Warm';
+    else if (c.daysSinceLast <= 60) c.engagement = 'Cold';
+    else c.engagement = 'Churned';
+  });
+
+  // --- Summary KPIs ---
+  const hot = customers.filter(c => c.engagement === 'Hot').length;
+  const warm = customers.filter(c => c.engagement === 'Warm').length;
+  const cold = customers.filter(c => c.engagement === 'Cold').length;
+  const churned = customers.filter(c => c.engagement === 'Churned').length;
+  const atRisk = customers.filter(c => c.daysSinceLast > RISK_DAYS || c.revTrend < -20).length;
+  const growing = customers.filter(c => c.revTrend > 10 && c.recentLoads > 0).length;
+  const totalRev = customers.reduce((s, c) => s + c.revenue, 0);
+  const totalProfit = customers.reduce((s, c) => s + c.profit, 0);
+  const avgMargin = totalRev > 0 ? (totalProfit / totalRev * 100) : 0;
+
+  const kpiHtml = [
+    {label:'Hot', value:hot, color:'#22c55e', icon:'&#x1f525;'},
+    {label:'Warm', value:warm, color:'#f59e0b', icon:'&#x2600;&#xfe0f;'},
+    {label:'Cold', value:cold, color:'#3b82f6', icon:'&#x2744;&#xfe0f;'},
+    {label:'Churned', value:churned, color:'#ef4444', icon:'&#x1f6a8;'},
+    {label:'At Risk', value:atRisk, color:'#ef4444', icon:'&#x26a0;&#xfe0f;'},
+    {label:'Growing', value:growing, color:'#22c55e', icon:'&#x1f4c8;'},
+    {label:'Avg Margin', value:avgMargin.toFixed(1)+'%', color:'#8b5cf6', icon:'&#x1f4b0;', isTxt:true},
+    {label:'Total Profit', value:'$'+Math.round(totalProfit).toLocaleString('en-AU'), color:'#10b981', icon:'&#x1f4b5;', isTxt:true}
+  ].map(k => `<div style="background:var(--bg2,#111827);border-radius:8px;padding:14px;border-left:3px solid ${k.color};text-align:center;">
+    <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">${k.icon} ${k.label}</div>
+    <div style="font-size:${k.isTxt?'20px':'28px'};font-weight:700;color:${k.color};margin:4px 0;">${k.value}</div>
+    ${k.isTxt?'':'<div style="font-size:11px;color:#64748b;">customers</div>'}
+  </div>`).join('');
+  document.getElementById('biSummaryKpis').innerHTML = kpiHtml;
+
+  // --- Helpers ---
+  const fmt$ = n => '$' + Math.round(n).toLocaleString('en-AU');
+  const trendArrow = pct => pct > 0 ? '<span style="color:#22c55e">&#x25b2; +' + pct.toFixed(1) + '%</span>'
+    : pct < 0 ? '<span style="color:#ef4444">&#x25bc; ' + pct.toFixed(1) + '%</span>'
+    : '<span style="color:#94a3b8">&#x2014; 0%</span>';
+  const engBadge = e => {
+    const colors = {Hot:'#22c55e',Warm:'#f59e0b',Cold:'#3b82f6',Churned:'#ef4444'};
+    return '<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:'+(colors[e]||'#64748b')+'22;color:'+(colors[e]||'#64748b')+';border:1px solid '+(colors[e]||'#64748b')+'44;">'+e+'</span>';
+  };
+  const marginColor = m => m >= 15 ? '#22c55e' : m >= 5 ? '#f59e0b' : '#ef4444';
+
+  // --- RISK FLAGS ---
+  const risks = [];
+  const silent = customers.filter(c => c.daysSinceLast > RISK_DAYS && c.loads >= 3).sort((a,b) => b.revenue - a.revenue);
+  silent.forEach(c => {
+    risks.push({customer:c.name, type:'Silent', severity:c.daysSinceLast>90?'Critical':c.daysSinceLast>60?'High':'Medium',
+      detail:c.daysSinceLast+' days since last load', revenue:c.revenue, profit:c.profit, margin:c.margin, engagement:c.engagement, daysSince:c.daysSinceLast});
+  });
+
+  const declining = customers.filter(c => c.recentLoads > 0 && c.revTrend < -20 && c.priorRev > 500).sort((a,b) => a.revTrend - b.revTrend);
+  declining.forEach(c => {
+    risks.push({customer:c.name, type:'Declining Revenue', severity:c.revTrend<-50?'Critical':c.revTrend<-30?'High':'Medium',
+      detail:'Revenue '+c.revTrend.toFixed(1)+'% (30d vs prior)', revenue:c.revenue, profit:c.profit, margin:c.margin, engagement:c.engagement, daysSince:c.daysSinceLast});
+  });
+
+  const marginDrop = customers.filter(c => c.recentMargin !== null && c.margin > 0 && c.recentMargin < c.margin * 0.7 && c.recentLoads >= 2)
+    .sort((a,b) => (a.recentMargin - a.margin) - (b.recentMargin - b.margin));
+  marginDrop.forEach(c => {
+    risks.push({customer:c.name, type:'Margin Erosion', severity:c.recentMargin<5?'Critical':'Medium',
+      detail:'Margin: '+c.margin.toFixed(1)+'% → '+c.recentMargin.toFixed(1)+'%', revenue:c.revenue, profit:c.profit, margin:c.recentMargin, engagement:c.engagement, daysSince:c.daysSinceLast});
+  });
+
+  // Unprofitable customers
+  const unprofitable = customers.filter(c => c.profit < 0 && c.loads >= 3).sort((a,b) => a.profit - b.profit);
+  unprofitable.forEach(c => {
+    if (!risks.find(r => r.customer === c.name)) {
+      risks.push({customer:c.name, type:'Unprofitable', severity:c.profit < -5000?'Critical':'High',
+        detail:'Loss of '+fmt$(Math.abs(c.profit))+' across '+c.loads+' loads', revenue:c.revenue, profit:c.profit, margin:c.margin, engagement:c.engagement, daysSince:c.daysSinceLast});
+    }
+  });
+
+  const sevOrder = {Critical:0, High:1, Medium:2, Low:3};
+  risks.sort((a,b) => (sevOrder[a.severity]||9) - (sevOrder[b.severity]||9));
+
+  let riskHtml = '<h3 style="margin:0 0 4px;">&#x26a0;&#xfe0f; Risk Flags</h3>';
+  riskHtml += '<p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">Customers requiring attention — silent, declining, margin erosion, or unprofitable.</p>';
+  if (!risks.length) {
+    riskHtml += '<div style="padding:16px;background:var(--bg2,#111827);border-radius:8px;color:#22c55e;text-align:center;">No risk flags — all customers look healthy!</div>';
+  } else {
+    riskHtml += '<div style="overflow-x:auto;"><table class="pnl-table" style="width:100%;font-size:13px;">';
+    riskHtml += '<thead><tr><th>Severity</th><th>Customer</th><th>Risk Type</th><th>Detail</th><th style="text-align:right">Lifetime Rev</th><th style="text-align:right">Profit</th><th style="text-align:right">Margin</th><th>Status</th><th style="text-align:right">Days Silent</th></tr></thead><tbody>';
+    risks.forEach(r => {
+      const sevColor = r.severity==='Critical'?'#ef4444':r.severity==='High'?'#f59e0b':'#3b82f6';
+      riskHtml += '<tr>';
+      riskHtml += '<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:'+sevColor+'22;color:'+sevColor+';">'+r.severity+'</span></td>';
+      riskHtml += '<td style="font-weight:600;">'+r.customer+'</td>';
+      riskHtml += '<td>'+r.type+'</td>';
+      riskHtml += '<td style="color:#cbd5e1;">'+r.detail+'</td>';
+      riskHtml += '<td style="text-align:right">'+fmt$(r.revenue)+'</td>';
+      riskHtml += '<td style="text-align:right;color:'+(r.profit>=0?'#22c55e':'#ef4444')+'">'+fmt$(r.profit)+'</td>';
+      riskHtml += '<td style="text-align:right;color:'+marginColor(r.margin)+';font-weight:600;">'+r.margin.toFixed(1)+'%</td>';
+      riskHtml += '<td>'+engBadge(r.engagement)+'</td>';
+      riskHtml += '<td style="text-align:right">'+r.daysSince+'</td>';
+      riskHtml += '</tr>';
+    });
+    riskHtml += '</tbody></table></div>';
+  }
+  document.getElementById('biRiskSection').innerHTML = riskHtml;
+
+  // --- OPPORTUNITY FLAGS ---
+  const opps = [];
+  const growingCusts = customers.filter(c => c.recentLoads > 0 && c.revTrend > 15 && c.recentRev > 500).sort((a,b) => b.revTrend - a.revTrend);
+  growingCusts.forEach(c => {
+    opps.push({customer:c.name, type:'Growing Revenue', detail:'Revenue +'+c.revTrend.toFixed(1)+'% (30d vs prior)',
+      recentRev:c.recentRev, profit:c.recentProfit, margin:c.margin, engagement:c.engagement, trend:c.revTrend});
+  });
+
+  const highMargin = customers.filter(c => c.margin > 20 && c.loads >= 3 && c.recentLoads > 0).sort((a,b) => b.margin - a.margin);
+  highMargin.forEach(c => {
+    if (!opps.find(o => o.customer === c.name)) {
+      opps.push({customer:c.name, type:'High Margin', detail:'Margin '+c.margin.toFixed(1)+'% — potential to increase volume',
+        recentRev:c.recentRev, profit:c.recentProfit, margin:c.margin, engagement:c.engagement, trend:c.revTrend});
+    }
+  });
+
+  const freqUp = customers.filter(c => c.loadTrend > 20 && c.recentLoads >= 3).sort((a,b) => b.loadTrend - a.loadTrend);
+  freqUp.forEach(c => {
+    if (!opps.find(o => o.customer === c.name)) {
+      opps.push({customer:c.name, type:'Increasing Frequency', detail:'Loads +'+c.loadTrend.toFixed(0)+'% (30d vs prior)',
+        recentRev:c.recentRev, profit:c.recentProfit, margin:c.margin, engagement:c.engagement, trend:c.loadTrend});
+    }
+  });
+
+  // Improving margin
+  const marginUp = customers.filter(c => c.recentMargin !== null && c.recentMargin > c.margin * 1.2 && c.recentLoads >= 2).sort((a,b) => b.recentMargin - a.recentMargin);
+  marginUp.forEach(c => {
+    if (!opps.find(o => o.customer === c.name)) {
+      opps.push({customer:c.name, type:'Improving Margin', detail:'Margin '+c.margin.toFixed(1)+'% → '+c.recentMargin.toFixed(1)+'%',
+        recentRev:c.recentRev, profit:c.recentProfit, margin:c.recentMargin, engagement:c.engagement, trend:c.revTrend});
+    }
+  });
+
+  let oppHtml = '<h3 style="margin:0 0 4px;">&#x1f4c8; Opportunity Flags</h3>';
+  oppHtml += '<p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">Customers with growth potential — expanding revenue, high margins, increasing frequency, or improving margins.</p>';
+  if (!opps.length) {
+    oppHtml += '<div style="padding:16px;background:var(--bg2,#111827);border-radius:8px;color:#94a3b8;text-align:center;">No standout opportunities detected in current window.</div>';
+  } else {
+    oppHtml += '<div style="overflow-x:auto;"><table class="pnl-table" style="width:100%;font-size:13px;">';
+    oppHtml += '<thead><tr><th>Customer</th><th>Opportunity</th><th>Detail</th><th style="text-align:right">Recent 30d Rev</th><th style="text-align:right">Recent Profit</th><th style="text-align:right">Margin</th><th>Status</th><th>Trend</th></tr></thead><tbody>';
+    opps.forEach(o => {
+      oppHtml += '<tr>';
+      oppHtml += '<td style="font-weight:600;">'+o.customer+'</td>';
+      oppHtml += '<td><span style="color:#22c55e;font-weight:500;">'+o.type+'</span></td>';
+      oppHtml += '<td style="color:#cbd5e1;">'+o.detail+'</td>';
+      oppHtml += '<td style="text-align:right">'+fmt$(o.recentRev)+'</td>';
+      oppHtml += '<td style="text-align:right;color:'+(o.profit>=0?'#22c55e':'#ef4444')+'">'+fmt$(o.profit)+'</td>';
+      oppHtml += '<td style="text-align:right;color:'+marginColor(o.margin)+';font-weight:600;">'+o.margin.toFixed(1)+'%</td>';
+      oppHtml += '<td>'+engBadge(o.engagement)+'</td>';
+      oppHtml += '<td>'+trendArrow(o.trend)+'</td>';
+      oppHtml += '</tr>';
+    });
+    oppHtml += '</tbody></table></div>';
+  }
+  document.getElementById('biOpportunitySection').innerHTML = oppHtml;
+
+  // --- ENGAGEMENT SCORING ---
+  const sorted = customers.slice().sort((a,b) => {
+    const eo = {Hot:0,Warm:1,Cold:2,Churned:3};
+    if (eo[a.engagement] !== eo[b.engagement]) return eo[a.engagement] - eo[b.engagement];
+    return b.revenue - a.revenue;
+  });
+
+  let engHtml = '<h3 style="margin:0 0 4px;">&#x1f3af; Customer Engagement Scorecard</h3>';
+  engHtml += '<p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">Every customer scored by recency, frequency, and revenue trend. Hot = active &lt;14d with 2+ loads. Warm = active &lt;30d. Cold = 30-60d. Churned = 60d+.</p>';
+  engHtml += '<div style="overflow-x:auto;"><table class="pnl-table" style="width:100%;font-size:13px;">';
+  engHtml += '<thead><tr><th>Customer</th><th>Status</th><th style="text-align:right">Loads</th><th style="text-align:right">Revenue</th><th style="text-align:right">Profit</th><th style="text-align:right">Margin</th><th style="text-align:right">Last 30d Rev</th><th>Rev Trend</th><th style="text-align:right">Days Since Last</th><th>Monthly Trend</th></tr></thead><tbody>';
+  sorted.forEach(c => {
+    engHtml += '<tr>';
+    engHtml += '<td style="font-weight:600;">'+c.name+'</td>';
+    engHtml += '<td>'+engBadge(c.engagement)+'</td>';
+    engHtml += '<td style="text-align:right">'+c.loads.toLocaleString()+'</td>';
+    engHtml += '<td style="text-align:right">'+fmt$(c.revenue)+'</td>';
+    engHtml += '<td style="text-align:right;color:'+(c.profit>=0?'#22c55e':'#ef4444')+'">'+fmt$(c.profit)+'</td>';
+    engHtml += '<td style="text-align:right;color:'+marginColor(c.margin)+';font-weight:600;">'+c.margin.toFixed(1)+'%</td>';
+    engHtml += '<td style="text-align:right">'+fmt$(c.recentRev)+'</td>';
+    engHtml += '<td>'+trendArrow(c.revTrend)+'</td>';
+    engHtml += '<td style="text-align:right;color:'+(c.daysSinceLast<=30?'#22c55e':c.daysSinceLast<=60?'#f59e0b':'#ef4444')+';">'+c.daysSinceLast+'</td>';
+    engHtml += '<td>'+trendArrow(c.monthTrend)+'</td>';
+    engHtml += '</tr>';
+  });
+  engHtml += '</tbody></table></div>';
+  document.getElementById('biEngagementSection').innerHTML = engHtml;
+
+  // --- CONCENTRATION RISK ---
+  const byRev = customers.slice().sort((a,b) => b.revenue - a.revenue);
+  let cumPct = 0;
+  let concHtml = '<h3 style="margin:0 0 4px;">&#x1f4ca; Revenue Concentration</h3>';
+  concHtml += '<p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">How concentrated your revenue is across customers. High concentration = higher risk if a top customer churns.</p>';
+
+  const top5Rev = byRev.slice(0, 5).reduce((s, c) => s + c.revenue, 0);
+  const top5Pct = totalRev > 0 ? (top5Rev / totalRev * 100) : 0;
+  const concLevel = top5Pct > 60 ? 'High' : top5Pct > 40 ? 'Moderate' : 'Healthy';
+  const concColor = top5Pct > 60 ? '#ef4444' : top5Pct > 40 ? '#f59e0b' : '#22c55e';
+  concHtml += '<div style="background:var(--bg2,#111827);border-radius:8px;padding:16px;margin-bottom:12px;">';
+  concHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+  concHtml += '<span style="font-weight:600;">Top 5 Customer Concentration</span>';
+  concHtml += '<span style="color:'+concColor+';font-weight:700;font-size:18px;">'+top5Pct.toFixed(1)+'% <span style="font-size:12px;font-weight:400;">('+concLevel+')</span></span>';
+  concHtml += '</div>';
+  concHtml += '<div style="height:12px;background:var(--bg1,#1e293b);border-radius:6px;overflow:hidden;">';
+  const barColors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#6366f1'];
+  byRev.slice(0, 8).forEach((c, i) => {
+    const pct = totalRev > 0 ? (c.revenue / totalRev * 100) : 0;
+    concHtml += '<div style="width:'+pct+'%;height:100%;float:left;background:'+barColors[i]+';" title="'+c.name+': '+pct.toFixed(1)+'%"></div>';
+  });
+  concHtml += '</div></div>';
+
+  concHtml += '<div style="overflow-x:auto;"><table class="pnl-table" style="width:100%;font-size:13px;">';
+  concHtml += '<thead><tr><th>#</th><th>Customer</th><th style="text-align:right">Revenue</th><th style="text-align:right">Profit</th><th style="text-align:right">% of Total</th><th style="text-align:right">Cumulative %</th><th style="text-align:right">Margin</th><th>Status</th><th>Risk if Lost</th></tr></thead><tbody>';
+  byRev.forEach((c, i) => {
+    const pct = totalRev > 0 ? (c.revenue / totalRev * 100) : 0;
+    cumPct += pct;
+    const riskLevel = pct > 15 ? 'Critical' : pct > 8 ? 'High' : pct > 3 ? 'Medium' : 'Low';
+    const riskColor = pct > 15 ? '#ef4444' : pct > 8 ? '#f59e0b' : pct > 3 ? '#3b82f6' : '#22c55e';
+    concHtml += '<tr>';
+    concHtml += '<td>'+(i+1)+'</td>';
+    concHtml += '<td style="font-weight:600;">'+c.name+'</td>';
+    concHtml += '<td style="text-align:right">'+fmt$(c.revenue)+'</td>';
+    concHtml += '<td style="text-align:right;color:'+(c.profit>=0?'#22c55e':'#ef4444')+'">'+fmt$(c.profit)+'</td>';
+    concHtml += '<td style="text-align:right">'+pct.toFixed(1)+'%</td>';
+    concHtml += '<td style="text-align:right">'+cumPct.toFixed(1)+'%</td>';
+    concHtml += '<td style="text-align:right;color:'+marginColor(c.margin)+';font-weight:600;">'+c.margin.toFixed(1)+'%</td>';
+    concHtml += '<td>'+engBadge(c.engagement)+'</td>';
+    concHtml += '<td><span style="color:'+riskColor+';font-weight:600;">'+riskLevel+'</span></td>';
+    concHtml += '</tr>';
+  });
+  concHtml += '</tbody></table></div>';
+  document.getElementById('biConcentrationSection').innerHTML = concHtml;
+}
+
 function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tabId).classList.add('active');
   event.target.classList.add('active');
@@ -2579,6 +2894,7 @@ function switchTab(tabId) {
   if (tabId === 'carriercompliance') renderCarrierCompliance();
       if (tabId === 'csr') renderCSR();
   if (tabId === 'carriermapping') renderMappings();
+  if (tabId === 'bianalyst') renderBIAnalystTab();
 }
 
 // ============================================================
