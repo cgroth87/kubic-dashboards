@@ -898,13 +898,22 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
           <div style="width:40px;height:40px;background:linear-gradient(135deg,#8b5cf6,#3b82f6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">&#x1f4ca;</div>
           <div>
             <h2 style="margin:0;">BI Analyst — Customer Intelligence</h2>
-            <p style="color:#94a3b8;font-size:13px;margin:2px 0 0 0;">Automated risk, opportunity &amp; engagement analysis across your CG customer base. 30-day risk window.</p>
+            <p style="color:#94a3b8;font-size:13px;margin:2px 0 0 0;">Automated risk, opportunity &amp; engagement analysis across your CG customer base.</p>
           </div>
+        </div>
+        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:20px;padding:14px;background:#111827;border-radius:8px;border:1px solid #1f2937;">
+          <label style="color:#cbd5e1;font-size:13px;font-weight:500;">Date Range:</label>
+          <input type="date" id="biDateFrom" style="padding:6px 10px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;" onchange="renderBIAnalystTab()">
+          <span style="color:#64748b;">to</span>
+          <input type="date" id="biDateTo" style="padding:6px 10px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;" onchange="renderBIAnalystTab()">
+          <button onclick="document.getElementById('biDateFrom').value='';document.getElementById('biDateTo').value='';renderBIAnalystTab();" style="padding:6px 14px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#94a3b8;cursor:pointer;font-size:12px;">Clear</button>
+          <span id="biDateInfo" style="color:#64748b;font-size:12px;margin-left:auto;"></span>
         </div>
         <div id="biSummaryKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;"></div>
         <div id="biRiskSection"></div>
         <div id="biOpportunitySection" style="margin-top:24px;"></div>
         <div id="biEngagementSection" style="margin-top:24px;"></div>
+        <div id="biPickupSection" style="margin-top:24px;"></div>
         <div id="biConcentrationSection" style="margin-top:24px;"></div>
       </div>
     </div>
@@ -1033,14 +1042,14 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     }
 
 
-    const SHEET_ID = '1TjvR5ODYR0SjxgjrJ_CVi4FPpfHkG96-ih7f-QLq8sE';
+    const SHEET_ID = '1EDU9_oq-hix7KyeKjpWfAuP00_AfofBSHeF-vsHfZOk';
     const TABS = ['2026', '2025', '2024', '2023', '2022', '2018 - 2021'];
 
-    // Column mappings — select customer, date, revenue, cost (we match CG after)
+    // Column mappings — select customer, date, revenue, cost, pickupState, deliveryState (we match CG after)
     const COL_MAP = {
-      modern: { customer:'B', date:'C', revenue:'S', cost:'X' },  // 2023-2026
-      mid:    { customer:'B', date:'C', revenue:'P', cost:'U' },  // 2022
-      legacy: { customer:'A', date:'B', revenue:'N', cost:'T' }   // 2018-2021
+      modern: { customer:'B', date:'C', pickupState:'I', deliveryState:'L', revenue:'S', cost:'X' },  // 2023-2026
+      mid:    { customer:'B', date:'C', pickupState:'F', deliveryState:'I', revenue:'P', cost:'U' },  // 2022
+      legacy: { customer:'A', date:'B', pickupState:'E', deliveryState:'H', revenue:'N', cost:'T' }   // 2018-2021
     };
     function getColMap(tab) {
       if (['2023','2024','2025','2026'].includes(tab)) return COL_MAP.modern;
@@ -1316,7 +1325,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     // Fetch a single sheet tab using gviz SQL query
     async function fetchSheetTab(tabName) {
       const cm = getColMap(tabName);
-      const query = `select ${cm.customer},${cm.date},${cm.revenue},${cm.cost} where ${cm.date} is not null`;
+      const query = `select ${cm.customer},${cm.date},${cm.revenue},${cm.cost},${cm.pickupState},${cm.deliveryState} where ${cm.date} is not null`;
       const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(tabName)}&tq=${encodeURIComponent(query)}&headers=1`;
 
       try {
@@ -1343,9 +1352,11 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
           const cgCustomer = matchCGCustomer(customerVal);
           const revenue = parseFloat(c[2]?.v) || 0;
           const cost = parseFloat(c[3]?.v) || 0;
+          const pickupState = (c[4]?.v || '').toString().trim() || '?';
+          const deliveryState = (c[5]?.v || '').toString().trim() || '?';
           const profit = revenue - cost;
           const margin = revenue > 0 ? (profit / revenue * 100) : 0;
-          if (!cgCustomer) { unmatchedRows.push({customer: customerVal, date: dt, revenue: revenue, cost: cost, profit: profit, margin: margin}); return null; }
+          if (!cgCustomer) { unmatchedRows.push({customer: customerVal, date: dt, revenue: revenue, cost: cost, profit: profit, margin: margin, pickupState: pickupState, deliveryState: deliveryState}); return null; }
 
           const month = dt.getMonth();
           return {
@@ -1363,6 +1374,8 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
             cost: cost,
             profit: profit,
             margin: margin,
+            pickupState: pickupState,
+            deliveryState: deliveryState,
             commission: revenue * 0.015
           };
         }).filter(Boolean);
@@ -2212,11 +2225,24 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
     // ===== BI ANALYST TAB =====
     function renderBIAnalystTab() {
       const now = new Date();
-      const RISK_DAYS = 30;
-      const cutoff30 = new Date(now); cutoff30.setDate(cutoff30.getDate() - RISK_DAYS);
-      const cutoff60 = new Date(now); cutoff60.setDate(cutoff60.getDate() - 60);
       const cutoff90 = new Date(now); cutoff90.setDate(cutoff90.getDate() - 90);
-      const src = filteredData && filteredData.length ? filteredData : allData;
+
+      // Date range filter
+      const dateFromVal = document.getElementById('biDateFrom')?.value;
+      const dateToVal = document.getElementById('biDateTo')?.value;
+      const dateFrom = dateFromVal ? new Date(dateFromVal) : null;
+      const dateTo = dateToVal ? new Date(dateToVal + 'T23:59:59') : null;
+
+      let src = filteredData && filteredData.length ? filteredData : allData;
+      if (dateFrom || dateTo) {
+        src = src.filter(r => {
+          if (dateFrom && r.date < dateFrom) return false;
+          if (dateTo && r.date > dateTo) return false;
+          return true;
+        });
+      }
+      const infoEl = document.getElementById('biDateInfo');
+      if (infoEl) infoEl.textContent = (dateFrom || dateTo) ? src.length.toLocaleString() + ' records in range' : src.length.toLocaleString() + ' total records';
       if (!src || !src.length) {
         document.getElementById('biRiskSection').innerHTML = '<p style="color:#94a3b8">No data loaded yet.</p>';
         return;
@@ -2229,7 +2255,8 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
           profiles[r.cgCode] = {
             code: r.cgCode, name: r.cgName, loads: 0, revenue: 0, cost: 0,
             commission: 0, dates: [], recentLoads: 0, recentRev: 0, recentCost: 0,
-            priorLoads: 0, priorRev: 0, priorCost: 0, monthlyRev: {}
+            priorLoads: 0, priorRev: 0, priorCost: 0, monthlyRev: {},
+            pickupStates: {}
           };
         }
         const p = profiles[r.cgCode];
@@ -2238,10 +2265,11 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         p.cost += r.cost;
         p.commission += r.commission;
         p.dates.push(r.date);
+        const pu = r.pickupState || '?';
+        p.pickupStates[pu] = (p.pickupStates[pu] || 0) + 1;
 
-        // Recent vs prior (30-day windows)
-        if (r.date >= cutoff30) { p.recentLoads++; p.recentRev += r.revenue; p.recentCost += r.cost; }
-        else if (r.date >= cutoff60) { p.priorLoads++; p.priorRev += r.revenue; p.priorCost += r.cost; }
+        // Recent 90-day window
+        if (r.date >= cutoff90) { p.recentLoads++; p.recentRev += r.revenue; p.recentCost += r.cost; }
 
         // Monthly revenue for trend
         const mk = r.date.getFullYear() + '-' + String(r.date.getMonth()+1).padStart(2,'0');
@@ -2254,8 +2282,15 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         c.daysSinceLast = c.lastLoad ? Math.floor((now - c.lastLoad) / 86400000) : 999;
         c.margin = c.revenue > 0 ? ((c.revenue - c.cost) / c.revenue * 100) : 0;
         c.recentMargin = c.recentRev > 0 ? ((c.recentRev - c.recentCost) / c.recentRev * 100) : null;
-        c.revTrend = c.priorRev > 0 ? ((c.recentRev - c.priorRev) / c.priorRev * 100) : (c.recentRev > 0 ? 100 : 0);
-        c.loadTrend = c.priorLoads > 0 ? ((c.recentLoads - c.priorLoads) / c.priorLoads * 100) : (c.recentLoads > 0 ? 100 : 0);
+        // Lifetime-based trend: compare recent 90d monthly rate vs lifetime monthly rate
+        const firstDate = new Date(Math.min(...c.dates.map(d => d.getTime())));
+        c.lifetimeMonths = Math.max(1, (now - firstDate) / (30.44 * 86400000));
+        c.lifetimeMonthlyRev = c.revenue / c.lifetimeMonths;
+        c.lifetimeMonthlyLoads = c.loads / c.lifetimeMonths;
+        const recent90dMonthlyRev = c.recentRev / 3;
+        const recent90dMonthlyLoads = c.recentLoads / 3;
+        c.revTrend = c.lifetimeMonthlyRev > 0 ? ((recent90dMonthlyRev - c.lifetimeMonthlyRev) / c.lifetimeMonthlyRev * 100) : (c.recentRev > 0 ? 100 : 0);
+        c.loadTrend = c.lifetimeMonthlyLoads > 0 ? ((recent90dMonthlyLoads - c.lifetimeMonthlyLoads) / c.lifetimeMonthlyLoads * 100) : (c.recentLoads > 0 ? 100 : 0);
 
         // Revenue trend from last 6 months
         const sortedMonths = Object.keys(c.monthlyRev).sort().slice(-6);
@@ -2280,7 +2315,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       const warm = customers.filter(c => c.engagement === 'Warm').length;
       const cold = customers.filter(c => c.engagement === 'Cold').length;
       const churned = customers.filter(c => c.engagement === 'Churned').length;
-      const atRisk = customers.filter(c => c.daysSinceLast > RISK_DAYS || c.revTrend < -20).length;
+      const atRisk = customers.filter(c => c.revTrend < -30 || (c.daysSinceLast > 60 && c.loads >= 3)).length;
       const growing = customers.filter(c => c.revTrend > 10 && c.recentLoads > 0).length;
       const totalRev = customers.reduce((s, c) => s + c.revenue, 0);
 
@@ -2313,8 +2348,8 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       // --- RISK FLAGS ---
       const risks = [];
 
-      // Silent customers (no loads in 30 days but had loads before)
-      const silent = customers.filter(c => c.daysSinceLast > RISK_DAYS && c.loads >= 3).sort((a,b) => b.revenue - a.revenue);
+      // Silent customers (no loads in 60+ days but had loads before)
+      const silent = customers.filter(c => c.daysSinceLast > 60 && c.loads >= 3).sort((a,b) => b.revenue - a.revenue);
       silent.forEach(c => {
         risks.push({
           customer: c.name, code: c.code, type: 'Silent',
@@ -2324,14 +2359,14 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         });
       });
 
-      // Revenue declining customers (active but trending down)
-      const declining = customers.filter(c => c.recentLoads > 0 && c.revTrend < -20 && c.priorRev > 500)
+      // Revenue declining customers (active but trending down vs lifetime avg)
+      const declining = customers.filter(c => c.recentLoads > 0 && c.revTrend < -20 && c.revenue > 1500)
         .sort((a,b) => a.revTrend - b.revTrend);
       declining.forEach(c => {
         risks.push({
           customer: c.name, code: c.code, type: 'Declining Revenue',
           severity: c.revTrend < -50 ? 'Critical' : c.revTrend < -30 ? 'High' : 'Medium',
-          detail: 'Revenue ' + c.revTrend.toFixed(1) + '% (30d vs prior 30d)',
+          detail: 'Revenue ' + c.revTrend.toFixed(1) + '% vs lifetime avg',
           revenue: c.revenue, margin: c.margin, engagement: c.engagement, daysSince: c.daysSinceLast
         });
       });
@@ -2386,7 +2421,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       growingCusts.forEach(c => {
         opps.push({
           customer: c.name, code: c.code, type: 'Growing Revenue',
-          detail: 'Revenue +' + c.revTrend.toFixed(1) + '% (30d vs prior)',
+          detail: 'Revenue +' + c.revTrend.toFixed(1) + '% vs lifetime avg',
           recentRev: c.recentRev, margin: c.margin, engagement: c.engagement, trend: c.revTrend
         });
       });
@@ -2411,7 +2446,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         if (!opps.find(o => o.code === c.code)) {
           opps.push({
             customer: c.name, code: c.code, type: 'Increasing Frequency',
-            detail: 'Loads +' + c.loadTrend.toFixed(0) + '% (30d vs prior)',
+            detail: 'Loads +' + c.loadTrend.toFixed(0) + '% vs lifetime avg',
             recentRev: c.recentRev, margin: c.margin, engagement: c.engagement, trend: c.loadTrend
           });
         }
@@ -2423,7 +2458,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
         oppHtml += '<div style="padding:16px;background:#111827;border-radius:8px;color:#94a3b8;text-align:center;">No standout opportunities detected in current window.</div>';
       } else {
         oppHtml += '<div style="overflow-x:auto;"><table class="data-table" style="width:100%;font-size:13px;">';
-        oppHtml += '<thead><tr><th>Customer</th><th>Code</th><th>Opportunity</th><th>Detail</th><th class="text-right">Recent 30d Rev</th><th class="text-right">Margin</th><th>Status</th><th>Trend</th></tr></thead><tbody>';
+        oppHtml += '<thead><tr><th>Customer</th><th>Code</th><th>Opportunity</th><th>Detail</th><th class="text-right">Recent 90d Rev</th><th class="text-right">Margin</th><th>Status</th><th>Trend</th></tr></thead><tbody>';
         opps.forEach(o => {
           oppHtml += '<tr>';
           oppHtml += '<td style="font-weight:600;">' + o.customer + '</td>';
@@ -2450,7 +2485,7 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       let engHtml = '<h3 style="margin:0 0 4px;">&#x1f3af; Customer Engagement Scorecard</h3>';
       engHtml += '<p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">Every CG customer scored by recency, frequency, and revenue trend. Hot = active &lt;14d with 2+ loads. Warm = active &lt;30d. Cold = 30-60d. Churned = 60d+.</p>';
       engHtml += '<div style="overflow-x:auto;"><table class="data-table" style="width:100%;font-size:13px;">';
-      engHtml += '<thead><tr><th>Customer</th><th>Code</th><th>Status</th><th class="text-right">Lifetime Loads</th><th class="text-right">Lifetime Revenue</th><th class="text-right">Margin</th><th class="text-right">Last 30d Rev</th><th>Rev Trend</th><th class="text-right">Days Since Last</th><th>Monthly Trend</th></tr></thead><tbody>';
+      engHtml += '<thead><tr><th>Customer</th><th>Code</th><th>Status</th><th class="text-right">Lifetime Loads</th><th class="text-right">Lifetime Revenue</th><th class="text-right">Margin</th><th class="text-right">Last 90d Rev</th><th>Rev Trend (vs Lifetime)</th><th class="text-right">Days Since Last</th><th>Monthly Trend</th></tr></thead><tbody>';
       sorted.forEach(c => {
         engHtml += '<tr>';
         engHtml += '<td style="font-weight:600;">' + c.name + '</td>';
@@ -2515,6 +2550,80 @@ if(sessionStorage.getItem('kubic_auth')==='true'){document.addEventListener('DOM
       });
       concHtml += '</tbody></table></div>';
       document.getElementById('biConcentrationSection').innerHTML = concHtml;
+
+      // --- PICKUP STATE OVERLAY ---
+      const stateProfiles = {};
+      src.forEach(r => {
+        const st = r.pickupState || '?';
+        if (st === '?') return;
+        if (!stateProfiles[st]) {
+          stateProfiles[st] = {state: st, loads: 0, revenue: 0, cost: 0, customers: new Set(), dates: [],
+            recentLoads: 0, recentRev: 0};
+        }
+        const sp = stateProfiles[st];
+        sp.loads++;
+        sp.revenue += r.revenue;
+        sp.cost += r.cost;
+        sp.customers.add(r.cgCode);
+        sp.dates.push(r.date);
+        if (r.date >= cutoff90) { sp.recentLoads++; sp.recentRev += r.revenue; }
+      });
+
+      const states = Object.values(stateProfiles).sort((a,b) => b.revenue - a.revenue);
+      states.forEach(s => {
+        s.margin = s.revenue > 0 ? ((s.revenue - s.cost) / s.revenue * 100) : 0;
+        s.customerCount = s.customers.size;
+        const stFirstDate = s.dates.length ? new Date(Math.min(...s.dates.map(d => d.getTime()))) : now;
+        const stLifetimeMonths = Math.max(1, (now - stFirstDate) / (30.44 * 86400000));
+        const stLifetimeMonthlyRev = s.revenue / stLifetimeMonths;
+        const stRecent90dMonthlyRev = s.recentRev / 3;
+        s.revTrend = stLifetimeMonthlyRev > 0 ? ((stRecent90dMonthlyRev - stLifetimeMonthlyRev) / stLifetimeMonthlyRev * 100) : (s.recentRev > 0 ? 100 : 0);
+        s.lastLoad = s.dates.length ? new Date(Math.max(...s.dates.map(d => d.getTime()))) : null;
+        s.daysSinceLast = s.lastLoad ? Math.floor((now - s.lastLoad) / 86400000) : 999;
+        s.avgRevPerLoad = s.loads > 0 ? (s.revenue / s.loads) : 0;
+      });
+
+      const totalStateRev = states.reduce((s,st) => s + st.revenue, 0);
+
+      let puHtml = '<h3 style="margin:0 0 4px;">&#x1f4cd; Pickup State Analysis</h3>';
+      puHtml += '<p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">Performance breakdown by pickup origin state — identify which states are growing, declining, or at risk.</p>';
+
+      // State concentration bar
+      puHtml += '<div style="display:flex;height:14px;border-radius:6px;overflow:hidden;margin-bottom:16px;background:#1e293b;">';
+      states.forEach((s, i) => {
+        const pct = totalStateRev > 0 ? (s.revenue / totalStateRev * 100) : 0;
+        if (pct > 0.5) {
+          puHtml += '<div style="width:'+pct+'%;height:100%;background:'+barColors[i % barColors.length]+';position:relative;" title="'+s.state+': '+pct.toFixed(1)+'%">';
+          if (pct > 5) puHtml += '<span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:9px;font-weight:700;color:#fff;">'+s.state+'</span>';
+          puHtml += '</div>';
+        }
+      });
+      puHtml += '</div>';
+
+      puHtml += '<div style="overflow-x:auto;"><table class="data-table" style="width:100%;font-size:13px;">';
+      puHtml += '<thead><tr><th>Pickup State</th><th style="text-align:right">Loads</th><th style="text-align:right">Revenue</th><th style="text-align:right">% of Total</th><th style="text-align:right">Margin</th><th style="text-align:right">Customers</th><th style="text-align:right">Avg Rev/Load</th><th>Rev Trend (vs Lifetime)</th><th style="text-align:right">Days Since Last</th><th>Signal</th></tr></thead><tbody>';
+      states.forEach(s => {
+        const pct = totalStateRev > 0 ? (s.revenue / totalStateRev * 100) : 0;
+        let signal = '', sigColor = '';
+        if (s.daysSinceLast > 30) { signal = 'Inactive'; sigColor = '#ef4444'; }
+        else if (s.revTrend < -20) { signal = 'Declining'; sigColor = '#f59e0b'; }
+        else if (s.revTrend > 15) { signal = 'Growing'; sigColor = '#22c55e'; }
+        else { signal = 'Stable'; sigColor = '#3b82f6'; }
+        puHtml += '<tr>';
+        puHtml += '<td style="font-weight:700;">'+s.state+'</td>';
+        puHtml += '<td style="text-align:right">'+s.loads.toLocaleString()+'</td>';
+        puHtml += '<td style="text-align:right">'+fmt$(s.revenue)+'</td>';
+        puHtml += '<td style="text-align:right">'+pct.toFixed(1)+'%</td>';
+        puHtml += '<td style="text-align:right;color:'+marginColor(s.margin)+';font-weight:600;">'+s.margin.toFixed(1)+'%</td>';
+        puHtml += '<td style="text-align:right">'+s.customerCount+'</td>';
+        puHtml += '<td style="text-align:right">'+fmt$(s.avgRevPerLoad)+'</td>';
+        puHtml += '<td>'+trendArrow(s.revTrend)+'</td>';
+        puHtml += '<td style="text-align:right;color:'+(s.daysSinceLast<=30?'#22c55e':s.daysSinceLast<=60?'#f59e0b':'#ef4444')+';">'+s.daysSinceLast+'</td>';
+        puHtml += '<td><span style="color:'+sigColor+';font-weight:600;">'+signal+'</span></td>';
+        puHtml += '</tr>';
+      });
+      puHtml += '</tbody></table></div>';
+      document.getElementById('biPickupSection').innerHTML = puHtml;
     }
 
         function switchTab(tabName) {
