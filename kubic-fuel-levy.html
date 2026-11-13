@@ -63,6 +63,8 @@ tr.grp td{background:var(--bg);font-size:11px;font-weight:600;text-transform:upp
 tr.clk{cursor:pointer}tr.clk:hover td,tr.clk.open td{background:rgba(232,117,26,.07)}
 tr.exp>td{padding:0!important;background:var(--bg)}.editor{padding:16px 18px;border-left:3px solid var(--acc)}
 table.sticky th:first-child,table.sticky tr.clk td:first-child{position:sticky;left:0;background:var(--panel);z-index:1}table.sticky tr.clk:hover td:first-child,table.sticky tr.clk.open td:first-child{background:#2b2640}
+#tip{position:fixed;display:none;pointer-events:none;z-index:150;background:#11111f;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.4);white-space:nowrap}
+#tip b{font-size:16px;display:block}circle.hit{cursor:pointer}circle.hit:hover{fill-opacity:.25}
 #printroot{display:none}
 #toast{position:fixed;right:20px;bottom:20px;background:var(--panel2);border:1px solid var(--acc);border-radius:8px;padding:10px 16px;display:none;z-index:99}
 /* letter */
@@ -100,6 +102,7 @@ table.sticky th:first-child,table.sticky tr.clk td:first-child{position:sticky;l
 </div>
 <div id="toast"></div>
 <div id="printroot"></div>
+<div id="tip"></div>
 <script>
 "use strict";
 /* ===================== Config ===================== */
@@ -198,7 +201,7 @@ function seedData() {
       greeting:"To our valued customers,", subject:"Fuel Levy Update",
       methodology:"Our fuel levy formula uses a base price of 125.6 cpl (2021 AIP national yearly average) and a Linehaul Fuel Cost Component (LFC) of 39%, ensuring our surcharge reflects actual market movements transparently.",
       closing:"We continue to monitor AIP published data weekly and will adjust rates accordingly. Any material shift in global crude pricing or the AUD/USD exchange rate will flow through to the following week's levy.\n\nOur fuel levy is reviewed and updated each Monday based on the prior week's AIP national average retail diesel price. Full methodology and formula details are available upon request.\n\nReference: AIP Weekly National Average Retail Diesel Prices (Interstate) — https://aip.com.au/pricing/diesel/national-retail-diesel-prices/national-average/\n\nReference: AIP Weekly Melbourne Average Retail Diesel Price (Local) — https://aip.com.au/pricing/diesel/victorian-retail-diesel-prices/melbourne/\n\nShould you have any questions, please don't hesitate to reach out.",
-      historyWeeks:8, tgpCity:"National Average", csrAdded:true
+      historyWeeks:8, tgpCity:"National Average"
     },
     lastOutlook:"", ghToken:""
   };
@@ -278,7 +281,7 @@ async function boot() {
       if (pw.length < 10) return $("#a_err").textContent = "Password must be at least 10 characters.";
       if (pw !== $("#s_pw2").value) return $("#a_err").textContent = "Passwords do not match.";
       $("#s_go").disabled = true;
-      keyRaw = rnd(32); D = seedData(); D.ghToken = $("#s_tok").value.trim();
+      keyRaw = rnd(32); D = seedData(); D.settings.csrAdded = true; D.ghToken = $("#s_tok").value.trim();
       file = {v:1, rev:0, users:[await makeUser(u, name, "admin", pw, keyRaw)]}; me = file.users[0]; const code = await makeRecovery(me);
       startSession(); enter(); await save("Fuel levy generator set up"); showCode(code);
     };
@@ -345,11 +348,12 @@ async function setPassword(rec, pw, mustChange) { const n = await makeUser(rec.u
 function startSession() { sessionStorage.setItem("kfl_sess", JSON.stringify({u:me.u, k:b64(keyRaw)})); }
 function signOut() { if (dirty && !confirm("You have unsaved changes. Sign out anyway?")) return; dirty = false; sessionStorage.removeItem("kfl_sess"); location.reload(); }
 function enter() {
+  let markCsr = false;
   const def = seedData(); D.settings = Object.assign(def.settings, D.settings || {}); for (const k of ["closing","methodology"]) D.settings[k] = String(D.settings[k] || "").split("https://aip.com.au/pricing/Diesel/National/National-Average").join("https://aip.com.au/pricing/diesel/national-retail-diesel-prices/national-average/").split("https://aip.com.au/pricing/Diesel/Victoria/Melbourne").join("https://aip.com.au/pricing/diesel/victorian-retail-diesel-prices/melbourne/");
   D.customers = D.customers || [];
   if ((D.weeks || []).some(w => /ack-calculated from published levy/.test(w.note || ""))) { const fix = seedData().weeks; D.weeks.forEach(w => { if (/ack-calculated from published levy/.test(w.note || "")) { const f = fix.find(x => x.we === w.we); if (f) { w.nat = f.nat; w.melb = f.melb; } w.note = ""; } }); const lp = (D.profiles || []).find(p => p.id === "local" && p.comp === 23); if (lp) lp.comp = 22.5; } D.profiles = D.profiles || []; D.weeks = D.weeks || [];
-  if (!D.settings.csrAdded) { if (!D.profiles.some(p => p.id === "csr")) D.profiles.push(seedData().profiles.find(p => p.id === "csr")); D.settings.csrAdded = true; }
-  $("#auth").style.display = "none"; $("#app").style.display = "block"; render(); loadAip();
+  if (!D.settings.csrAdded) { markCsr = true; if (!D.profiles.some(p => p.id === "csr")) D.profiles.push(seedData().profiles.find(p => p.id === "csr")); D.settings.csrAdded = true; }
+  $("#auth").style.display = "none"; $("#app").style.display = "block"; render(); loadAip(); if (markCsr && can("edit")) markDirty();
 }
 const can = what => me.role === "admin" || (what === "edit" && me.role === "editor");
 
@@ -375,7 +379,7 @@ function render() {
 /* ===================== AIP feed ===================== */
 let aip = null, aipState = "loading";
 async function loadAip() {
-  const urls = [`https://raw.githubusercontent.com/${repo.owner}/${repo.repo}/${repo.branch}/aip-prices.json`, "aip-prices.json?t=" + Date.now()];
+  const urls = [`https://raw.githubusercontent.com/${repo.owner}/${repo.repo}/${repo.branch}/aip-prices.json`, "aip-prices.json?t=" + Date.now(), "aip-prices.json"];
   for (const u of urls) { try { const r = await fetch(u, {cache:"no-store"}); if (r.ok) { const j = await r.json(); if (j && j.retail && j.tgp && j.tgp.cities) { aip = j; break; } } } catch (e) {} }
   aipState = aip ? "ok" : "none"; if (!aip) { if (view === "data") render(); return; }
   if (!aip.tgp.cities.includes(D.settings.tgpCity)) D.settings.tgpCity = aip.tgp.cities.includes("National Average") ? "National Average" : aip.tgp.cities[0];
@@ -492,7 +496,7 @@ function vHistory() {
   if (vals.length > 1 && ws.length > 1) { const lo = Math.floor(Math.min(...vals) - 1), hi = Math.ceil(Math.max(...vals) + 1), W = 900, H = 240, L = 44, R = 28, T = 12, B = 30; const x = k => L + k * (W - L - R) / (ws.length - 1), y = v => T + (hi - v) * (H - T - B) / (hi - lo); const step = Math.ceil(ws.length / 12);
     chart = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;margin-top:10px" font-size="11" fill="#9a9ac0">${[0, 1, 2, 3, 4].map(k => { const t = lo + k * (hi - lo) / 4; return `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="#333360"/><text x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t.toFixed(0)}%</text>`; }).join("")}
       ${ws.map((w, k) => k % step ? "" : `<text x="${x(k)}" y="${H - 8}" text-anchor="middle">${shortDate(effOf(w.we)).slice(0, -3)}</text>`).join("")}
-      ${series.map((v, i) => { const c = col[i % col.length]; let d = "", pen = false; v.forEach((q, k) => { if (q == null) { pen = false; return; } d += (pen ? "L" : "M") + x(k).toFixed(1) + " " + y(q).toFixed(1); pen = true; }); return `<path d="${d}" fill="none" stroke="${c}" stroke-width="2"/>` + v.map((q, k) => q == null ? "" : `<circle cx="${x(k).toFixed(1)}" cy="${y(q).toFixed(1)}" r="3" fill="${c}"><title>${esc(P[i].name)} — from ${longDate(effOf(ws[k].we))}: ${f2(q)}%</title></circle>`).join(""); }).join("")}</svg>
+      ${series.map((v, i) => { const c = col[i % col.length]; let d = "", pen = false; v.forEach((q, k) => { if (q == null) { pen = false; return; } d += (pen ? "L" : "M") + x(k).toFixed(1) + " " + y(q).toFixed(1); pen = true; }); return `<path d="${d}" fill="none" stroke="${c}" stroke-width="2"/>` + v.map((q, k) => q == null ? "" : `<circle cx="${x(k).toFixed(1)}" cy="${y(q).toFixed(1)}" r="3.5" fill="${c}" pointer-events="none"/><circle class="hit" cx="${x(k).toFixed(1)}" cy="${y(q).toFixed(1)}" r="11" fill="${c}" fill-opacity="0" data-tip="${esc(P[i].name)}|${f2(q)}%|Effective ${longDate(effOf(ws[k].we))}|${SRC_SHORT[P[i].source]} ${f2(srcPrice(ws[k], P[i].source))} cpl, week ending ${shortDate(ws[k].we)}|${c}"/>`).join(""); }).join("")}</svg>
       <div class="row small" style="margin-top:6px">${P.map((p, i) => `<span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${col[i % col.length]};margin-right:6px"></i>${esc(p.name)}</span>`).join("")}</div>`; }
   const wk = ws.slice().reverse(); const cols = wk.length + 2;
   const cell = (p, w, prev) => { const v = levy(p, w), pv = prev ? levy(p, prev) : null, d = v != null && pv != null ? r2(v - pv) : null;
@@ -565,10 +569,6 @@ function vSettings() {
     <div class="grid g4"><div><label>Owner</label><input data-r="owner" value="${esc(repo.owner)}"></div><div><label>Repository</label><input data-r="repo" value="${esc(repo.repo)}"></div><div><label>Branch</label><input data-r="branch" value="${esc(repo.branch)}"></div><div><label>Data file</label><input data-r="path" value="${esc(repo.path)}"></div></div>
     <div style="margin-top:12px"><label>GitHub token — fine-grained, this repository only, “Contents: Read and write”</label><input type="password" id="tok" value="${esc(D.ghToken)}" placeholder="github_pat_…"></div>
     <div class="row" style="margin-top:12px"><button class="btn" id="toktest">Test and save token</button><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" class="small">Create a token on GitHub</a></div></div>
-  <div class="card"><h2>Notice wording</h2><div class="grid g2">${F("greeting","Greeting")}${F("subject","Email subject (customer name is added)")}</div>
-    <div style="margin-top:12px">${F("methodology","Methodology paragraph (email)",3)}</div><div style="margin-top:12px">${F("closing","Closing paragraphs and references (email)",9)}</div>
-    <div class="grid g2" style="margin-top:12px"><div><label>Weeks of history shown on the letter</label><input type="number" min="2" max="26" data-s="historyWeeks" value="${s.historyWeeks}"></div></div></div>
-  <div class="card"><h2>Company and signature</h2><div class="grid g2">${F("company","Company")}${F("abn","ABN")}${F("address","Address")}${F("web","Website")}${F("signName","Signed by")}${F("signTitle","Title")}${F("signPhone","Phone")}${F("signEmail","Email")}</div></div>
   <div class="card"><h2>Backup</h2><div class="row"><button class="btn" id="dl2">Download encrypted data file</button></div></div>`;
 }
 function bSettings() {
@@ -706,6 +706,9 @@ function bGenerate() {
   $("#g_regen").onclick = () => { gen.context = null; render(); };
   $("#main").querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { gen.tab = b.dataset.tab; render(); });
 }
+document.addEventListener("mousemove", e => { const tip = $("#tip"), h = e.target.closest && e.target.closest("[data-tip]"); if (!h) { tip.style.display = "none"; return; }
+  const [n, v, d, src, c] = h.dataset.tip.split("|"); tip.innerHTML = `<span style="color:${c}">●</span> ${esc(n)}<b>${esc(v)}</b><span class="mut">${esc(d)}<br>${esc(src)}</span>`; tip.style.display = "block";
+  const w = tip.offsetWidth, ht = tip.offsetHeight; tip.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, e.clientX + 14)) + "px"; tip.style.top = (e.clientY - ht - 12 < 8 ? e.clientY + 16 : e.clientY - ht - 12) + "px"; });
 boot();
 </script>
 </body>
