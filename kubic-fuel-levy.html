@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Kubic Fuel Levy Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1a1a2e;--panel:#222240;--panel2:#2a2a4d;--line:#333360;--txt:#e8e8f2;--mut:#9a9ac0;--acc:#e8751a;--ok:#34c38f;--bad:#ef5350;--warn:#f1b44c}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--txt);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:15px;margin:0 0 12px}h3{font-size:13px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+p{margin:0 0 10px}a{color:var(--acc)}
+.mut{color:var(--mut)}.small{font-size:12px}.right{text-align:right}.num{font-variant-numeric:tabular-nums}
+input,select,textarea,button{font:inherit;color:inherit}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:-1px}
+textarea{resize:vertical;min-height:90px}
+label{display:block;font-size:12px;color:var(--mut);margin:0 0 4px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--acc)}.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+.btn.sm{padding:4px 10px;font-size:12px}.btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.wordmark{font-weight:700;letter-spacing:.08em;font-size:15px}.wordmark i{display:inline-block;width:11px;height:11px;background:var(--acc);margin:0 6px;vertical-align:-1px}
+/* auth */
+#auth{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+.authbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:32px;width:100%;max-width:400px}
+.authbox .f{margin-bottom:14px}.err{color:var(--bad);font-size:13px;min-height:18px;margin:8px 0}
+/* shell */
+#app{display:none;min-height:100%}
+.side{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
+.side .wordmark{padding:20px 18px}
+.nav a{display:block;padding:10px 18px;color:var(--mut);text-decoration:none;border-left:3px solid transparent;cursor:pointer}
+.nav a:hover{color:var(--txt)}.nav a.on{color:var(--txt);border-left-color:var(--acc);background:rgba(232,117,26,.08)}
+.side .who{margin-top:auto;padding:16px 18px;border-top:1px solid var(--line);font-size:12px}
+.main{margin-left:220px;padding:24px 28px 60px;max-width:1280px}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}.top .sp{flex:1}
+.pill{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;background:rgba(154,154,192,.15);color:var(--mut)}
+.pill.ok{background:rgba(52,195,143,.15);color:var(--ok)}.pill.warn{background:rgba(241,180,76,.15);color:var(--warn)}.pill.bad{background:rgba(239,83,80,.15);color:var(--bad)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+.grid{display:grid;gap:12px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+table.t{width:100%;border-collapse:collapse}
+table.t th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t td{padding:4px 6px;border-bottom:1px solid rgba(51,51,96,.5);vertical-align:middle}
+table.t input{padding:6px 8px}table.t input.n{width:78px;text-align:right}
+.scroll{overflow-x:auto}
+.rate{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px}
+.rate .big{font-size:28px;font-weight:700;color:var(--acc);font-variant-numeric:tabular-nums}
+.rate s{color:var(--mut);font-size:14px;margin-left:8px}
+.banner{background:rgba(241,180,76,.12);border:1px solid rgba(241,180,76,.4);color:var(--warn);border-radius:8px;padding:10px 14px;margin-bottom:16px}
+.tabs{display:flex;gap:4px;margin-bottom:12px}.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;color:var(--mut);cursor:pointer}.tabs button.on{color:var(--txt);border-bottom-color:var(--acc)}
+.emailprev{background:#fff;color:#111;border-radius:8px;padding:24px;font:14px/1.5 Arial,Helvetica,sans-serif}
+.emailprev h4{margin:18px 0 6px;font-size:15px}.emailprev p{margin:0 0 10px}
+input[type=range]{padding:0;accent-color:var(--acc)}input[type=checkbox]{width:auto;accent-color:var(--acc)}
+#printroot{display:none}
+#toast{position:fixed;right:20px;bottom:20px;background:var(--panel2);border:1px solid var(--acc);border-radius:8px;padding:10px 16px;display:none;z-index:99}
+/* letter */
+.letterwrap{background:#55556a;padding:16px;border-radius:8px;overflow-x:auto}
+.page{background:#fff;color:#000;width:210mm;min-height:296mm;margin:0 auto 16px;position:relative;font:10.5pt/1.4 Arial,Helvetica,sans-serif;padding:0 0 34mm}
+.page .lh{display:flex;justify-content:space-between;align-items:flex-start;height:38mm}
+.page .lh img{height:26mm;margin:6mm 0 0 8mm}
+.page .lh .co{text-align:right;font-size:9.5pt;padding:7mm 6mm 0 0;flex:1}
+.page .lh .blk{width:14mm;height:34mm;background:#f58020}
+.page .body{padding:2mm 16mm 0}
+.page table{border-collapse:collapse;margin:4mm 0;font-size:9.5pt}
+.page th{background:#f79646;color:#fff;padding:3px 10px;border:1px solid #f79646}
+.page td{padding:2px 10px;border:1px solid #f79646;text-align:center}
+.page .ft{position:absolute;left:0;right:0;bottom:0;height:28mm;background:#f79646;display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;font-size:8.5pt;padding-top:5mm}
+.page .ft b{display:block;font-size:9.5pt;margin-bottom:3mm}.page .ft div{padding:0 5mm;border-left:1px solid #c96a1c}.page .ft div:first-child{border:0}
+.page .frm{margin:5mm 0 5mm 8mm;font-weight:bold}.page .frac{display:inline-block;text-align:center;vertical-align:middle}.page .frac span{display:block;padding:0 4px}.page .frac span:first-child{border-bottom:1px solid #000}
+@media (max-width:900px){.side{position:static;width:auto;flex-direction:row;flex-wrap:wrap;align-items:center}.nav{display:flex;flex-wrap:wrap}.side .who{margin:0;border:0}.main{margin:0;padding:16px}.g2,.g3,.g4{grid-template-columns:1fr}}
+@media print{
+  body{background:#fff}#app,#toast,#auth{display:none!important}#printroot{display:block!important}
+  .letterwrap{background:none;padding:0}.page{margin:0;page-break-after:always;width:auto;min-height:0;height:296mm}
+  .page th,.page .ft,.page .lh .blk{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:A4;margin:0}
+}
+</style>
+</head>
+<body>
+<div id="auth"><div class="authbox" id="authbox"><div class="wordmark">KUBIC<i></i>FUEL LEVY</div><p class="mut" style="margin-top:14px">Loading…</p></div></div>
+<div id="app">
+  <aside class="side">
+    <div class="wordmark">KUBIC<i></i>FUEL LEVY</div>
+    <nav class="nav" id="nav"></nav>
+    <div class="who" id="who"></div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+<div id="toast"></div>
+<div id="printroot"></div>
+<script>
+"use strict";
+/* ===================== Config ===================== */
+const LOGO = "data:image/png;base64,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";
+const DEFAULT_REPO = {owner:"cgroth87", repo:"kubic-dashboards", branch:"main", path:"fuel-levy-data.json"};
+const PBKDF2_ITER = 250000;
+const SOURCES = {nat:"AIP national average retail diesel", melb:"AIP Melbourne average retail diesel", tgp:"Diesel terminal gate price (weekday average)"};
+const SRC_SHORT = {nat:"National retail", melb:"Melbourne retail", tgp:"TGP avg"};
+const DAYS = ["Mon","Tue","Wed","Thu","Fri"];
+
+/* ===================== Helpers ===================== */
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2, 9);
+const num = v => { if (v === "" || v == null) return null; const n = parseFloat(v); return isFinite(n) ? n : null; };
+const r2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+const f2 = n => n == null ? "—" : n.toFixed(2);
+const f1 = n => n == null ? "—" : (Math.round(n * 10) / 10).toFixed(1);
+const pd = iso => { const [y, m, d] = iso.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+const iso = d => d.toISOString().slice(0, 10);
+const addDays = (s, n) => { const d = pd(s); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
+const ord = n => n + (["th","st","nd","rd"][(n % 100 > 10 && n % 100 < 14) ? 0 : (n % 10 < 4 ? n % 10 : 0)]);
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const WD = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const longDate = (s, wd) => { const d = pd(s); return (wd ? WD[d.getUTCDay()] + " " : "") + ord(d.getUTCDate()) + " " + MONTHS[d.getUTCMonth()] + " " + d.getUTCFullYear(); };
+const shortDate = s => { const d = pd(s); return d.getUTCDate() + " " + MONTHS[d.getUTCMonth()].slice(0, 3) + " " + String(d.getUTCFullYear()).slice(2); };
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = "none", 3200); }
+
+/* ===================== Crypto ===================== */
+const enc = new TextEncoder(), dec = new TextDecoder();
+const b64 = buf => { const a = new Uint8Array(buf); let s = ""; for (let i = 0; i < a.length; i += 0x8000) s += String.fromCharCode.apply(null, a.subarray(i, i + 0x8000)); return btoa(s); };
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const rnd = n => crypto.getRandomValues(new Uint8Array(n));
+async function pwKey(password, salt, iter) {
+  const base = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:iter, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+}
+const aesKey = raw => crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt","decrypt"]);
+async function seal(key, bytes) { const iv = rnd(12); const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, bytes); return {iv:b64(iv), ct:b64(ct)}; }
+async function open(key, box) { return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM", iv:unb64(box.iv)}, key, unb64(box.ct))); }
+async function makeUser(username, name, role, password, dataKeyRaw, mustChange) {
+  const salt = rnd(16); const k = await pwKey(password, salt, PBKDF2_ITER);
+  return {u:username.trim().toLowerCase(), name:name.trim(), role, salt:b64(salt), iter:PBKDF2_ITER, wrap:await seal(k, dataKeyRaw), mustChange:!!mustChange};
+}
+
+/* ===================== State ===================== */
+let repo = Object.assign({}, DEFAULT_REPO);
+try { const m = location.hostname.match(/^(.+)\.github\.io$/); if (m) { repo.owner = m[1]; const seg = location.pathname.split("/").filter(Boolean); if (seg.length > 1 || (seg.length === 1 && !/\.html?$/.test(seg[0]))) repo.repo = seg[0]; }
+  Object.assign(repo, JSON.parse(localStorage.getItem("kfl_repo") || "{}")); } catch (e) {}
+let file = null;      // {v, rev, savedAt, savedBy, users:[], box:{iv,ct}}
+let fileSha = null;   // sha of the file on GitHub
+let keyRaw = null;    // data key bytes
+let me = null;        // user record
+let D = null;         // decrypted payload
+let dirty = false, unsynced = false, view = "generate";
+const gen = {we:null, eff:null, cust:"", disc:0, mode:"pct", apply:{}, context:null, outlook:null, tab:"email", showDisc:false};
+
+function seedData() {
+  const note = "Back-calculated from published levy — replace with AIP figure";
+  const W = (we, nat, melb, n) => ({we, nat, melb, tgp:[null,null,null,null,null], note:n || ""});
+  return {
+    weeks: [
+      W("2026-09-13", 257.7, 255.30, "Melbourne " + note.charAt(0).toLowerCase() + note.slice(1)),
+      W("2026-09-20", 273.6, 271.08, "Melbourne " + note.charAt(0).toLowerCase() + note.slice(1)),
+      W("2026-09-27", 286.69, 284.18, note),
+      W("2026-10-04", 284.76, 280.63, note),
+      W("2026-10-11", 282.99, 278.40, note),
+      W("2026-10-18", 280.7, 275.66, "Melbourne " + note.charAt(0).toLowerCase() + note.slice(1)),
+      W("2026-10-25", 279.3, 274.30, "Melbourne " + note.charAt(0).toLowerCase() + note.slice(1)),
+      W("2026-11-01", 280.1, 275.88, "Melbourne " + note.charAt(0).toLowerCase() + note.slice(1))
+    ],
+    profiles: [
+      {id:"local", name:"Local Transport", source:"melb", base:125.6, comp:23, baseNote:"2021 AIP national yearly average", on:true},
+      {id:"linehaul", name:"Interstate/Linehaul", source:"nat", base:125.6, comp:39, baseNote:"2021 AIP national yearly average", on:true}
+    ],
+    customers: [{id:uid(), name:"BENCHMARK", disc:0, mode:"pct"}],
+    settings: {
+      company:"Kubic Transport PTY LTD", abn:"ABN 78 613 309 489", address:"11 Leader Street, Truganina VIC 3029", web:"www.kubic.com.au",
+      signName:"Carl Groth", signTitle:"Business Development & Operations Manager", signPhone:"0428 279 523", signEmail:"bdm@kubic.com.au",
+      greeting:"To our valued customers,", subject:"Fuel Levy Update",
+      methodology:"Our fuel levy formula uses a base price of 125.6 cpl (2021 AIP national yearly average) and a Linehaul Fuel Cost Component (LFC) of 39%, ensuring our surcharge reflects actual market movements transparently.",
+      closing:"We continue to monitor AIP published data weekly and will adjust rates accordingly. Any material shift in global crude pricing or the AUD/USD exchange rate will flow through to the following week's levy.\n\nOur fuel levy is reviewed and updated each Monday based on the prior week's AIP national average retail diesel price. Full methodology and formula details are available upon request.\n\nReference: AIP Weekly National Average Retail Diesel Prices (Interstate) — https://aip.com.au/pricing/Diesel/National/National-Average\n\nReference: AIP Weekly Melbourne Average Retail Diesel Price (Local) — https://aip.com.au/pricing/Diesel/Victoria/Melbourne\n\nShould you have any questions, please don't hesitate to reach out.",
+      historyWeeks:8, tgpLabel:"Diesel TGP"
+    },
+    lastOutlook:"", ghToken:""
+  };
+}
+
+/* ===================== Calculation ===================== */
+const tgpAvg = w => { const v = (w.tgp || []).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+const srcPrice = (w, s) => s === "tgp" ? tgpAvg(w) : w[s];
+function rawLevy(p, w) { const bp1 = srcPrice(w, p.source); if (bp1 == null || !p.base) return null; return Math.max(0, r2((bp1 - p.base) / p.base * 100 * (p.comp / 100))); }
+function discounted(raw, disc, mode) { if (raw == null) return null; if (!disc) return raw; return Math.max(0, r2(mode === "pts" ? raw - disc : raw * (1 - disc / 100))); }
+const weeksSorted = () => D.weeks.slice().sort((a, b) => a.we < b.we ? -1 : 1);
+const effOf = we => addDays(we, 8);   // week ends Sunday; levy applies from the Monday eight days later
+
+/* ===================== GitHub storage ===================== */
+const apiUrl = () => `https://api.github.com/repos/${repo.owner}/${repo.repo}/contents/${repo.path}`;
+async function fetchRemote(token) {
+  try {
+    const h = {Accept:"application/vnd.github+json"}; if (token) h.Authorization = "Bearer " + token;
+    const r = await fetch(apiUrl() + "?ref=" + encodeURIComponent(repo.branch) + "&t=" + Date.now(), {headers:h, cache:"no-store"});
+    if (r.status === 404) return {missing:true};
+    if (r.ok) { const j = await r.json(); return {file:JSON.parse(dec.decode(unb64(j.content.replace(/\n/g, "")))), sha:j.sha}; }
+  } catch (e) {}
+  try { const r = await fetch(repo.path + "?t=" + Date.now(), {cache:"no-store"}); if (r.ok) return {file:await r.json(), sha:null}; if (r.status === 404) return {missing:true}; } catch (e) {}
+  return {error:true};
+}
+async function pushRemote(token, message) {
+  const body = {message, content:b64(enc.encode(JSON.stringify(file, null, 1))), branch:repo.branch}; if (fileSha) body.sha = fileSha;
+  const r = await fetch(apiUrl(), {method:"PUT", headers:{Accept:"application/vnd.github+json", Authorization:"Bearer " + token, "Content-Type":"application/json"}, body:JSON.stringify(body)});
+  if (!r.ok) { const e = new Error("GitHub " + r.status); e.status = r.status; throw e; }
+  fileSha = (await r.json()).content.sha;
+}
+async function save(message) {
+  D.weeks = weeksSorted();
+  file.rev = (file.rev || 0) + 1; file.savedAt = new Date().toISOString(); file.savedBy = me.name || me.u;
+  file.box = await seal(await aesKey(keyRaw), enc.encode(JSON.stringify(D)));
+  localStorage.setItem("kfl_file", JSON.stringify(file));
+  dirty = false;
+  if (!D.ghToken) { unsynced = true; render(); toast("Saved in this browser only — add a GitHub token in Settings to share"); return; }
+  try {
+    if (!fileSha) { const cur = await fetchRemote(D.ghToken); if (cur.sha) fileSha = cur.sha; }
+    await pushRemote(D.ghToken, message || ("Fuel levy data updated by " + file.savedBy));
+    unsynced = false; toast("Saved to GitHub");
+  } catch (e) {
+    unsynced = true; if (e.status === 409 || e.status === 422) localStorage.removeItem("kfl_file");
+    toast(e.status === 409 || e.status === 422 ? "Someone else saved first — reload the page, then redo your change" : e.status === 401 || e.status === 403 || e.status === 404 ? "GitHub rejected the token — check it in Settings" : "Could not reach GitHub — saved in this browser only");
+  }
+  render();
+}
+function downloadFile() { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 1)], {type:"application/json"})); a.download = repo.path.split("/").pop(); a.click(); }
+function markDirty() { dirty = true; const b = $("#savebtn"); if (b) { b.disabled = false; b.textContent = "Save changes"; } const s = $("#savestate"); if (s) { s.className = "pill warn"; s.textContent = "Unsaved changes"; } }
+window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+/* ===================== Auth ===================== */
+async function boot() {
+  const box = $("#authbox"); const head = '<div class="wordmark">KUBIC<i></i>FUEL LEVY</div>';
+  const res = await fetchRemote();
+  let local = null; try { local = JSON.parse(localStorage.getItem("kfl_file") || "null"); } catch (e) {}
+  if (res.file) { file = res.file; fileSha = res.sha; if (local && (local.rev || 0) > (file.rev || 0)) { file = local; unsynced = true; } }
+  else if (local) { file = local; unsynced = true; }
+  if (!file) {
+    box.innerHTML = head + `<h2 style="margin-top:18px">First-time setup</h2>
+      <p class="mut small">${res.error ? "Could not reach the data file on GitHub. If this tool has already been set up, check your connection and reload rather than setting up again." : "No data file exists yet. Create the administrator login — you can add other users afterwards."}</p>
+      <div class="f"><label>Your name</label><input id="s_name" value="Carl Groth"></div>
+      <div class="f"><label>Username</label><input id="s_user" value="carl" autocapitalize="none"></div>
+      <div class="f"><label>Password (10+ characters)</label><input id="s_pw" type="password"></div>
+      <div class="f"><label>Confirm password</label><input id="s_pw2" type="password"></div>
+      <div class="f"><label>GitHub token (optional — can be added later in Settings)</label><input id="s_tok" type="password" placeholder="github_pat_…"></div>
+      <div class="err" id="a_err"></div><button class="btn pri" id="s_go" style="width:100%">Create and sign in</button>
+      <p class="mut small" style="margin-top:12px">Data file: ${esc(repo.owner)}/${esc(repo.repo)}/${esc(repo.path)}</p>`;
+    $("#s_go").onclick = async () => {
+      const name = $("#s_name").value, u = $("#s_user").value.trim().toLowerCase(), pw = $("#s_pw").value;
+      if (!u || !name.trim()) return $("#a_err").textContent = "Enter a name and username.";
+      if (pw.length < 10) return $("#a_err").textContent = "Password must be at least 10 characters.";
+      if (pw !== $("#s_pw2").value) return $("#a_err").textContent = "Passwords do not match.";
+      $("#s_go").disabled = true;
+      keyRaw = rnd(32); D = seedData(); D.ghToken = $("#s_tok").value.trim();
+      file = {v:1, rev:0, users:[await makeUser(u, name, "admin", pw, keyRaw)]}; me = file.users[0];
+      startSession(); enter(); await save("Fuel levy generator set up");
+    };
+    return;
+  }
+  const sess = (() => { try { return JSON.parse(sessionStorage.getItem("kfl_sess") || "null"); } catch (e) { return null; } })();
+  if (sess) { try { keyRaw = unb64(sess.k); D = JSON.parse(dec.decode(await open(await aesKey(keyRaw), file.box))); me = file.users.find(x => x.u === sess.u); if (me) return enter(); } catch (e) { sessionStorage.removeItem("kfl_sess"); } }
+  box.innerHTML = head + `<h2 style="margin-top:18px">Sign in</h2>
+    <div class="f"><label>Username</label><input id="l_user" autocapitalize="none" autocomplete="username"></div>
+    <div class="f"><label>Password</label><input id="l_pw" type="password" autocomplete="current-password"></div>
+    <div class="err" id="a_err"></div><button class="btn pri" id="l_go" style="width:100%">Sign in</button>`;
+  const go = async () => {
+    const u = $("#l_user").value.trim().toLowerCase(), pw = $("#l_pw").value; const rec = file.users.find(x => x.u === u);
+    $("#l_go").disabled = true; $("#a_err").textContent = "";
+    try {
+      if (!rec) { await pwKey(pw, rnd(16), PBKDF2_ITER); throw 0; }
+      keyRaw = await open(await pwKey(pw, unb64(rec.salt), rec.iter), rec.wrap);
+      D = JSON.parse(dec.decode(await open(await aesKey(keyRaw), file.box))); me = rec; startSession();
+      if (rec.mustChange) return forceChange(pw);
+      enter();
+    } catch (e) { $("#a_err").textContent = "Incorrect username or password."; $("#l_go").disabled = false; }
+  };
+  $("#l_go").onclick = go; $("#l_pw").onkeydown = e => { if (e.key === "Enter") go(); }; $("#l_user").focus();
+}
+function forceChange() {
+  $("#authbox").innerHTML = `<div class="wordmark">KUBIC<i></i>FUEL LEVY</div><h2 style="margin-top:18px">Choose your own password</h2>
+    <p class="mut small">You signed in with a temporary password. Set a new one to continue.</p>
+    <div class="f"><label>New password (10+ characters)</label><input id="c_pw" type="password"></div>
+    <div class="f"><label>Confirm</label><input id="c_pw2" type="password"></div><div class="err" id="a_err"></div>
+    <button class="btn pri" id="c_go" style="width:100%">Save password</button>`;
+  $("#c_go").onclick = async () => {
+    const pw = $("#c_pw").value; if (pw.length < 10) return $("#a_err").textContent = "Password must be at least 10 characters.";
+    if (pw !== $("#c_pw2").value) return $("#a_err").textContent = "Passwords do not match.";
+    await setPassword(me, pw, false); enter(); await save("Password changed for " + me.u);
+  };
+}
+async function setPassword(rec, pw, mustChange) { const n = await makeUser(rec.u, rec.name, rec.role, pw, keyRaw, mustChange); Object.assign(rec, n); }
+function startSession() { sessionStorage.setItem("kfl_sess", JSON.stringify({u:me.u, k:b64(keyRaw)})); }
+function signOut() { if (dirty && !confirm("You have unsaved changes. Sign out anyway?")) return; dirty = false; sessionStorage.removeItem("kfl_sess"); location.reload(); }
+function enter() {
+  const def = seedData(); D.settings = Object.assign(def.settings, D.settings || {}); D.customers = D.customers || []; D.profiles = D.profiles || []; D.weeks = D.weeks || [];
+  $("#auth").style.display = "none"; $("#app").style.display = "block"; render();
+}
+const can = what => me.role === "admin" || (what === "edit" && me.role === "editor");
+
+/* ===================== Shell ===================== */
+const VIEWS = [["generate","Generate notice"],["data","Weekly prices"],["calcs","Levy calculations"],["customers","Customers & discounts"],["users","Users"],["settings","Settings"]];
+function render() {
+  $("#nav").innerHTML = VIEWS.filter(v => (v[0] !== "users" && v[0] !== "settings") || can("admin") || v[0] === "users").map(v => `<a data-v="${v[0]}" class="${view === v[0] ? "on" : ""}">${v[1]}</a>`).join("");
+  $("#nav").onclick = e => { const v = e.target.dataset.v; if (v) { view = v; render(); window.scrollTo(0, 0); } };
+  $("#who").innerHTML = `<b>${esc(me.name)}</b><br><span class="mut">${esc(me.role)}</span><br><a id="so" style="cursor:pointer">Sign out</a>`; $("#so").onclick = signOut;
+  const st = dirty ? ["warn","Unsaved changes"] : unsynced ? ["warn","Saved in this browser only"] : ["ok","Saved to GitHub"];
+  const title = VIEWS.find(v => v[0] === view)[1];
+  const top = `<div class="top"><div><h1>${title}</h1><div class="mut small">${file.savedAt ? "Last saved " + new Date(file.savedAt).toLocaleString("en-AU") + " by " + esc(file.savedBy) : ""}</div></div><div class="sp"></div>
+    <span class="pill ${st[0]}" id="savestate">${st[1]}</span>${unsynced && !dirty ? '<button class="btn sm" id="dlbtn">Download data file</button>' : ""}
+    ${can("edit") ? `<button class="btn pri" id="savebtn" ${dirty ? "" : "disabled"}>${dirty ? "Save changes" : "Saved"}</button>` : ""}</div>`;
+  const body = {generate:vGenerate, data:vData, calcs:vCalcs, customers:vCustomers, users:vUsers, settings:vSettings}[view]();
+  $("#main").onchange = $("#main").onclick = null;
+  $("#main").innerHTML = top + body;
+  if ($("#savebtn")) $("#savebtn").onclick = () => save();
+  if ($("#dlbtn")) $("#dlbtn").onclick = downloadFile;
+  ({generate:bGenerate, data:bData, calcs:bCalcs, customers:bCustomers, users:bUsers, settings:bSettings}[view])();
+}
+
+/* ===================== Weekly prices ===================== */
+function vData() {
+  const ro = can("edit") ? "" : "disabled"; const ws = weeksSorted().reverse();
+  return `<div class="card"><p class="mut">One row per week, dated by the Sunday the week ends. Enter the AIP weekly averages for retail diesel and the terminal gate price for each weekday; the TGP average is worked out for you. A week's prices set the levy that starts on the Monday eight days later.</p>
+    <p class="small"><a href="https://aip.com.au/pricing/Diesel/National/National-Average" target="_blank" rel="noopener">AIP national retail diesel</a> · <a href="https://aip.com.au/pricing/Diesel/Victoria/Melbourne" target="_blank" rel="noopener">AIP Melbourne retail diesel</a></p>
+    ${can("edit") ? '<div class="row" style="margin:12px 0"><button class="btn pri" id="addwk">+ Add week</button></div>' : ""}
+    <div class="scroll"><table class="t"><thead><tr><th>Week ending (Sun)</th><th>Levy starts</th><th class="right">National retail</th><th class="right">Melbourne retail</th>${DAYS.map(d => `<th class="right">TGP ${d}</th>`).join("")}<th class="right">TGP avg</th><th>Note</th><th></th></tr></thead><tbody>
+    ${ws.map(w => `<tr data-we="${w.we}"><td><input type="date" data-k="we" value="${w.we}" ${ro} style="width:150px"></td><td class="mut small" style="white-space:nowrap">${shortDate(effOf(w.we))}</td>
+      <td><input class="n" type="number" step="0.01" data-k="nat" value="${w.nat ?? ""}" ${ro}></td><td><input class="n" type="number" step="0.01" data-k="melb" value="${w.melb ?? ""}" ${ro}></td>
+      ${DAYS.map((d, i) => `<td><input class="n" type="number" step="0.01" data-k="tgp${i}" value="${(w.tgp || [])[i] ?? ""}" ${ro}></td>`).join("")}
+      <td class="right num" data-avg>${f2(tgpAvg(w))}</td><td><input data-k="note" value="${esc(w.note)}" ${ro} style="min-width:180px"></td><td>${can("edit") ? '<button class="btn sm danger" data-del>✕</button>' : ""}</td></tr>`).join("")}
+    </tbody></table></div><p class="mut small" style="margin-top:10px">All prices in cents per litre.</p></div>`;
+}
+function bData() {
+  const add = $("#addwk"); if (add) add.onclick = () => {
+    const ws = weeksSorted(); let we;
+    if (ws.length) we = addDays(ws[ws.length - 1].we, 7); else { const d = new Date(); d.setUTCDate(d.getUTCDate() - d.getUTCDay()); we = iso(d); }
+    D.weeks.push({we, nat:null, melb:null, tgp:[null,null,null,null,null], note:""}); markDirty(); render();
+  };
+  $("#main").onchange = (e => {
+    const tr = e.target.closest("tr[data-we]"); const k = e.target.dataset.k; if (!tr || !k) return; const w = D.weeks.find(x => x.we === tr.dataset.we); if (!w) return;
+    if (k === "we") { const v = e.target.value; if (!v) return render(); if (pd(v).getUTCDay() !== 0) { toast("Week ending must be a Sunday"); return render(); } if (D.weeks.some(x => x !== w && x.we === v)) { toast("That week already exists"); return render(); } w.we = v; markDirty(); return render(); }
+    if (k === "note") w.note = e.target.value; else if (k.startsWith("tgp")) { w.tgp = w.tgp || [null,null,null,null,null]; w.tgp[+k.slice(3)] = num(e.target.value); $("[data-avg]", tr).textContent = f2(tgpAvg(w)); } else w[k] = num(e.target.value);
+    markDirty();
+  });
+  $("#main").onclick = (e => { if (!("del" in e.target.dataset)) return; const tr = e.target.closest("tr[data-we]"); if (!tr) return; if (!confirm("Delete week ending " + longDate(tr.dataset.we) + "?")) return; D.weeks = D.weeks.filter(x => x.we !== tr.dataset.we); markDirty(); render(); });
+}
+
+/* ===================== Levy calculations ===================== */
+function vCalcs() {
+  const ro = can("admin") ? "" : "disabled"; const ws = weeksSorted(); const w = ws[ws.length - 1];
+  return `<div class="card"><p class="mut" style="margin:0">Each calculation uses the same formula: <b style="color:var(--txt)">levy % = (week's price − base price) ÷ base price × fuel cost component</b>. Add a calculation for each rate you publish and point it at the price series it should follow.</p></div>
+  ${D.profiles.map(p => { const bp1 = w ? srcPrice(w, p.source) : null, lv = w ? rawLevy(p, w) : null; return `<div class="card" data-p="${p.id}">
+    <div class="grid g4"><div><label>Name on notice</label><input data-k="name" value="${esc(p.name)}" ${ro}></div>
+      <div><label>Price series</label><select data-k="source" ${ro}>${Object.keys(SOURCES).map(s => `<option value="${s}" ${p.source === s ? "selected" : ""}>${SOURCES[s]}</option>`).join("")}</select></div>
+      <div><label>Base price (cpl)</label><input type="number" step="0.01" data-k="base" value="${p.base}" ${ro}></div>
+      <div><label>Fuel cost component (%)</label><input type="number" step="0.1" data-k="comp" value="${p.comp}" ${ro}></div></div>
+    <div class="grid g2" style="margin-top:12px"><div><label>What the base price is (shown in the methodology)</label><input data-k="baseNote" value="${esc(p.baseNote)}" ${ro}></div>
+      <div class="row" style="align-items:flex-end;justify-content:space-between"><label style="margin:0"><input type="checkbox" data-k="on" ${p.on ? "checked" : ""} ${ro}> Include on notices</label>${can("admin") ? '<button class="btn sm danger" data-delp>Delete calculation</button>' : ""}</div></div>
+    <p class="mut small" style="margin:12px 0 0">${w ? `Week ending ${longDate(w.we)}: ` + (bp1 == null ? `no ${SRC_SHORT[p.source]} price entered` : `(${f2(bp1)} − ${f2(p.base)}) ÷ ${f2(p.base)} × ${p.comp}% = <b style="color:var(--acc)">${f2(lv)}%</b>`) : "No weekly prices entered yet"}</p></div>`; }).join("")}
+  ${can("admin") ? '<button class="btn pri" id="addp">+ Add calculation</button>' : '<p class="mut small">Only administrators can change calculations.</p>'}`;
+}
+function bCalcs() {
+  const add = $("#addp"); if (add) add.onclick = () => { D.profiles.push({id:uid(), name:"New levy", source:"tgp", base:125.6, comp:39, baseNote:"", on:false}); markDirty(); render(); };
+  $("#main").onchange = (e => { const c = e.target.closest("[data-p]"), k = e.target.dataset.k; if (!c || !k) return; const p = D.profiles.find(x => x.id === c.dataset.p);
+    p[k] = k === "on" ? e.target.checked : (k === "base" || k === "comp") ? (num(e.target.value) ?? 0) : e.target.value; markDirty(); render(); });
+  $("#main").onclick = (e => { if (!("delp" in e.target.dataset)) return; const c = e.target.closest("[data-p]"); const p = D.profiles.find(x => x.id === c.dataset.p); if (!confirm('Delete "' + p.name + '"?')) return; D.profiles = D.profiles.filter(x => x !== p); markDirty(); render(); });
+}
+
+/* ===================== Customers ===================== */
+function vCustomers() {
+  const ro = can("edit") ? "" : "disabled";
+  return `<div class="card"><p class="mut">Save a customer here to remember their discount. Picking the customer on the Generate screen sets the discount lever and puts their name in the email subject.</p>
+  <table class="t"><thead><tr><th>Customer</th><th>Discount</th><th>Type</th><th></th></tr></thead><tbody>
+  ${D.customers.map(c => `<tr data-c="${c.id}"><td><input data-k="name" value="${esc(c.name)}" ${ro}></td><td><input class="n" type="number" step="0.01" min="0" data-k="disc" value="${c.disc}" ${ro}></td>
+    <td><select data-k="mode" ${ro} style="width:auto"><option value="pct" ${c.mode === "pct" ? "selected" : ""}>% off the levy</option><option value="pts" ${c.mode === "pts" ? "selected" : ""}>percentage points off</option></select></td><td>${can("edit") ? '<button class="btn sm danger" data-delc>✕</button>' : ""}</td></tr>`).join("")}
+  </tbody></table>${can("edit") ? '<div style="margin-top:12px"><button class="btn pri" id="addc">+ Add customer</button></div>' : ""}
+  <p class="mut small" style="margin-top:12px">Example: a levy of 47.97% with 10% off becomes 43.17%; with 5 percentage points off it becomes 42.97%.</p></div>`;
+}
+function bCustomers() {
+  const add = $("#addc"); if (add) add.onclick = () => { D.customers.push({id:uid(), name:"", disc:0, mode:"pct"}); markDirty(); render(); };
+  $("#main").onchange = (e => { const tr = e.target.closest("[data-c]"), k = e.target.dataset.k; if (!tr || !k) return; const c = D.customers.find(x => x.id === tr.dataset.c); c[k] = k === "disc" ? (num(e.target.value) ?? 0) : e.target.value; markDirty(); });
+  $("#main").onclick = (e => { if (!("delc" in e.target.dataset)) return; const tr = e.target.closest("[data-c]"); D.customers = D.customers.filter(x => x.id !== tr.dataset.c); markDirty(); render(); });
+}
+
+/* ===================== Users ===================== */
+function vUsers() {
+  return `<div class="card"><h2>My password</h2><div class="grid g3"><div><label>New password (10+ characters)</label><input type="password" id="mp1"></div><div><label>Confirm</label><input type="password" id="mp2"></div><div style="align-self:end"><button class="btn" id="mpgo">Change password</button></div></div></div>
+  ${can("admin") ? `<div class="card"><h2>Users</h2><table class="t"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th></th></tr></thead><tbody>
+  ${file.users.map(u => `<tr data-u="${esc(u.u)}"><td>${esc(u.name)}${u.mustChange ? ' <span class="pill warn">temporary password</span>' : ""}</td><td>${esc(u.u)}</td>
+    <td><select data-role style="width:auto" ${u.u === me.u ? "disabled" : ""}>${["admin","editor","viewer"].map(r => `<option ${u.role === r ? "selected" : ""}>${r}</option>`).join("")}</select></td>
+    <td class="right">${u.u === me.u ? "" : '<button class="btn sm" data-reset>Reset password</button> <button class="btn sm danger" data-delu>Remove</button>'}</td></tr>`).join("")}
+  </tbody></table>
+  <h3 style="margin-top:20px">Add a user</h3><div class="grid g4"><div><label>Name</label><input id="nu_name"></div><div><label>Username</label><input id="nu_user" autocapitalize="none"></div>
+    <div><label>Role</label><select id="nu_role"><option>editor</option><option>viewer</option><option>admin</option></select></div><div><label>Temporary password</label><input id="nu_pw"></div></div>
+  <div class="row" style="margin-top:12px"><button class="btn pri" id="nu_go">Add user</button><span class="mut small">Give them the temporary password yourself; they choose their own at first sign-in.</span></div>
+  <p class="mut small" style="margin-top:14px"><b>Admin</b> changes everything. <b>Editor</b> enters weekly prices, manages customers and generates notices. <b>Viewer</b> generates notices only.</p></div>` : ""}`;
+}
+function bUsers() {
+  $("#mpgo").onclick = async () => { const p = $("#mp1").value; if (p.length < 10) return toast("Password must be at least 10 characters"); if (p !== $("#mp2").value) return toast("Passwords do not match"); await setPassword(me, p, false); await save("Password changed for " + me.u); };
+  if (!can("admin")) return;
+  const tempPw = () => "Kubic-" + Array.from(rnd(6), b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
+  $("#nu_pw").value = tempPw();
+  $("#nu_go").onclick = async () => { const u = $("#nu_user").value.trim().toLowerCase(), n = $("#nu_name").value.trim(), pw = $("#nu_pw").value;
+    if (!u || !n) return toast("Enter a name and username"); if (file.users.some(x => x.u === u)) return toast("That username is taken"); if (pw.length < 8) return toast("Temporary password is too short");
+    file.users.push(await makeUser(u, n, $("#nu_role").value, pw, keyRaw, true)); await save("User added: " + u); };
+  $("#main").onchange = (async e => { if (!("role" in e.target.dataset)) return; const u = file.users.find(x => x.u === e.target.closest("tr").dataset.u); u.role = e.target.value; await save("Role changed for " + u.u); });
+  $("#main").onclick = (async e => { const tr = e.target.closest("tr[data-u]"); if (!tr) return; const u = file.users.find(x => x.u === tr.dataset.u);
+    if ("reset" in e.target.dataset) { const pw = prompt("Temporary password for " + u.name + ":", tempPw()); if (!pw) return; await setPassword(u, pw, true); await save("Password reset for " + u.u); }
+    if ("delu" in e.target.dataset) { if (!confirm("Remove " + u.name + "?")) return; file.users = file.users.filter(x => x !== u); await save("User removed: " + u.u); } });
+}
+
+/* ===================== Settings ===================== */
+function vSettings() {
+  const s = D.settings; const F = (k, l, ta) => `<div><label>${l}</label>${ta ? `<textarea data-s="${k}" rows="${ta}">${esc(s[k])}</textarea>` : `<input data-s="${k}" value="${esc(s[k])}">`}</div>`;
+  return `<div class="card"><h2>Sharing through GitHub</h2><p class="mut">Everything is stored, encrypted, in one file in your GitHub repository. With a token saved here, every signed-in editor's changes are committed straight to GitHub. Without one, changes stay in this browser and you upload the downloaded data file by hand.</p>
+    <div class="grid g4"><div><label>Owner</label><input data-r="owner" value="${esc(repo.owner)}"></div><div><label>Repository</label><input data-r="repo" value="${esc(repo.repo)}"></div><div><label>Branch</label><input data-r="branch" value="${esc(repo.branch)}"></div><div><label>Data file</label><input data-r="path" value="${esc(repo.path)}"></div></div>
+    <div style="margin-top:12px"><label>GitHub token — fine-grained, this repository only, “Contents: Read and write”</label><input type="password" id="tok" value="${esc(D.ghToken)}" placeholder="github_pat_…"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="toktest">Test and save token</button><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" class="small">Create a token on GitHub</a></div></div>
+  <div class="card"><h2>Notice wording</h2><div class="grid g2">${F("greeting","Greeting")}${F("subject","Email subject (customer name is added)")}</div>
+    <div style="margin-top:12px">${F("methodology","Methodology paragraph (email)",3)}</div><div style="margin-top:12px">${F("closing","Closing paragraphs and references (email)",9)}</div>
+    <div class="grid g2" style="margin-top:12px"><div><label>Weeks of history shown on the letter</label><input type="number" min="2" max="26" data-s="historyWeeks" value="${s.historyWeeks}"></div></div></div>
+  <div class="card"><h2>Company and signature</h2><div class="grid g2">${F("company","Company")}${F("abn","ABN")}${F("address","Address")}${F("web","Website")}${F("signName","Signed by")}${F("signTitle","Title")}${F("signPhone","Phone")}${F("signEmail","Email")}</div></div>
+  <div class="card"><h2>Backup</h2><div class="row"><button class="btn" id="dl2">Download encrypted data file</button></div></div>`;
+}
+function bSettings() {
+  $("#main").onchange = (e => { const k = e.target.dataset.s, r = e.target.dataset.r;
+    if (k) { D.settings[k] = k === "historyWeeks" ? Math.max(2, Math.min(26, parseInt(e.target.value) || 8)) : e.target.value; markDirty(); }
+    if (r) { repo[r] = e.target.value.trim(); localStorage.setItem("kfl_repo", JSON.stringify(repo)); fileSha = null; toast("Data location updated for this browser"); } });
+  $("#dl2").onclick = downloadFile;
+  $("#toktest").onclick = async () => { const t = $("#tok").value.trim(); if (!t) { D.ghToken = ""; return save(); }
+    try { const r = await fetch(`https://api.github.com/repos/${repo.owner}/${repo.repo}`, {headers:{Authorization:"Bearer " + t, Accept:"application/vnd.github+json"}}); if (!r.ok) throw 0; const j = await r.json(); if (j.permissions && !j.permissions.push) throw 1; }
+    catch (e) { return toast(e === 1 ? "Token works but cannot write to this repository" : "GitHub rejected that token for this repository"); }
+    D.ghToken = t; await save("GitHub token updated"); };
+}
+
+/* ===================== Generate ===================== */
+function autoContext(w, ws) {
+  const i = ws.indexOf(w); const act = D.profiles.filter(p => p.on); const srcs = [...new Set(act.map(p => p.source))];
+  const lead = srcs.includes("nat") ? "nat" : srcs[0] || "nat"; const cur = srcPrice(w, lead); if (cur == null) return "";
+  const nm = {nat:"national average retail diesel price", melb:"Melbourne average retail diesel price", tgp:"average diesel terminal gate price"}[lead];
+  let s = `The above rates are calculated from the ${lead === "tgp" ? "" : "Australian Institute of Petroleum (AIP) "}${nm} for the week ending ${longDate(w.we)}, which recorded approximately ${f1(cur)} cents per litre.`;
+  const prev = i > 0 ? srcPrice(ws[i - 1], lead) : null;
+  if (prev != null) {
+    const d = r2(cur - prev); const dir = d > 0.05 ? 1 : d < -0.05 ? -1 : 0;
+    if (!dir) s += ` Prices were steady on the prior week (${f1(prev)} cpl).`;
+    else { let streak = 1; for (let j = i - 1; j > 0; j--) { const a = srcPrice(ws[j], lead), b = srcPrice(ws[j - 1], lead); if (a == null || b == null) break; const dd = a - b; if ((dir > 0 && dd > 0.05) || (dir < 0 && dd < -0.05)) streak++; else break; }
+      s += ` This is ${dir > 0 ? "up" : "down"} ${f1(Math.abs(d))} cpl on the prior week (${f1(prev)} cpl)` + (streak > 1 ? `, the ${ord(streak)} consecutive weekly ${dir > 0 ? "increase" : "decrease"}.` : "."); }
+  }
+  return s;
+}
+function genModel() {
+  const ws = weeksSorted(); const w = ws.find(x => x.we === gen.we); const act = D.profiles.filter(p => p.on);
+  const fin = (p, wk) => { const raw = rawLevy(p, wk); return gen.apply[p.id] === false ? raw : discounted(raw, gen.disc, gen.mode); };
+  return {ws, w, act, fin, rates:act.map(p => ({p, raw:w ? rawLevy(p, w) : null, fin:w ? fin(p, w) : null}))};
+}
+function vGenerate() {
+  const ws = weeksSorted();
+  if (!ws.length) return `<div class="card">No weekly prices yet. Add a week under <b>Weekly prices</b> first.</div>`;
+  if (!gen.we || !ws.some(w => w.we === gen.we)) { gen.we = ws[ws.length - 1].we; gen.eff = effOf(gen.we); gen.context = null; }
+  if (gen.outlook == null) gen.outlook = D.lastOutlook || "";
+  const m = genModel(); if (gen.context == null) gen.context = autoContext(m.w, m.ws);
+  const max = gen.mode === "pct" ? 100 : 60;
+  return `<div class="grid g2" style="align-items:start"><div>
+    <div class="card"><h2>1 · Week and customer</h2><div class="grid g3" style="grid-template-columns:1.4fr 1fr 1.2fr">
+      <div><label>Prices for week ending</label><select id="g_we">${ws.slice().reverse().map(w => `<option value="${w.we}" ${w.we === gen.we ? "selected" : ""}>${longDate(w.we)}</option>`).join("")}</select></div>
+      <div><label>Levy effective from</label><input type="date" id="g_eff" value="${gen.eff}"></div>
+      <div><label>Customer</label><select id="g_cust"><option value="">All customers (standard)</option>${D.customers.filter(c => c.name).map(c => `<option value="${c.id}" ${gen.cust === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></div></div></div>
+    <div class="card"><h2>2 · Discount lever</h2><div class="row"><input type="range" id="g_rng" min="0" max="${max}" step="0.5" value="${Math.min(gen.disc, max)}" style="flex:1;min-width:160px">
+      <input type="number" id="g_disc" min="0" step="0.01" value="${gen.disc}" style="width:90px"><select id="g_mode" style="width:auto"><option value="pct" ${gen.mode === "pct" ? "selected" : ""}>% off the levy</option><option value="pts" ${gen.mode === "pts" ? "selected" : ""}>points off</option></select></div>
+      <div class="row small" style="margin-top:10px"><span class="mut">Apply to:</span>${m.act.map(p => `<label style="margin:0;color:var(--txt)"><input type="checkbox" data-ap="${p.id}" ${gen.apply[p.id] === false ? "" : "checked"}> ${esc(p.name)}</label>`).join("")}
+      <label style="margin:0 0 0 auto;color:var(--txt)"><input type="checkbox" id="g_show" ${gen.showDisc ? "checked" : ""}> Mention discount on notice</label></div>
+      <div class="grid g2" id="g_rates" style="margin-top:14px"></div></div>
+    <div class="card"><h2>3 · Commentary</h2><div class="row" style="justify-content:space-between"><label>Price context (written from your figures — edit freely)</label><a class="small" id="g_regen" style="cursor:pointer">Rewrite from data</a></div>
+      <textarea id="g_ctx" rows="5">${esc(gen.context)}</textarea><label style="margin-top:12px">Looking ahead (your market comment — leave blank to omit)</label><textarea id="g_out" rows="6">${esc(gen.outlook)}</textarea></div>
+  </div><div><div class="card"><div class="row" style="justify-content:space-between"><div class="tabs" style="margin:0"><button data-tab="email" class="${gen.tab === "email" ? "on" : ""}">Email</button><button data-tab="letter" class="${gen.tab === "letter" ? "on" : ""}">Letter (PDF)</button></div><div class="row" id="g_actions"></div></div>
+    <div id="printzone" style="margin-top:12px"></div></div></div></div>`;
+}
+function emailParts(m) {
+  const s = D.settings; const cust = D.customers.find(c => c.id === gen.cust);
+  const lines = m.rates.map(r => `${r.p.name} Fuel Levy:  ${f2(r.fin)}%` + (gen.showDisc && gen.disc && r.raw !== r.fin ? ` (standard rate ${f2(r.raw)}%, less your ${gen.mode === "pct" ? gen.disc + "% discount" : gen.disc + " point discount"})` : ""));
+  return {subject:s.subject + (cust ? " – " + cust.name : ""), greeting:s.greeting, eff:`Effective ${longDate(gen.eff, true)}, our fuel levy rates have been adjusted as follows:`, lines, context:gen.context.trim(), method:s.methodology.trim(), outlook:gen.outlook.trim(), closing:s.closing.trim(),
+    sign:["Regards,", "", s.signName, s.signTitle, s.signPhone + " │ " + s.signEmail]};
+}
+function emailText(e) {
+  return [e.greeting, "", "Updated Fuel Levy Rates", e.eff, "", ...e.lines, "", "AIP Diesel Price Context", e.context, "", e.method, ...(e.outlook ? ["", "Looking Ahead", e.outlook] : []), "", e.closing, "", ...e.sign].join("\n");
+}
+function emailHtml(e) {
+  const para = t => t.split(/\n\s*\n/).map(x => `<p>${esc(x).replace(/\n/g, "<br>").replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>')}</p>`).join("");
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;line-height:1.5"><p>${esc(e.greeting)}</p><h4 style="margin:18px 0 6px;font-size:15px">Updated Fuel Levy Rates</h4><p>${esc(e.eff)}</p>
+    ${e.lines.map(l => { const i = l.indexOf(":"); return `<p><b>${esc(l.slice(0, i + 1))}</b>${esc(l.slice(i + 1))}</p>`; }).join("")}
+    <h4 style="margin:18px 0 6px;font-size:15px">AIP Diesel Price Context</h4>${para(e.context)}${para(e.method)}${e.outlook ? '<h4 style="margin:18px 0 6px;font-size:15px">Looking Ahead</h4>' + para(e.outlook) : ""}${para(e.closing)}
+    <p>Regards,</p><p><b>${esc(e.sign[2])}</b><br>${esc(e.sign[3])}<br>${esc(e.sign[4])}</p></div>`;
+}
+function letterHtml(m) {
+  const s = D.settings; const i = m.ws.indexOf(m.w); const hist = m.ws.slice(Math.max(0, i - s.historyWeeks + 1), i + 1); const srcs = [...new Set(m.act.map(p => p.source))];
+  const lh = `<div class="lh"><img src="${LOGO}" alt="Kubic Transport"><div class="co"><b>${esc(s.company)}</b><br>${esc(s.abn)}<br><b>Head Office</b><br>${esc(s.address)}<br><b>${esc(s.web)}</b></div><div class="blk"></div></div>`;
+  const ft = `<div class="ft"><div><b>Local Transport</b>Experienced, professional &amp; safe drivers delivering ontime, anywhere</div><div><b>3PL Warehousing</b>We consider ourselves partners with our clients, our depot is your depot</div><div><b>Interstate Transport</b>Australia Wide, Quick and Reliable solutions for General/Express services</div></div>`;
+  const cust = D.customers.find(c => c.id === gen.cust);
+  // chart
+  const col = {nat:"#1f77b4", melb:"#f58020", tgp:"#555"}; const pts = srcs.map(sc => ({sc, v:hist.map(w => srcPrice(w, sc))})); const all = pts.flatMap(p => p.v).filter(v => v != null);
+  let chart = "";
+  if (all.length > 1 && hist.length > 1) { const lo = Math.floor(Math.min(...all) - 2), hi = Math.ceil(Math.max(...all) + 2), W = 640, H = 200, L = 44, R = 12, T = 22, B = 40; const x = k => L + k * (W - L - R) / (hist.length - 1), y = v => T + (hi - v) * (H - T - B) / (hi - lo);
+    const ticks = [0, 1, 2, 3, 4].map(k => lo + k * (hi - lo) / 4);
+    chart = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;margin:2mm 0" font-family="Arial" font-size="9"><text x="${W / 2}" y="10" text-anchor="middle" font-size="10" font-weight="bold">AVERAGE WEEKLY DIESEL PRICES (CENTS PER LITRE)</text>
+      ${ticks.map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="#ddd"/><text x="${L - 5}" y="${y(t) + 3}" text-anchor="end">${t.toFixed(1)}</text>`).join("")}
+      ${hist.map((w, k) => `<text x="${x(k)}" y="${H - 26}" text-anchor="middle">${shortDate(w.we).slice(0, -3)}</text>`).join("")}
+      ${pts.map(p => { const seg = p.v.map((v, k) => v == null ? null : `${x(k).toFixed(1)},${y(v).toFixed(1)}`).filter(Boolean); return `<polyline fill="none" stroke="${col[p.sc]}" stroke-width="1.6" points="${seg.join(" ")}"/>` + p.v.map((v, k) => v == null ? "" : `<circle cx="${x(k).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.4" fill="${col[p.sc]}"/>`).join(""); }).join("")}
+      ${pts.map((p, k) => `<rect x="${L + k * 150}" y="${H - 7}" width="10" height="3" fill="${col[p.sc]}"/><text x="${L + k * 150 + 14}" y="${H - 3}">${SRC_SHORT[p.sc].toUpperCase()}</text>`).join("")}</svg>`; }
+  const p1 = `<div class="page">${lh}<div class="body"><p>Dear Valued Client${cust ? " — " + esc(cust.name) : ""},</p>
+    <p>Effective ${longDate(gen.eff, true)}, ${esc(s.company.replace(/ PTY LTD$/i, ""))}'s fuel surcharge${m.rates.length > 1 ? "s" : ""} will be amended to: ${m.rates.map(r => `<b>${esc(r.p.name)} ${f2(r.fin)}%</b>`).join(" and ")}.${gen.showDisc && gen.disc ? ` These rates include your discount of ${gen.disc}${gen.mode === "pct" ? "% off the standard levy" : " percentage points"}.` : ""}</p>
+    <p><b>RE: Fuel Surcharge Adjustment</b></p>
+    <table><tr><th>Index week<br>ending</th>${srcs.map(sc => `<th>${SRC_SHORT[sc]}<br>(cpl)</th>`).join("")}<th>Fuel levy<br>effective</th>${m.act.map(p => `<th>${esc(p.name)}<br>fuel levy</th>`).join("")}</tr>
+    ${hist.map(w => `<tr><td>${shortDate(w.we)}</td>${srcs.map(sc => `<td>${f2(srcPrice(w, sc))}</td>`).join("")}<td>${shortDate(w.we === m.w.we ? gen.eff : effOf(w.we))}</td>${m.act.map(p => { const v = m.fin(p, w); return `<td>${v == null ? "—" : f2(v) + "%"}</td>`; }).join("")}</tr>`).join("")}</table>
+    ${chart}
+    ${srcs.includes("nat") ? "<p>Reference: https://aip.com.au/pricing/Diesel/National/National-Average</p>" : ""}${srcs.includes("melb") ? "<p>Reference: https://aip.com.au/pricing/Diesel/Victoria/Melbourne</p>" : ""}
+    <p>Should you require any further information please feel free to get in contact.</p><p>Kind regards,</p><p style="margin-top:6mm">${esc(s.signName)}<br><b>${esc(s.signTitle)}</b><br>${esc(s.signPhone)}</p></div>${ft}</div>`;
+  const p2 = `<div class="page">${lh}<div class="body" style="padding-top:14mm"><p>FUEL SURCHARGE FORMULA</p><br>
+    <p>BP<sub>0</sub> = Base Price (cents per litre, incl. GST), as set out for each service below.<br>BP<sub>1</sub> = New Base Price (the average price in cents per litre for the index week, by reference to the price series set out for each service below)<br>V = Fuel Price Variation (cents per litre)</p>
+    <p>MF = Fuel Surcharge</p><p>FCC = Fuel Cost Component, as set out for each service below</p><p>Then</p>
+    <div class="frm">V &nbsp;=&nbsp; BP<sub>1</sub> − BP<sub>0</sub></div><div class="frm">MF = <span class="frac"><span>BP<sub>1</sub> − BP<sub>0</sub></span><span>BP<sub>0</sub></span></span> x 100 x FCC</div>
+    <table><tr><th>Service</th><th>Price series (BP<sub>1</sub>)</th><th>BP<sub>0</sub> (cpl)</th><th>FCC</th></tr>${m.act.map(p => `<tr><td>${esc(p.name)}</td><td>${SOURCES[p.source]}</td><td>${f2(p.base)}${p.baseNote ? "<br><span style='font-size:8pt'>" + esc(p.baseNote) + "</span>" : ""}</td><td>${p.comp}%</td></tr>`).join("")}</table>
+    <p>For ease of calculation, the weekly fuel surcharge is calculated from the previous week's average fuel price and applied each Monday in arrears. For example, the fuel surcharge effective ${longDate(gen.eff, true)} is based on the average price for the week ending ${longDate(m.w.we, true)}.</p></div>${ft}</div>`;
+  return `<div class="letterwrap">${p1}${p2}</div>`;
+}
+function drawGen() {
+  const m = genModel(); if (!m.w) return;
+  $("#g_rates").innerHTML = m.rates.map(r => `<div class="rate"><div class="mut small">${esc(r.p.name)} · ${SRC_SHORT[r.p.source]} ${f2(srcPrice(m.w, r.p.source))} cpl</div><div><span class="big">${r.fin == null ? "—" : f2(r.fin) + "%"}</span>${r.raw != null && r.raw !== r.fin ? `<s>${f2(r.raw)}%</s>` : ""}</div></div>`).join("") || '<p class="mut">No calculations are switched on for notices.</p>';
+  const missing = m.rates.filter(r => r.raw == null).map(r => r.p.name);
+  const warn = missing.length ? `<div class="banner">No ${missing.join(" or ")} price entered for this week — add it under Weekly prices.</div>` : pd(gen.eff).getUTCDay() !== 1 ? `<div class="banner">The effective date is not a Monday.</div>` : "";
+  const e = emailParts(m);
+  if (gen.tab === "email") {
+    $("#printzone").innerHTML = warn + `<div class="small mut" style="margin-bottom:8px">Subject: <b style="color:var(--txt)">${esc(e.subject)}</b></div><div class="emailprev" id="emailprev">${emailHtml(e)}</div>`;
+    $("#g_actions").innerHTML = `<button class="btn pri" id="g_copy">Copy email</button><button class="btn" id="g_mail">Open in mail app</button>`;
+    $("#g_copy").onclick = async () => { const html = emailHtml(e), text = emailText(e);
+      try { await navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([html], {type:"text/html"}), "text/plain":new Blob([text], {type:"text/plain"})})]); }
+      catch (err) { try { await navigator.clipboard.writeText(text); } catch (e2) { const r = document.createRange(); r.selectNode($("#emailprev")); getSelection().removeAllRanges(); getSelection().addRange(r); document.execCommand("copy"); } }
+      toast("Email copied — paste it into your message"); rememberOutlook(); };
+    $("#g_mail").onclick = () => { location.href = "mailto:?subject=" + encodeURIComponent(e.subject) + "&body=" + encodeURIComponent(emailText(e)); rememberOutlook(); };
+  } else {
+    $("#printzone").innerHTML = warn + letterHtml(m);
+    $("#g_actions").innerHTML = `<button class="btn pri" id="g_print">Print / save as PDF</button>`;
+    $("#g_print").onclick = () => { rememberOutlook(); $("#printroot").innerHTML = letterHtml(genModel()); const t = document.title; document.title = "Kubic Transport Fuel Adjustment Notification - " + shortDate(gen.eff); window.print(); document.title = t; };
+  }
+}
+function rememberOutlook() { if (can("edit") && gen.outlook !== D.lastOutlook) { D.lastOutlook = gen.outlook; markDirty(); } }
+function bGenerate() {
+  if (!$("#g_we")) return; drawGen();
+  $("#g_we").onchange = e => { gen.we = e.target.value; gen.eff = effOf(gen.we); gen.context = null; render(); };
+  $("#g_eff").onchange = e => { if (e.target.value) gen.eff = e.target.value; drawGen(); };
+  $("#g_cust").onchange = e => { gen.cust = e.target.value; const c = D.customers.find(x => x.id === gen.cust); gen.disc = c ? c.disc : 0; gen.mode = c ? c.mode : gen.mode; render(); };
+  const setDisc = v => { gen.disc = Math.max(0, num(v) ?? 0); $("#g_disc").value = gen.disc; $("#g_rng").value = gen.disc; drawGen(); };
+  $("#g_rng").oninput = e => setDisc(e.target.value); $("#g_disc").onchange = e => setDisc(e.target.value);
+  $("#g_mode").onchange = e => { gen.mode = e.target.value; render(); };
+  $("#g_show").onchange = e => { gen.showDisc = e.target.checked; drawGen(); };
+  $("#main").querySelectorAll("[data-ap]").forEach(c => c.onchange = () => { gen.apply[c.dataset.ap] = c.checked; drawGen(); });
+  $("#g_ctx").oninput = e => { gen.context = e.target.value; drawGen(); }; $("#g_out").oninput = e => { gen.outlook = e.target.value; drawGen(); };
+  $("#g_regen").onclick = () => { gen.context = null; render(); };
+  $("#main").querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { gen.tab = b.dataset.tab; render(); });
+}
+boot();
+</script>
+</body>
+</html>
