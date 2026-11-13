@@ -56,6 +56,13 @@ table.t input{padding:6px 8px}table.t input.n{width:78px;text-align:right}
 .emailprev{background:#fff;color:#111;border-radius:8px;padding:24px;font:14px/1.5 Arial,Helvetica,sans-serif}
 .emailprev h4{margin:18px 0 6px;font-size:15px}.emailprev p{margin:0 0 10px}
 input[type=range]{padding:0;accent-color:var(--acc)}input[type=checkbox]{width:auto;accent-color:var(--acc)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--mut);cursor:pointer}
+.chips button.on{background:rgba(232,117,26,.15);border-color:var(--acc);color:var(--txt)}.chips button span{opacity:.7;margin-left:4px}
+table.list td{padding:9px 8px}table.list th{padding:8px}
+tr.grp td{background:var(--bg);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:7px 18px!important;color:var(--acc)}
+tr.clk{cursor:pointer}tr.clk:hover td,tr.clk.open td{background:rgba(232,117,26,.07)}
+tr.exp>td{padding:0!important;background:var(--bg)}.editor{padding:16px 18px;border-left:3px solid var(--acc)}
+table.sticky th:first-child,table.sticky tr.clk td:first-child{position:sticky;left:0;background:var(--panel);z-index:1}table.sticky tr.clk:hover td:first-child,table.sticky tr.clk.open td:first-child{background:#2b2640}
 #printroot{display:none}
 #toast{position:fixed;right:20px;bottom:20px;background:var(--panel2);border:1px solid var(--acc);border-radius:8px;padding:10px 16px;display:none;z-index:99}
 /* letter */
@@ -138,6 +145,21 @@ async function makeUser(username, name, role, password, dataKeyRaw, mustChange) 
   return {u:username.trim().toLowerCase(), name:name.trim(), role, salt:b64(salt), iter:PBKDF2_ITER, wrap:await seal(k, dataKeyRaw), mustChange:!!mustChange};
 }
 
+const normCode = c => String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+async function makeRecovery(rec) {   // a second way to unlock the data key, for a forgotten password
+  const raw = Array.from(rnd(20), b => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 32]).join(""); const salt = rnd(16);
+  rec.rsalt = b64(salt); rec.rwrap = await seal(await pwKey(raw, salt, PBKDF2_ITER), keyRaw); return raw.match(/.{5}/g).join("-");
+}
+function showCode(code) {
+  const o = document.createElement("div"); o.style.cssText = "position:fixed;inset:0;background:rgba(10,10,25,.85);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px";
+  o.innerHTML = `<div class="authbox" style="max-width:460px"><h2>Your recovery code</h2><p class="mut small">Keep this somewhere safe. If you forget your password, this code is the only way to set a new one yourself — it is not shown again. Making a new code cancels the old one.</p>
+    <div style="font:600 18px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;background:var(--bg);border:1px solid var(--acc);border-radius:8px;padding:14px;text-align:center;user-select:all" id="rc_code">${code}</div>
+    <div class="row" style="margin-top:16px;justify-content:space-between"><button class="btn" id="rc_copy">Copy code</button><button class="btn pri" id="rc_ok">I have saved it</button></div></div>`;
+  document.body.appendChild(o);
+  $("#rc_copy", o).onclick = async () => { try { await navigator.clipboard.writeText(code); toast("Code copied"); } catch (e) { toast("Select the code and copy it by hand"); } };
+  $("#rc_ok", o).onclick = () => o.remove();
+}
+
 /* ===================== State ===================== */
 let repo = Object.assign({}, DEFAULT_REPO);
 try { const m = location.hostname.match(/^(.+)\.github\.io$/); if (m) { repo.owner = m[1]; const seg = location.pathname.split("/").filter(Boolean); if (seg.length > 1 || (seg.length === 1 && !/\.html?$/.test(seg[0]))) repo.repo = seg[0]; }
@@ -147,26 +169,27 @@ let fileSha = null;   // sha of the file on GitHub
 let keyRaw = null;    // data key bytes
 let me = null;        // user record
 let D = null;         // decrypted payload
-let dirty = false, unsynced = false, view = "generate";
+let dirty = false, unsynced = false, view = "data";
 const gen = {we:null, eff:null, cust:"", disc:0, mode:"pct", apply:{}, context:null, outlook:null, tab:"email", showDisc:false};
 
 function seedData() {
-  const note = "Back-calculated from published levy — replace with AIP figure";
   const W = (we, nat, melb, n) => ({we, nat, melb, tgp:[null,null,null,null,null], note:n || ""});
   return {
     weeks: [
-      W("2026-09-13", 257.7, 255.30, "Melbourne " + note.charAt(0).toLowerCase() + note.slice(1)),
-      W("2026-09-20", 273.6, 271.08, "Melbourne " + note.charAt(0).toLowerCase() + note.slice(1)),
-      W("2026-09-27", 286.69, 284.18, note),
-      W("2026-10-04", 284.76, 280.63, note),
-      W("2026-10-11", 282.99, 278.40, note),
-      W("2026-10-18", 280.7, 275.66, "Melbourne " + note.charAt(0).toLowerCase() + note.slice(1)),
-      W("2026-10-25", 279.3, 274.30, "Melbourne " + note.charAt(0).toLowerCase() + note.slice(1)),
-      W("2026-11-01", 280.1, 275.88, "Melbourne " + note.charAt(0).toLowerCase() + note.slice(1))
+      W("2026-09-13", 257.7, 258.2),
+      W("2026-09-20", 273.6, 274.3),
+      W("2026-09-27", 286.7, 287.7),
+      W("2026-10-04", 284.7, 284.1),
+      W("2026-10-11", 283.0, 281.8),
+      W("2026-10-18", 280.7, 279.0),
+      W("2026-10-25", 279.3, 277.6),
+      W("2026-11-01", 280.1, 279.2),
+      W("2026-11-08", 278.3, 277.2)
     ],
     profiles: [
-      {id:"local", name:"Local Transport", source:"melb", base:125.6, comp:23, baseNote:"2021 AIP national yearly average", on:true},
-      {id:"linehaul", name:"Interstate/Linehaul", source:"nat", base:125.6, comp:39, baseNote:"2021 AIP national yearly average", on:true}
+      {id:"local", name:"Local Transport", source:"melb", base:125.6, comp:22.5, disc:0, discMode:"pct", baseNote:"2021 AIP national yearly average", on:true},
+      {id:"linehaul", name:"Interstate/Linehaul", source:"nat", base:125.6, comp:39, disc:0, discMode:"pct", baseNote:"2021 AIP national yearly average", on:true},
+      {id:"csr", name:"CSR New Fuel Levy", kind:"customer", source:"tgp", adj:"net", base:141.94, comp:30, disc:0, discMode:"pct", baseNote:"Jul-24 national TGP monthly average 177.14, less GST 16.10 and fuel tax credit 19.10", ftc:[{from:"2024-07-01", rate:20.2},{from:"2026-08-03", rate:21.3}], on:true}
     ],
     customers: [{id:uid(), name:"BENCHMARK", disc:0, mode:"pct"}],
     settings: {
@@ -174,8 +197,8 @@ function seedData() {
       signName:"Carl Groth", signTitle:"Business Development & Operations Manager", signPhone:"0428 279 523", signEmail:"bdm@kubic.com.au",
       greeting:"To our valued customers,", subject:"Fuel Levy Update",
       methodology:"Our fuel levy formula uses a base price of 125.6 cpl (2021 AIP national yearly average) and a Linehaul Fuel Cost Component (LFC) of 39%, ensuring our surcharge reflects actual market movements transparently.",
-      closing:"We continue to monitor AIP published data weekly and will adjust rates accordingly. Any material shift in global crude pricing or the AUD/USD exchange rate will flow through to the following week's levy.\n\nOur fuel levy is reviewed and updated each Monday based on the prior week's AIP national average retail diesel price. Full methodology and formula details are available upon request.\n\nReference: AIP Weekly National Average Retail Diesel Prices (Interstate) — https://aip.com.au/pricing/Diesel/National/National-Average\n\nReference: AIP Weekly Melbourne Average Retail Diesel Price (Local) — https://aip.com.au/pricing/Diesel/Victoria/Melbourne\n\nShould you have any questions, please don't hesitate to reach out.",
-      historyWeeks:8, tgpLabel:"Diesel TGP"
+      closing:"We continue to monitor AIP published data weekly and will adjust rates accordingly. Any material shift in global crude pricing or the AUD/USD exchange rate will flow through to the following week's levy.\n\nOur fuel levy is reviewed and updated each Monday based on the prior week's AIP national average retail diesel price. Full methodology and formula details are available upon request.\n\nReference: AIP Weekly National Average Retail Diesel Prices (Interstate) — https://aip.com.au/pricing/diesel/national-retail-diesel-prices/national-average/\n\nReference: AIP Weekly Melbourne Average Retail Diesel Price (Local) — https://aip.com.au/pricing/diesel/victorian-retail-diesel-prices/melbourne/\n\nShould you have any questions, please don't hesitate to reach out.",
+      historyWeeks:8, tgpCity:"National Average", csrAdded:true
     },
     lastOutlook:"", ghToken:""
   };
@@ -184,8 +207,12 @@ function seedData() {
 /* ===================== Calculation ===================== */
 const tgpAvg = w => { const v = (w.tgp || []).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
 const srcPrice = (w, s) => s === "tgp" ? tgpAvg(w) : w[s];
-function rawLevy(p, w) { const bp1 = srcPrice(w, p.source); if (bp1 == null || !p.base) return null; return Math.max(0, r2((bp1 - p.base) / p.base * 100 * (p.comp / 100))); }
+const ftcFor = (p, we) => { let r = 0; (p.ftc || []).slice().sort((a, b) => a.from < b.from ? -1 : 1).forEach((x, i) => { if (i === 0 || x.from <= we) r = x.rate || 0; }); return r; };
+// "net" method: strip GST (one-eleventh) and the fuel tax credit from the price before comparing with a base that is already net
+function netParts(p, w) { const raw = srcPrice(w, p.source); if (raw == null) return null; const price = r2(raw), gst = r2(price / 11), ftc = ftcFor(p, w.we), net = r2(price - gst - ftc); return {price, gst, ftc, net, variance:r2(net - p.base)}; }
+function rawLevy(p, w) { if (!p.base) return null; let bp1 = srcPrice(w, p.source); if (bp1 == null) return null; if (p.adj === "net") bp1 = netParts(p, w).net; return Math.max(0, r2((bp1 - p.base) / p.base * 100 * (p.comp / 100))); }
 function discounted(raw, disc, mode) { if (raw == null) return null; if (!disc) return raw; return Math.max(0, r2(mode === "pts" ? raw - disc : raw * (1 - disc / 100))); }
+const levy = (p, w) => discounted(rawLevy(p, w), p.disc || 0, p.discMode || "pct");
 const weeksSorted = () => D.weeks.slice().sort((a, b) => a.we < b.we ? -1 : 1);
 const effOf = we => addDays(we, 8);   // week ends Sunday; levy applies from the Monday eight days later
 
@@ -252,8 +279,8 @@ async function boot() {
       if (pw !== $("#s_pw2").value) return $("#a_err").textContent = "Passwords do not match.";
       $("#s_go").disabled = true;
       keyRaw = rnd(32); D = seedData(); D.ghToken = $("#s_tok").value.trim();
-      file = {v:1, rev:0, users:[await makeUser(u, name, "admin", pw, keyRaw)]}; me = file.users[0];
-      startSession(); enter(); await save("Fuel levy generator set up");
+      file = {v:1, rev:0, users:[await makeUser(u, name, "admin", pw, keyRaw)]}; me = file.users[0]; const code = await makeRecovery(me);
+      startSession(); enter(); await save("Fuel levy generator set up"); showCode(code);
     };
     return;
   }
@@ -262,7 +289,9 @@ async function boot() {
   box.innerHTML = head + `<h2 style="margin-top:18px">Sign in</h2>
     <div class="f"><label>Username</label><input id="l_user" autocapitalize="none" autocomplete="username"></div>
     <div class="f"><label>Password</label><input id="l_pw" type="password" autocomplete="current-password"></div>
-    <div class="err" id="a_err"></div><button class="btn pri" id="l_go" style="width:100%">Sign in</button>`;
+    <div class="err" id="a_err"></div><button class="btn pri" id="l_go" style="width:100%">Sign in</button>
+    <p class="small" style="margin:14px 0 0;text-align:center"><a id="l_forgot" style="cursor:pointer">Forgot password?</a></p>`;
+  $("#l_forgot").onclick = () => { forgotScreen.u = $("#l_user").value.trim(); forgotScreen(); };
   const go = async () => {
     const u = $("#l_user").value.trim().toLowerCase(), pw = $("#l_pw").value; const rec = file.users.find(x => x.u === u);
     $("#l_go").disabled = true; $("#a_err").textContent = "";
@@ -285,20 +314,47 @@ function forceChange() {
   $("#c_go").onclick = async () => {
     const pw = $("#c_pw").value; if (pw.length < 10) return $("#a_err").textContent = "Password must be at least 10 characters.";
     if (pw !== $("#c_pw2").value) return $("#a_err").textContent = "Passwords do not match.";
-    await setPassword(me, pw, false); enter(); await save("Password changed for " + me.u);
+    await setPassword(me, pw, false); const code = await makeRecovery(me); enter(); await save("Password changed for " + me.u); showCode(code);
+  };
+}
+function forgotScreen() {
+  const admins = file.users.filter(x => x.role === "admin").map(x => x.name);
+  $("#authbox").innerHTML = `<div class="wordmark">KUBIC<i></i>FUEL LEVY</div><h2 style="margin-top:18px">Forgot your password?</h2>
+    <p class="mut small">Enter your username and the recovery code you were given when you first set your password, then choose a new password.</p>
+    <div class="f"><label>Username</label><input id="f_user" autocapitalize="none"></div>
+    <div class="f"><label>Recovery code</label><input id="f_code" autocapitalize="characters" autocomplete="off" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"></div>
+    <div class="f"><label>New password (10+ characters)</label><input id="f_pw" type="password" autocomplete="new-password"></div>
+    <div class="f"><label>Confirm new password</label><input id="f_pw2" type="password" autocomplete="new-password"></div>
+    <div class="err" id="a_err"></div><button class="btn pri" id="f_go" style="width:100%">Set new password</button>
+    <p class="mut small" style="margin-top:14px"><b>No recovery code?</b> Ask an administrator${admins.length ? " (" + esc(admins.join(", ")) + ")" : ""} to reset your password from the Users tab. They will give you a temporary password.</p>
+    <p class="small" style="margin:10px 0 0"><a id="f_back" style="cursor:pointer">Back to sign in</a></p>`;
+  $("#f_user").value = forgotScreen.u || ""; $("#f_back").onclick = () => location.reload();
+  $("#f_go").onclick = async () => {
+    const u = $("#f_user").value.trim().toLowerCase(), code = normCode($("#f_code").value), pw = $("#f_pw").value, err = $("#a_err"); const rec = file.users.find(x => x.u === u);
+    if (pw.length < 10) return err.textContent = "Password must be at least 10 characters."; if (pw !== $("#f_pw2").value) return err.textContent = "Passwords do not match.";
+    $("#f_go").disabled = true; err.textContent = "";
+    try {
+      if (!rec || !rec.rwrap) { await pwKey(code, rnd(16), PBKDF2_ITER); throw 0; }
+      keyRaw = await open(await pwKey(code, unb64(rec.rsalt), PBKDF2_ITER), rec.rwrap);
+      D = JSON.parse(dec.decode(await open(await aesKey(keyRaw), file.box))); me = rec;
+    } catch (e) { err.textContent = "That username and recovery code do not match."; $("#f_go").disabled = false; return; }
+    await setPassword(me, pw, false); startSession(); enter(); await save("Password reset with recovery code for " + me.u); toast("Password changed");
   };
 }
 async function setPassword(rec, pw, mustChange) { const n = await makeUser(rec.u, rec.name, rec.role, pw, keyRaw, mustChange); Object.assign(rec, n); }
 function startSession() { sessionStorage.setItem("kfl_sess", JSON.stringify({u:me.u, k:b64(keyRaw)})); }
 function signOut() { if (dirty && !confirm("You have unsaved changes. Sign out anyway?")) return; dirty = false; sessionStorage.removeItem("kfl_sess"); location.reload(); }
 function enter() {
-  const def = seedData(); D.settings = Object.assign(def.settings, D.settings || {}); D.customers = D.customers || []; D.profiles = D.profiles || []; D.weeks = D.weeks || [];
-  $("#auth").style.display = "none"; $("#app").style.display = "block"; render();
+  const def = seedData(); D.settings = Object.assign(def.settings, D.settings || {}); for (const k of ["closing","methodology"]) D.settings[k] = String(D.settings[k] || "").split("https://aip.com.au/pricing/Diesel/National/National-Average").join("https://aip.com.au/pricing/diesel/national-retail-diesel-prices/national-average/").split("https://aip.com.au/pricing/Diesel/Victoria/Melbourne").join("https://aip.com.au/pricing/diesel/victorian-retail-diesel-prices/melbourne/");
+  D.customers = D.customers || [];
+  if ((D.weeks || []).some(w => /ack-calculated from published levy/.test(w.note || ""))) { const fix = seedData().weeks; D.weeks.forEach(w => { if (/ack-calculated from published levy/.test(w.note || "")) { const f = fix.find(x => x.we === w.we); if (f) { w.nat = f.nat; w.melb = f.melb; } w.note = ""; } }); const lp = (D.profiles || []).find(p => p.id === "local" && p.comp === 23); if (lp) lp.comp = 22.5; } D.profiles = D.profiles || []; D.weeks = D.weeks || [];
+  if (!D.settings.csrAdded) { if (!D.profiles.some(p => p.id === "csr")) D.profiles.push(seedData().profiles.find(p => p.id === "csr")); D.settings.csrAdded = true; }
+  $("#auth").style.display = "none"; $("#app").style.display = "block"; render(); loadAip();
 }
 const can = what => me.role === "admin" || (what === "edit" && me.role === "editor");
 
 /* ===================== Shell ===================== */
-const VIEWS = [["generate","Generate notice"],["data","Weekly prices"],["calcs","Levy calculations"],["customers","Customers & discounts"],["users","Users"],["settings","Settings"]];
+const VIEWS = [["data","Weekly prices"],["calcs","Levy calculations"],["history","Levy history"],["users","Users"],["settings","Settings"]];
 function render() {
   $("#nav").innerHTML = VIEWS.filter(v => (v[0] !== "users" && v[0] !== "settings") || can("admin") || v[0] === "users").map(v => `<a data-v="${v[0]}" class="${view === v[0] ? "on" : ""}">${v[1]}</a>`).join("");
   $("#nav").onclick = e => { const v = e.target.dataset.v; if (v) { view = v; render(); window.scrollTo(0, 0); } };
@@ -308,28 +364,60 @@ function render() {
   const top = `<div class="top"><div><h1>${title}</h1><div class="mut small">${file.savedAt ? "Last saved " + new Date(file.savedAt).toLocaleString("en-AU") + " by " + esc(file.savedBy) : ""}</div></div><div class="sp"></div>
     <span class="pill ${st[0]}" id="savestate">${st[1]}</span>${unsynced && !dirty ? '<button class="btn sm" id="dlbtn">Download data file</button>' : ""}
     ${can("edit") ? `<button class="btn pri" id="savebtn" ${dirty ? "" : "disabled"}>${dirty ? "Save changes" : "Saved"}</button>` : ""}</div>`;
-  const body = {generate:vGenerate, data:vData, calcs:vCalcs, customers:vCustomers, users:vUsers, settings:vSettings}[view]();
+  const body = {generate:vGenerate, data:vData, calcs:vCalcs, history:vHistory, customers:vCustomers, users:vUsers, settings:vSettings}[view]();
   $("#main").onchange = $("#main").onclick = null;
   $("#main").innerHTML = top + body;
   if ($("#savebtn")) $("#savebtn").onclick = () => save();
   if ($("#dlbtn")) $("#dlbtn").onclick = downloadFile;
-  ({generate:bGenerate, data:bData, calcs:bCalcs, customers:bCustomers, users:bUsers, settings:bSettings}[view])();
+  ({generate:bGenerate, data:bData, calcs:bCalcs, history:bHistory, customers:bCustomers, users:bUsers, settings:bSettings}[view])();
+}
+
+/* ===================== AIP feed ===================== */
+let aip = null, aipState = "loading";
+async function loadAip() {
+  const urls = [`https://raw.githubusercontent.com/${repo.owner}/${repo.repo}/${repo.branch}/aip-prices.json`, "aip-prices.json?t=" + Date.now()];
+  for (const u of urls) { try { const r = await fetch(u, {cache:"no-store"}); if (r.ok) { const j = await r.json(); if (j && j.retail && j.tgp && j.tgp.cities) { aip = j; break; } } } catch (e) {} }
+  aipState = aip ? "ok" : "none"; if (!aip) { if (view === "data") render(); return; }
+  if (!aip.tgp.cities.includes(D.settings.tgpCity)) D.settings.tgpCity = aip.tgp.cities.includes("National Average") ? "National Average" : aip.tgp.cities[0];
+  const n = mergeAip(false);
+  if (n && can("edit")) { markDirty(); toast(n + " new price" + (n > 1 ? "s" : "") + " pulled from AIP — save to keep"); }
+  render();
+}
+function mergeAip(overwrite, tgpOnly) {
+  const r1 = v => v == null ? null : Math.round(v * 10) / 10; let n = 0;
+  const ws = weeksSorted(); const nat = aip.retail.national || {}, melb = aip.retail.melbourne || {}, days = aip.tgp.days || {}, ci = aip.tgp.cities.indexOf(D.settings.tgpCity);
+  const allW = [...new Set([...Object.keys(nat), ...Object.keys(melb)])].sort(); const from = ws.length ? ws[0].we : (allW.slice(-8)[0] || "9999");
+  const want = new Set(allW.filter(w => w >= from));
+  Object.keys(days).forEach(d => { const dow = pd(d).getUTCDay(); if (dow >= 1 && dow <= 5) { const we = addDays(d, 7 - dow); if (we >= from) want.add(we); } });
+  [...want].sort().forEach(we => {
+    let w = D.weeks.find(x => x.we === we); const tg = [0, 1, 2, 3, 4].map(i => { const row = days[addDays(we, i - 6)]; return row && ci >= 0 ? row[ci] : null; });
+    const has = nat[we] != null || melb[we] != null || tg.some(v => v != null); if (!w) { if (!has) return; w = {we, nat:null, melb:null, tgp:[null,null,null,null,null], note:""}; D.weeks.push(w); }
+    const put = (cur, v, set) => { if (v != null && cur !== v && (overwrite || cur == null)) { set(v); n++; } };
+    if (!tgpOnly) { put(w.nat, r1(nat[we]), v => w.nat = v); put(w.melb, r1(melb[we]), v => w.melb = v); }
+    w.tgp = w.tgp || [null,null,null,null,null]; tg.forEach((v, i) => put(w.tgp[i], v, x => w.tgp[i] = x));
+  });
+  return n;
 }
 
 /* ===================== Weekly prices ===================== */
 function vData() {
   const ro = can("edit") ? "" : "disabled"; const ws = weeksSorted().reverse();
   return `<div class="card"><p class="mut">One row per week, dated by the Sunday the week ends. Enter the AIP weekly averages for retail diesel and the terminal gate price for each weekday; the TGP average is worked out for you. A week's prices set the levy that starts on the Monday eight days later.</p>
-    <p class="small"><a href="https://aip.com.au/pricing/Diesel/National/National-Average" target="_blank" rel="noopener">AIP national retail diesel</a> · <a href="https://aip.com.au/pricing/Diesel/Victoria/Melbourne" target="_blank" rel="noopener">AIP Melbourne retail diesel</a></p>
+    <div class="rate" style="margin-bottom:12px"><div class="row"><b>Automatic AIP prices</b><span class="pill ${aip ? "ok" : ""}">${aip ? "Feed updated " + new Date(aip.updated).toLocaleString("en-AU", {dateStyle:"medium", timeStyle:"short"}) : aipState === "loading" ? "Checking…" : "Feed not available"}</span><span style="flex:1"></span>
+      ${aip ? `<label style="margin:0">Terminal gate price for</label><select id="tgpcity" style="width:auto" ${ro}>${aip.tgp.cities.map(c => `<option ${c === D.settings.tgpCity ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>${can("edit") ? '<button class="btn sm" id="aipall">Replace all with AIP figures</button>' : ""}` : ""}</div>
+      <p class="mut small" style="margin:8px 0 0">${aip ? "New weeks and blank cells are filled from the AIP website each time you open this tool, with retail averages rounded to one decimal. Anything you have typed is left alone unless you press Replace." : "Prices are pulled from the AIP website by a scheduled job in your GitHub repository. Until that job has run, enter prices by hand."}</p></div>
+    <p class="small"><a href="https://aip.com.au/pricing/diesel/national-retail-diesel-prices/national-average/" target="_blank" rel="noopener">AIP national retail diesel</a> · <a href="https://aip.com.au/pricing/diesel/victorian-retail-diesel-prices/melbourne/" target="_blank" rel="noopener">AIP Melbourne retail diesel</a> · <a href="https://aip.com.au/resources/historical-ulp-and-diesel-tgp-data" target="_blank" rel="noopener">AIP diesel terminal gate prices</a></p>
     ${can("edit") ? '<div class="row" style="margin:12px 0"><button class="btn pri" id="addwk">+ Add week</button></div>' : ""}
-    <div class="scroll"><table class="t"><thead><tr><th>Week ending (Sun)</th><th>Levy starts</th><th class="right">National retail</th><th class="right">Melbourne retail</th>${DAYS.map(d => `<th class="right">TGP ${d}</th>`).join("")}<th class="right">TGP avg</th><th>Note</th><th></th></tr></thead><tbody>
-    ${ws.map(w => `<tr data-we="${w.we}"><td><input type="date" data-k="we" value="${w.we}" ${ro} style="width:150px"></td><td class="mut small" style="white-space:nowrap">${shortDate(effOf(w.we))}</td>
+    <div class="scroll"><table class="t"><thead><tr><th>Week ending (Sun)</th><th class="right">National retail</th><th class="right">Melbourne retail</th>${DAYS.map(d => `<th class="right">TGP ${d}</th>`).join("")}<th class="right">TGP avg</th><th>Note</th><th></th></tr></thead><tbody>
+    ${ws.map(w => `<tr data-we="${w.we}"><td><input type="date" data-k="we" value="${w.we}" ${ro} style="width:150px"></td>
       <td><input class="n" type="number" step="0.01" data-k="nat" value="${w.nat ?? ""}" ${ro}></td><td><input class="n" type="number" step="0.01" data-k="melb" value="${w.melb ?? ""}" ${ro}></td>
       ${DAYS.map((d, i) => `<td><input class="n" type="number" step="0.01" data-k="tgp${i}" value="${(w.tgp || [])[i] ?? ""}" ${ro}></td>`).join("")}
       <td class="right num" data-avg>${f2(tgpAvg(w))}</td><td><input data-k="note" value="${esc(w.note)}" ${ro} style="min-width:180px"></td><td>${can("edit") ? '<button class="btn sm danger" data-del>✕</button>' : ""}</td></tr>`).join("")}
     </tbody></table></div><p class="mut small" style="margin-top:10px">All prices in cents per litre.</p></div>`;
 }
 function bData() {
+  if ($("#tgpcity")) $("#tgpcity").onchange = e => { D.settings.tgpCity = e.target.value; mergeAip(true, true); markDirty(); render(); toast("Terminal gate prices switched to " + e.target.value); };
+  if ($("#aipall")) $("#aipall").onclick = () => { const n = mergeAip(true); if (n) markDirty(); render(); toast(n ? n + (n > 1 ? " prices" : " price") + " replaced with AIP figures — save to keep" : "Already matches AIP"); };
   const add = $("#addwk"); if (add) add.onclick = () => {
     const ws = weeksSorted(); let we;
     if (ws.length) we = addDays(ws[ws.length - 1].we, 7); else { const d = new Date(); d.setUTCDate(d.getUTCDate() - d.getUTCDay()); we = iso(d); }
@@ -345,24 +433,84 @@ function bData() {
 }
 
 /* ===================== Levy calculations ===================== */
+const KINDS = {standard:"Kubic standard", customer:"Customer", carrier:"Carrier"};
+let kindFilter = "all", calcOpen = null, histOpen = null, histWeeks = 8;
+const kindOf = p => KINDS[p.kind] ? p.kind : "standard";
+const visProfiles = () => D.profiles.filter(p => kindFilter === "all" || kindOf(p) === kindFilter);
+const discLabel = p => p.disc ? (p.discMode === "pts" ? f2(p.disc) + " pts" : p.disc + "%") : "";
+const latestFor = (p, ws) => ws.slice().reverse().find(x => srcPrice(x, p.source) != null);
+const kindChips = () => `<div class="chips">${[["all","All"], ...Object.entries(KINDS)].map(([k, l]) => { const n = k === "all" ? D.profiles.length : D.profiles.filter(p => kindOf(p) === k).length; return `<button data-kf="${k}" class="${kindFilter === k ? "on" : ""}">${l} <span>${n}</span></button>`; }).join("")}</div>`;
+const grouped = () => Object.keys(KINDS).map(k => [k, visProfiles().filter(p => kindOf(p) === k).sort((a, b) => a.name.localeCompare(b.name))]).filter(g => g[1].length);
+function calcEditor(p, ws) {
+  const ro = can("admin") ? "" : "disabled"; const w = latestFor(p, ws) || ws[ws.length - 1];
+  const bp1 = w ? srcPrice(w, p.source) : null, lv = w ? rawLevy(p, w) : null, fl = w ? levy(p, w) : null, np = w && bp1 != null && p.adj === "net" ? netParts(p, w) : null;
+  return `<div class="editor" data-p="${p.id}">
+    <div class="grid g4"><div><label>Name</label><input data-k="name" value="${esc(p.name)}" ${ro}></div>
+      <div><label>Type</label><select data-k="kind" ${ro}>${Object.entries(KINDS).map(([k, l]) => `<option value="${k}" ${kindOf(p) === k ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div><label>Price series</label><select data-k="source" ${ro}>${Object.keys(SOURCES).map(x => `<option value="${x}" ${p.source === x ? "selected" : ""}>${SOURCES[x]}</option>`).join("")}</select></div>
+      <div><label>Price used in the formula</label><select data-k="adj" ${ro}><option value="" ${p.adj === "net" ? "" : "selected"}>As published (incl. GST)</option><option value="net" ${p.adj === "net" ? "selected" : ""}>Less GST and fuel tax credit</option></select></div></div>
+    <div class="grid g4" style="margin-top:12px"><div><label>Base price (cpl)</label><input type="number" step="0.01" data-k="base" value="${p.base}" ${ro}></div>
+      <div><label>Fuel cost component / weight (%)</label><input type="number" step="0.1" data-k="comp" value="${p.comp}" ${ro}></div>
+      <div><label>Discount</label><input type="number" step="0.01" min="0" data-k="disc" value="${p.disc || 0}" ${ro}></div>
+      <div><label>Discount type</label><select data-k="discMode" ${ro}><option value="pct" ${p.discMode !== "pts" ? "selected" : ""}>% off the levy</option><option value="pts" ${p.discMode === "pts" ? "selected" : ""}>percentage points off</option></select></div></div>
+    <div class="grid g2" style="margin-top:12px"><div><label>Note on the base price</label><input data-k="baseNote" value="${esc(p.baseNote)}" ${ro}></div>
+      ${p.adj === "net" ? `<div><label>Fuel tax credit (cpl) and the date each rate started</label><div class="row">${(p.ftc || []).map((x, i) => `<span class="row" style="gap:4px"><input type="date" data-ftc="${i}" data-f="from" value="${x.from}" ${ro} style="width:150px"><input type="number" step="0.01" data-ftc="${i}" data-f="rate" value="${x.rate}" ${ro} style="width:80px">${can("admin") ? `<button class="btn sm danger" data-delftc="${i}">✕</button>` : ""}</span>`).join("")}${can("admin") ? '<button class="btn sm" data-addftc>+ Rate change</button>' : ""}</div></div>` : "<div></div>"}</div>
+    <div class="row" style="margin-top:12px;justify-content:space-between"><span class="mut small">${w ? `Week ending ${longDate(w.we)}: ` + (bp1 == null ? `no ${SRC_SHORT[p.source]} price entered` : (np ? `${SRC_SHORT[p.source]} ${f2(np.price)} − GST ${f2(np.gst)} − fuel tax credit ${f2(np.ftc)} = ${f2(np.net)}; ` : "") + `(${f2(np ? np.net : bp1)} − ${f2(p.base)}) ÷ ${f2(p.base)} × ${p.comp}% = <b style="color:var(--acc)">${f2(lv)}%</b>` + (p.disc ? `, less ${discLabel(p)} discount = <b style="color:var(--acc)">${f2(fl)}%</b>` : "")) : "No weekly prices entered yet"}</span>
+      ${can("admin") ? '<button class="btn sm danger" data-delp>Delete this levy</button>' : ""}</div></div>`;
+}
 function vCalcs() {
-  const ro = can("admin") ? "" : "disabled"; const ws = weeksSorted(); const w = ws[ws.length - 1];
-  return `<div class="card"><p class="mut" style="margin:0">Each calculation uses the same formula: <b style="color:var(--txt)">levy % = (week's price − base price) ÷ base price × fuel cost component</b>. Add a calculation for each rate you publish and point it at the price series it should follow.</p></div>
-  ${D.profiles.map(p => { const bp1 = w ? srcPrice(w, p.source) : null, lv = w ? rawLevy(p, w) : null; return `<div class="card" data-p="${p.id}">
-    <div class="grid g4"><div><label>Name on notice</label><input data-k="name" value="${esc(p.name)}" ${ro}></div>
-      <div><label>Price series</label><select data-k="source" ${ro}>${Object.keys(SOURCES).map(s => `<option value="${s}" ${p.source === s ? "selected" : ""}>${SOURCES[s]}</option>`).join("")}</select></div>
-      <div><label>Base price (cpl)</label><input type="number" step="0.01" data-k="base" value="${p.base}" ${ro}></div>
-      <div><label>Fuel cost component (%)</label><input type="number" step="0.1" data-k="comp" value="${p.comp}" ${ro}></div></div>
-    <div class="grid g2" style="margin-top:12px"><div><label>What the base price is (shown in the methodology)</label><input data-k="baseNote" value="${esc(p.baseNote)}" ${ro}></div>
-      <div class="row" style="align-items:flex-end;justify-content:space-between"><label style="margin:0"><input type="checkbox" data-k="on" ${p.on ? "checked" : ""} ${ro}> Include on notices</label>${can("admin") ? '<button class="btn sm danger" data-delp>Delete calculation</button>' : ""}</div></div>
-    <p class="mut small" style="margin:12px 0 0">${w ? `Week ending ${longDate(w.we)}: ` + (bp1 == null ? `no ${SRC_SHORT[p.source]} price entered` : `(${f2(bp1)} − ${f2(p.base)}) ÷ ${f2(p.base)} × ${p.comp}% = <b style="color:var(--acc)">${f2(lv)}%</b>`) : "No weekly prices entered yet"}</p></div>`; }).join("")}
-  ${can("admin") ? '<button class="btn pri" id="addp">+ Add calculation</button>' : '<p class="mut small">Only administrators can change calculations.</p>'}`;
+  const ws = weeksSorted(); const g = grouped();
+  return `<div class="card"><div class="row" style="justify-content:space-between">${kindChips()}${can("admin") ? '<button class="btn pri" id="addp">+ Add levy</button>' : ""}</div>
+    <p class="mut small" style="margin:12px 0 0">Every levy uses <b style="color:var(--txt)">(week's price − base price) ÷ base price × fuel cost component</b>, less any discount. Click a row to see or change its settings.</p></div>
+  <div class="card" style="padding:6px 0"><div class="scroll"><table class="t list"><thead><tr><th style="padding-left:18px">Levy</th><th>Follows</th><th class="right">Base (cpl)</th><th class="right">Component</th><th class="right">Discount</th><th class="right">Current levy</th><th>Effective from</th><th></th></tr></thead><tbody>
+  ${g.map(([k, ps]) => `<tr class="grp"><td colspan="8">${KINDS[k]} <span class="mut">· ${ps.length}</span></td></tr>` + ps.map(p => { const w = latestFor(p, ws), v = w ? levy(p, w) : null, open = calcOpen === p.id;
+    return `<tr class="clk ${open ? "open" : ""}" data-row="${p.id}"><td style="padding-left:18px"><b>${esc(p.name) || "<span class='mut'>(unnamed)</span>"}</b></td><td class="mut">${SRC_SHORT[p.source]}${p.adj === "net" ? " · less GST & FTC" : ""}</td><td class="right num">${f2(p.base)}</td><td class="right num">${p.comp}%</td><td class="right num">${discLabel(p) || '<span class="mut">—</span>'}</td>
+      <td class="right num"><b style="color:var(--acc);font-size:15px">${v == null ? "—" : f2(v) + "%"}</b></td><td class="mut" style="white-space:nowrap">${w ? shortDate(effOf(w.we)) : "no prices yet"}</td><td class="mut right" style="padding-right:18px">${open ? "▲" : "▼"}</td></tr>` + (open ? `<tr class="exp"><td colspan="8">${calcEditor(p, ws)}</td></tr>` : ""); }).join("")).join("") || '<tr><td colspan="8" class="mut" style="padding:18px">No levies in this group yet.</td></tr>'}
+  </tbody></table></div></div>${can("admin") ? "" : '<p class="mut small">Only administrators can change levy settings.</p>'}`;
 }
 function bCalcs() {
-  const add = $("#addp"); if (add) add.onclick = () => { D.profiles.push({id:uid(), name:"New levy", source:"tgp", base:125.6, comp:39, baseNote:"", on:false}); markDirty(); render(); };
-  $("#main").onchange = (e => { const c = e.target.closest("[data-p]"), k = e.target.dataset.k; if (!c || !k) return; const p = D.profiles.find(x => x.id === c.dataset.p);
-    p[k] = k === "on" ? e.target.checked : (k === "base" || k === "comp") ? (num(e.target.value) ?? 0) : e.target.value; markDirty(); render(); });
-  $("#main").onclick = (e => { if (!("delp" in e.target.dataset)) return; const c = e.target.closest("[data-p]"); const p = D.profiles.find(x => x.id === c.dataset.p); if (!confirm('Delete "' + p.name + '"?')) return; D.profiles = D.profiles.filter(x => x !== p); markDirty(); render(); });
+  const add = $("#addp"); if (add) add.onclick = () => { const p = {id:uid(), name:"New levy", kind:kindFilter === "all" ? "customer" : kindFilter, source:"nat", base:125.6, comp:39, disc:0, discMode:"pct", baseNote:"", on:true}; D.profiles.push(p); calcOpen = p.id; markDirty(); render(); };
+  $("#main").onchange = (e => { const c = e.target.closest("[data-p]"), k = e.target.dataset.k; if (!c) return; const p = D.profiles.find(x => x.id === c.dataset.p);
+    if (e.target.dataset.ftc != null) { const x = p.ftc[+e.target.dataset.ftc]; if (e.target.dataset.f === "rate") x.rate = Math.max(0, num(e.target.value) ?? 0); else if (e.target.value) x.from = e.target.value; markDirty(); return render(); }
+    if (!k) return; if (k === "adj" && e.target.value === "net" && !(p.ftc || []).length) p.ftc = [{from:"2024-07-01", rate:0}];
+    p[k] = (k === "base" || k === "comp" || k === "disc") ? Math.max(0, num(e.target.value) ?? 0) : e.target.value; markDirty(); render(); });
+  $("#main").onclick = (e => { const t = e.target; const kf = t.closest("[data-kf]"); if (kf) { kindFilter = kf.dataset.kf; return render(); }
+    const cc = t.closest("[data-p]"), pp = cc && D.profiles.find(x => x.id === cc.dataset.p);
+    if (pp && "addftc" in t.dataset) { pp.ftc = pp.ftc || []; pp.ftc.push({from:iso(new Date()), rate:0}); markDirty(); return render(); }
+    if (pp && t.dataset.delftc != null) { pp.ftc.splice(+t.dataset.delftc, 1); markDirty(); return render(); }
+    if (pp && "delp" in t.dataset) { if (!confirm('Delete "' + pp.name + '"?')) return; D.profiles = D.profiles.filter(x => x !== pp); calcOpen = null; markDirty(); return render(); }
+    const row = t.closest("tr[data-row]"); if (row) { calcOpen = calcOpen === row.dataset.row ? null : row.dataset.row; render(); } });
+}
+
+/* ===================== Levy history ===================== */
+function vHistory() {
+  const all = weeksSorted(); const g = grouped(); const P = g.flatMap(x => x[1]);
+  if (!all.length || !D.profiles.length) return `<div class="card">Nothing to show yet — add weekly prices and at least one levy.</div>`;
+  const ws = histWeeks ? all.slice(-histWeeks) : all; const col = ["#e8751a","#4fc3f7","#34c38f","#f1b44c","#b39ddb","#ef5350","#80cbc4","#f48fb1","#aed581","#90a4ae"];
+  const series = P.map(p => ws.map(w => levy(p, w))); const vals = series.flat().filter(v => v != null);
+  let chart = "";
+  if (vals.length > 1 && ws.length > 1) { const lo = Math.floor(Math.min(...vals) - 1), hi = Math.ceil(Math.max(...vals) + 1), W = 900, H = 240, L = 44, R = 28, T = 12, B = 30; const x = k => L + k * (W - L - R) / (ws.length - 1), y = v => T + (hi - v) * (H - T - B) / (hi - lo); const step = Math.ceil(ws.length / 12);
+    chart = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;margin-top:10px" font-size="11" fill="#9a9ac0">${[0, 1, 2, 3, 4].map(k => { const t = lo + k * (hi - lo) / 4; return `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="#333360"/><text x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t.toFixed(0)}%</text>`; }).join("")}
+      ${ws.map((w, k) => k % step ? "" : `<text x="${x(k)}" y="${H - 8}" text-anchor="middle">${shortDate(effOf(w.we)).slice(0, -3)}</text>`).join("")}
+      ${series.map((v, i) => { const c = col[i % col.length]; let d = "", pen = false; v.forEach((q, k) => { if (q == null) { pen = false; return; } d += (pen ? "L" : "M") + x(k).toFixed(1) + " " + y(q).toFixed(1); pen = true; }); return `<path d="${d}" fill="none" stroke="${c}" stroke-width="2"/>` + v.map((q, k) => q == null ? "" : `<circle cx="${x(k).toFixed(1)}" cy="${y(q).toFixed(1)}" r="3" fill="${c}"><title>${esc(P[i].name)} — from ${longDate(effOf(ws[k].we))}: ${f2(q)}%</title></circle>`).join(""); }).join("")}</svg>
+      <div class="row small" style="margin-top:6px">${P.map((p, i) => `<span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${col[i % col.length]};margin-right:6px"></i>${esc(p.name)}</span>`).join("")}</div>`; }
+  const wk = ws.slice().reverse(); const cols = wk.length + 2;
+  const cell = (p, w, prev) => { const v = levy(p, w), pv = prev ? levy(p, prev) : null, d = v != null && pv != null ? r2(v - pv) : null;
+    return `<td class="right num">${v == null ? '<span class="mut">—</span>' : `<b>${f2(v)}%</b><div class="small" style="color:${!d ? "var(--mut)" : d > 0 ? "var(--bad)" : "var(--ok)"}">${d == null ? "&nbsp;" : !d ? "–" : (d > 0 ? "▲ " : "▼ ") + f2(Math.abs(d))}</div>`}</td>`; };
+  const detail = p => { const net = p.adj === "net"; return `<div class="editor"><div class="mut small" style="margin-bottom:8px">${esc(p.name)} — ${SOURCES[p.source]}${net ? ", less GST and fuel tax credit" : ""}; base ${f2(p.base)} cpl; component ${p.comp}%${p.disc ? "; discount " + discLabel(p) : ""}. Full history, newest first.</div>
+    <table class="t" style="width:auto"><thead><tr><th>Levy effective from</th><th>Prices for week ending</th><th class="right">${SRC_SHORT[p.source]} (cpl)</th>${net ? '<th class="right">Less GST</th><th class="right">Less FTC</th><th class="right">Net price</th>' : ""}${p.disc ? '<th class="right">Standard</th>' : ""}<th class="right">Levy</th><th>Change</th></tr></thead><tbody>
+    ${all.map((w, k) => { const v = levy(p, w), pv = k ? levy(p, all[k - 1]) : null, d = v != null && pv != null ? r2(v - pv) : null, np = net && srcPrice(w, p.source) != null ? netParts(p, w) : null;
+      return `<tr><td>${longDate(effOf(w.we))}</td><td class="mut">${shortDate(w.we)}</td><td class="right num">${f2(srcPrice(w, p.source))}</td>${net ? `<td class="right num">${np ? f2(np.gst) : "—"}</td><td class="right num">${np ? f2(np.ftc) : "—"}</td><td class="right num">${np ? f2(np.net) : "—"}</td>` : ""}${p.disc ? `<td class="right num mut">${v == null ? "—" : f2(rawLevy(p, w)) + "%"}</td>` : ""}<td class="right num"><b>${v == null ? "—" : f2(v) + "%"}</b></td><td class="num small" style="color:${!d ? "var(--mut)" : d > 0 ? "var(--bad)" : "var(--ok)"}">${d == null ? "" : !d ? "no change" : (d > 0 ? "▲ +" : "▼ −") + f2(Math.abs(d))}</td></tr>`; }).reverse().join("")}</tbody></table></div>`; };
+  return `<div class="card"><div class="row" style="justify-content:space-between">${kindChips()}<div class="row"><span class="mut small">Weeks shown</span><div class="chips">${[[8,"8"],[13,"13"],[26,"26"],[0,"All"]].map(([n, l]) => `<button data-hw="${n}" class="${histWeeks === n ? "on" : ""}">${l}</button>`).join("")}</div></div></div>${chart}</div>
+  <div class="card" style="padding:6px 0"><div class="scroll"><table class="t list sticky"><thead><tr><th style="padding-left:18px">Levy · effective from</th>${wk.map((w, i) => `<th class="right" style="${i ? "" : "color:var(--txt)"}">${shortDate(effOf(w.we)).slice(0, -3)}${i ? "" : "<br>latest"}</th>`).join("")}<th></th></tr></thead><tbody>
+  ${g.map(([k, ps]) => `<tr class="grp"><td colspan="${cols}">${KINDS[k]} <span class="mut">· ${ps.length}</span></td></tr>` + ps.map(p => { const open = histOpen === p.id;
+    return `<tr class="clk ${open ? "open" : ""}" data-hrow="${p.id}"><td style="padding-left:18px;white-space:nowrap"><b>${esc(p.name)}</b>${p.disc ? `<div class="mut small">less ${discLabel(p)}</div>` : ""}</td>${wk.map(w => cell(p, w, all[all.indexOf(w) - 1])).join("")}<td class="mut right" style="padding-right:18px">${open ? "▲" : "▼"}</td></tr>` + (open ? `<tr class="exp"><td colspan="${cols}">${detail(p)}</td></tr>` : ""); }).join("")).join("") || `<tr><td colspan="${cols}" class="mut" style="padding:18px">No levies in this group yet.</td></tr>`}
+  </tbody></table></div></div><p class="mut small">Each column is the Monday a levy took effect, newest on the left, with the change on the week before underneath. Click a levy for its full history and workings. Rates use the current base prices, components and discounts.</p>`;
+}
+function bHistory() {
+  $("#main").onclick = (e => { const kf = e.target.closest("[data-kf]"); if (kf) { kindFilter = kf.dataset.kf; return render(); }
+    const hw = e.target.closest("[data-hw]"); if (hw) { histWeeks = +hw.dataset.hw; return render(); }
+    if (e.target.closest(".editor")) return; const row = e.target.closest("tr[data-hrow]"); if (row) { histOpen = histOpen === row.dataset.hrow ? null : row.dataset.hrow; render(); } });
 }
 
 /* ===================== Customers ===================== */
@@ -383,7 +531,8 @@ function bCustomers() {
 
 /* ===================== Users ===================== */
 function vUsers() {
-  return `<div class="card"><h2>My password</h2><div class="grid g3"><div><label>New password (10+ characters)</label><input type="password" id="mp1"></div><div><label>Confirm</label><input type="password" id="mp2"></div><div style="align-self:end"><button class="btn" id="mpgo">Change password</button></div></div></div>
+  return `<div class="card"><h2>My password</h2><div class="grid g3"><div><label>New password (10+ characters)</label><input type="password" id="mp1"></div><div><label>Confirm</label><input type="password" id="mp2"></div><div style="align-self:end"><button class="btn" id="mpgo">Change password</button></div></div>
+    <div class="row" style="margin-top:16px"><button class="btn" id="rcnew">Create a new recovery code</button><span class="mut small">${me.rwrap ? "You have a recovery code. A new one cancels it." : "You have no recovery code yet — create one so you can reset a forgotten password yourself."}</span></div></div>
   ${can("admin") ? `<div class="card"><h2>Users</h2><table class="t"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th></th></tr></thead><tbody>
   ${file.users.map(u => `<tr data-u="${esc(u.u)}"><td>${esc(u.name)}${u.mustChange ? ' <span class="pill warn">temporary password</span>' : ""}</td><td>${esc(u.u)}</td>
     <td><select data-role style="width:auto" ${u.u === me.u ? "disabled" : ""}>${["admin","editor","viewer"].map(r => `<option ${u.role === r ? "selected" : ""}>${r}</option>`).join("")}</select></td>
@@ -392,10 +541,11 @@ function vUsers() {
   <h3 style="margin-top:20px">Add a user</h3><div class="grid g4"><div><label>Name</label><input id="nu_name"></div><div><label>Username</label><input id="nu_user" autocapitalize="none"></div>
     <div><label>Role</label><select id="nu_role"><option>editor</option><option>viewer</option><option>admin</option></select></div><div><label>Temporary password</label><input id="nu_pw"></div></div>
   <div class="row" style="margin-top:12px"><button class="btn pri" id="nu_go">Add user</button><span class="mut small">Give them the temporary password yourself; they choose their own at first sign-in.</span></div>
-  <p class="mut small" style="margin-top:14px"><b>Admin</b> changes everything. <b>Editor</b> enters weekly prices, manages customers and generates notices. <b>Viewer</b> generates notices only.</p></div>` : ""}`;
+  <p class="mut small" style="margin-top:14px"><b>Admin</b> changes everything. <b>Editor</b> enters weekly prices. <b>Viewer</b> can look but not change anything.</p></div>` : ""}`;
 }
 function bUsers() {
   $("#mpgo").onclick = async () => { const p = $("#mp1").value; if (p.length < 10) return toast("Password must be at least 10 characters"); if (p !== $("#mp2").value) return toast("Passwords do not match"); await setPassword(me, p, false); await save("Password changed for " + me.u); };
+  $("#rcnew").onclick = async () => { const code = await makeRecovery(me); await save("Recovery code created for " + me.u); showCode(code); };
   if (!can("admin")) return;
   const tempPw = () => "Kubic-" + Array.from(rnd(6), b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
   $("#nu_pw").value = tempPw();
@@ -511,7 +661,7 @@ function letterHtml(m) {
     <table><tr><th>Index week<br>ending</th>${srcs.map(sc => `<th>${SRC_SHORT[sc]}<br>(cpl)</th>`).join("")}<th>Fuel levy<br>effective</th>${m.act.map(p => `<th>${esc(p.name)}<br>fuel levy</th>`).join("")}</tr>
     ${hist.map(w => `<tr><td>${shortDate(w.we)}</td>${srcs.map(sc => `<td>${f2(srcPrice(w, sc))}</td>`).join("")}<td>${shortDate(w.we === m.w.we ? gen.eff : effOf(w.we))}</td>${m.act.map(p => { const v = m.fin(p, w); return `<td>${v == null ? "—" : f2(v) + "%"}</td>`; }).join("")}</tr>`).join("")}</table>
     ${chart}
-    ${srcs.includes("nat") ? "<p>Reference: https://aip.com.au/pricing/Diesel/National/National-Average</p>" : ""}${srcs.includes("melb") ? "<p>Reference: https://aip.com.au/pricing/Diesel/Victoria/Melbourne</p>" : ""}
+    ${srcs.includes("nat") ? "<p>Reference: https://aip.com.au/pricing/diesel/national-retail-diesel-prices/national-average/</p>" : ""}${srcs.includes("melb") ? "<p>Reference: https://aip.com.au/pricing/diesel/victorian-retail-diesel-prices/melbourne/</p>" : ""}
     <p>Should you require any further information please feel free to get in contact.</p><p>Kind regards,</p><p style="margin-top:6mm">${esc(s.signName)}<br><b>${esc(s.signTitle)}</b><br>${esc(s.signPhone)}</p></div>${ft}</div>`;
   const p2 = `<div class="page">${lh}<div class="body" style="padding-top:14mm"><p>FUEL SURCHARGE FORMULA</p><br>
     <p>BP<sub>0</sub> = Base Price (cents per litre, incl. GST), as set out for each service below.<br>BP<sub>1</sub> = New Base Price (the average price in cents per litre for the index week, by reference to the price series set out for each service below)<br>V = Fuel Price Variation (cents per litre)</p>
