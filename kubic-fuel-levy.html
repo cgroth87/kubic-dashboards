@@ -65,6 +65,9 @@ tr.exp>td{padding:0!important;background:var(--bg)}.editor{padding:16px 18px;bor
 table.sticky th:first-child,table.sticky tr.clk td:first-child{position:sticky;left:0;background:var(--panel);z-index:1}table.sticky tr.clk:hover td:first-child,table.sticky tr.clk.open td:first-child{background:#2b2640}
 #tip{position:fixed;display:none;pointer-events:none;z-index:150;background:#11111f;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.4);white-space:nowrap}
 #tip b{font-size:16px;display:block}circle.hit{cursor:pointer}circle.hit:hover{fill-opacity:.25}
+.timing{margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--panel)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.seg button{background:var(--bg);border:0;padding:7px 16px;color:var(--mut);cursor:pointer}.seg button.on{background:var(--acc);color:#fff;font-weight:600}
+.opt{border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer;background:var(--bg)}.opt:hover{border-color:var(--acc)}.opt.on{border-color:var(--acc);background:rgba(232,117,26,.1)}
 b.draft{font-weight:500;font-style:italic;color:var(--mut)}
 #printroot{display:none}
 #toast{position:fixed;right:20px;bottom:20px;background:var(--panel2);border:1px solid var(--acc);border-radius:8px;padding:10px 16px;display:none;z-index:99}
@@ -130,7 +133,7 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 const WD = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const longDate = (s, wd) => { const d = pd(s); return (wd ? WD[d.getUTCDay()] + " " : "") + ord(d.getUTCDate()) + " " + MONTHS[d.getUTCMonth()] + " " + d.getUTCFullYear(); };
 const shortDate = s => { const d = pd(s); return d.getUTCDate() + " " + MONTHS[d.getUTCMonth()].slice(0, 3) + " " + String(d.getUTCFullYear()).slice(2); };
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = "none", 3200); }
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = "none", msg.length > 70 ? 9000 : 3200); }
 
 /* ===================== Crypto ===================== */
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -210,7 +213,7 @@ function seedData() {
 
 /* ===================== Calculation ===================== */
 const tgpAvg = w => { const v = (w.tgp || []).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
-const srcPrice = (w, s) => s === "tgp" ? tgpAvg(w) : w[s];
+const srcPrice = (w, s) => w._m ? w._price : s === "tgp" ? tgpAvg(w) : w[s];   // w is a week row, or a month built by monthPeriods()
 const ftcFor = (p, we) => { let r = 0; (p.ftc || []).slice().sort((a, b) => a.from < b.from ? -1 : 1).forEach((x, i) => { if (i === 0 || x.from <= we) r = x.rate || 0; }); return r; };
 // "net" method: strip GST (one-eleventh) and the fuel tax credit from the price before comparing with a base that is already net
 function netParts(p, w) { const raw = srcPrice(w, p.source); if (raw == null) return null; const price = r2(raw), gst = r2(price / 11), ftc = ftcFor(p, w.we), net = r2(price - gst - ftc); return {price, gst, ftc, net, variance:r2(net - p.base)}; }
@@ -221,6 +224,26 @@ const weeksSorted = () => D.weeks.slice().sort((a, b) => a.we < b.we ? -1 : 1);
 const effOf = we => addDays(we, 8);
 const LAGS = {1:"The Monday straight after the price week", 8:"One week after the price week ends", 15:"Two weeks after the price week ends"};
 const lagOf = p => LAGS[p.lag] ? +p.lag : 8;
+const freqOf = p => p.freq === "monthly" ? "monthly" : "weekly";
+const mlagOf = p => [1, 2, 3].includes(+p.mlag) ? +p.mlag : 1;
+const monthAdd = (ym, n) => { const t = +ym.slice(0, 4) * 12 + (+ym.slice(5, 7) - 1) + n; return Math.floor(t / 12) + "-" + String(t % 12 + 1).padStart(2, "0"); };
+const monthEnd = ym => iso(new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)));
+const monthName = ym => MONTHS[+ym.slice(5, 7) - 1] + " " + ym.slice(0, 4);
+const todayIso = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+const nextMonday = () => { const t = todayIso(), dow = pd(t).getUTCDay(); return addDays(t, ((8 - dow) % 7) || 7); };
+// Monthly averages built from the weekly sheet: retail = mean of the weekly figures for weeks ending in the month; terminal gate = mean of that month's weekday prices.
+// A month only counts once prices reach its final week, so a part-month is never used.
+function monthPeriods(source) {
+  const acc = {}; let last = "", first = "9999";
+  weeksSorted().forEach(w => { if (source === "tgp") (w.tgp || []).forEach((v, i) => { if (v != null) { const d = addDays(w.we, i - 6); (acc[d.slice(0, 7)] = acc[d.slice(0, 7)] || []).push(v); if (d > last) last = d; if (d < first) first = d; } });
+    else if (w[source] != null) { (acc[w.we.slice(0, 7)] = acc[w.we.slice(0, 7)] || []).push(w[source]); if (w.we > last) last = w.we; if (w.we < first) first = w.we; } });
+  return Object.keys(acc).sort().filter(ym => last >= addDays(monthEnd(ym), source === "tgp" ? -3 : -6) && first <= addDays(ym + "-01", source === "tgp" ? 3 : 6)).map(ym => ({we:monthEnd(ym), _m:ym, _n:acc[ym].length, _price:r2(acc[ym].reduce((a, b) => a + b, 0) / acc[ym].length)}));
+}
+const periods = p => freqOf(p) === "monthly" ? monthPeriods(p.source) : weeksSorted().filter(w => srcPrice(w, p.source) != null);
+const latestPer = p => periods(p).slice(-1)[0];
+const effKey = (p, per) => per._m ? monthAdd(per._m, mlagOf(p)) + "-01" : addDays(per.we, lagOf(p));
+const perLabel = per => per._m ? monthName(per._m) + " average" : "week ending " + shortDate(per.we);
+const effLabel = (monthly, key, long) => monthly ? monthName(key.slice(0, 7)) : long ? "Monday " + longDate(key) : shortDate(key);
 const effFor = (p, we) => addDays(we, lagOf(p));   // price week ends on a Sunday; the levy starts on a Monday 1, 8 or 15 days later   // week ends Sunday; levy applies from the Monday eight days later
 
 /* ===================== GitHub storage ===================== */
@@ -254,7 +277,7 @@ async function save(message) {
     unsynced = false; toast("Saved to GitHub");
   } catch (e) {
     unsynced = true; if (e.status === 409 || e.status === 422) localStorage.removeItem("kfl_file");
-    toast(e.status === 409 || e.status === 422 ? "Someone else saved first — reload the page, then redo your change" : e.status === 401 || e.status === 403 || e.status === 404 ? "GitHub rejected the token — check it in Settings" : "Could not reach GitHub — saved in this browser only");
+    toast(e.status === 409 || e.status === 422 ? "Someone else saved first — reload the page, then redo your change" : e.status === 401 || e.status === 403 || e.status === 404 ? "GitHub refused the save — on GitHub, edit the token so it can access the " + repo.repo + " repository with Contents set to Read and write" : "Could not reach GitHub — saved in this browser only");
   }
   render();
 }
@@ -391,10 +414,10 @@ async function loadAip() {
   if (n && can("edit")) { markDirty(); toast(n + " new price" + (n > 1 ? "s" : "") + " pulled from AIP — save to keep"); }
   render();
 }
-function mergeAip(overwrite, tgpOnly) {
+function mergeAip(overwrite, tgpOnly, fromDate) {
   const r1 = v => v == null ? null : Math.round(v * 10) / 10; let n = 0;
   const ws = weeksSorted(); const nat = aip.retail.national || {}, melb = aip.retail.melbourne || {}, days = aip.tgp.days || {}, ci = aip.tgp.cities.indexOf(D.settings.tgpCity);
-  const allW = [...new Set([...Object.keys(nat), ...Object.keys(melb)])].sort(); const from = ws.length ? ws[0].we : (allW.slice(-8)[0] || "9999");
+  const allW = [...new Set([...Object.keys(nat), ...Object.keys(melb)])].sort(); const from = fromDate || (ws.length ? ws[0].we : (allW.slice(-8)[0] || "9999"));
   const want = new Set(allW.filter(w => w >= from));
   Object.keys(days).forEach(d => { const dow = pd(d).getUTCDay(); if (dow >= 1 && dow <= 5) { const we = addDays(d, 7 - dow); if (we >= from) want.add(we); } });
   [...want].sort().forEach(we => {
@@ -412,7 +435,7 @@ function vData() {
   const ro = can("edit") ? "" : "disabled"; const ws = weeksSorted().reverse();
   return `<div class="card"><p class="mut">One row per week, dated by the Sunday the week ends. Enter the AIP weekly averages for retail diesel and the terminal gate price for each weekday; the TGP average is worked out for you. A week's prices set the levy that starts on the Monday eight days later.</p>
     <div class="rate" style="margin-bottom:12px"><div class="row"><b>Automatic AIP prices</b><span class="pill ${aip ? "ok" : ""}">${aip ? "Feed updated " + new Date(aip.updated).toLocaleString("en-AU", {dateStyle:"medium", timeStyle:"short"}) : aipState === "loading" ? "Checking…" : "Feed not available"}</span><span style="flex:1"></span>
-      ${aip ? `<label style="margin:0">Terminal gate price for</label><select id="tgpcity" style="width:auto" ${ro}>${aip.tgp.cities.map(c => `<option ${c === D.settings.tgpCity ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>${can("edit") ? '<button class="btn sm" id="aipall">Replace all with AIP figures</button>' : ""}` : ""}</div>
+      ${aip ? `<label style="margin:0">Terminal gate price for</label><select id="tgpcity" style="width:auto" ${ro}>${aip.tgp.cities.map(c => `<option ${c === D.settings.tgpCity ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>${can("edit") ? '<button class="btn sm" id="aipback">Add 3 months of earlier weeks</button><button class="btn sm" id="aipall">Replace all with AIP figures</button>' : ""}` : ""}</div>
       <p class="mut small" style="margin:8px 0 0">${aip ? "New weeks and blank cells are filled from the AIP website each time you open this tool, with retail averages rounded to one decimal. Anything you have typed is left alone unless you press Replace." : "Prices are pulled from the AIP website by a scheduled job in your GitHub repository. Until that job has run, enter prices by hand."}</p></div>
     <p class="small"><a href="https://aip.com.au/pricing/diesel/national-retail-diesel-prices/national-average/" target="_blank" rel="noopener">AIP national retail diesel</a> · <a href="https://aip.com.au/pricing/diesel/victorian-retail-diesel-prices/melbourne/" target="_blank" rel="noopener">AIP Melbourne retail diesel</a> · <a href="https://aip.com.au/resources/historical-ulp-and-diesel-tgp-data" target="_blank" rel="noopener">AIP diesel terminal gate prices</a></p>
     ${can("edit") ? '<div class="row" style="margin:12px 0"><button class="btn pri" id="addwk">+ Add week</button></div>' : ""}
@@ -425,6 +448,7 @@ function vData() {
 }
 function bData() {
   if ($("#tgpcity")) $("#tgpcity").onchange = e => { D.settings.tgpCity = e.target.value; mergeAip(true, true); markDirty(); render(); toast("Terminal gate prices switched to " + e.target.value); };
+  if ($("#aipback")) $("#aipback").onclick = () => { const ws = weeksSorted(); const n = mergeAip(false, false, addDays(ws.length ? ws[0].we : todayIso(), -91)); if (n) markDirty(); render(); toast(n ? "Earlier weeks added from AIP — save to keep" : "AIP has no earlier weeks to add"); };
   if ($("#aipall")) $("#aipall").onclick = () => { const n = mergeAip(true); if (n) markDirty(); render(); toast(n ? n + (n > 1 ? " prices" : " price") + " replaced with AIP figures — save to keep" : "Already matches AIP"); };
   const add = $("#addwk"); if (add) add.onclick = () => {
     const ws = weeksSorted(); let we;
@@ -446,16 +470,18 @@ let kindFilter = "all", calcOpen = null, histOpen = null, histWeeks = 8;
 const kindOf = p => KINDS[p.kind] ? p.kind : "standard";
 const visProfiles = () => D.profiles.filter(p => kindFilter === "all" || kindOf(p) === kindFilter);
 const discLabel = p => p.disc ? (p.discMode === "pts" ? f2(p.disc) + " pts" : p.disc + "%") : "";
-const latestFor = (p, ws) => ws.slice().reverse().find(x => srcPrice(x, p.source) != null);
 function snapshot(p, w) { const np = p.adj === "net" ? netParts(p, w) : null;
-  return {we:w.we, source:p.source, adj:p.adj || "", price:r2(srcPrice(w, p.source)), gst:np ? np.gst : null, ftc:np ? np.ftc : null, net:np ? np.net : null, base:p.base, comp:p.comp, disc:p.disc || 0, discMode:p.discMode || "pct", lag:lagOf(p), raw:rawLevy(p, w), levy:levy(p, w), by:me.name || me.u, at:new Date().toISOString()}; }
-function publish(p, w) { if (!w || levy(p, w) == null) return false; p.pub = p.pub || {}; p.pub[effFor(p, w.we)] = snapshot(p, w); return true; }
+  return {we:w.we, source:p.source, adj:p.adj || "", price:r2(srcPrice(w, p.source)), gst:np ? np.gst : null, ftc:np ? np.ftc : null, net:np ? np.net : null, base:p.base, comp:p.comp, disc:p.disc || 0, discMode:p.discMode || "pct", lag:lagOf(p), freq:freqOf(p), m:w._m || null, n:w._n || null, raw:rawLevy(p, w), levy:levy(p, w), by:me.name || me.u, at:new Date().toISOString()}; }
+function publish(p, w) { if (!w || levy(p, w) == null) return false; p.pub = p.pub || {}; p.pub[effKey(p, w)] = snapshot(p, w); return true; }
 const pubOf = (p, m) => (p.pub || {})[m] || null;
-const unpublishedWeeks = (p, ws) => ws.filter(w => levy(p, w) != null && !pubOf(p, effFor(p, w.we)));
+const unpublished = p => periods(p).filter(w => levy(p, w) != null && !pubOf(p, effKey(p, w)));
 const kindChips = () => `<div class="chips">${[["all","All"], ...Object.entries(KINDS)].map(([k, l]) => { const n = k === "all" ? D.profiles.length : D.profiles.filter(p => kindOf(p) === k).length; return `<button data-kf="${k}" class="${kindFilter === k ? "on" : ""}">${l} <span>${n}</span></button>`; }).join("")}</div>`;
 const grouped = () => Object.keys(KINDS).map(k => [k, visProfiles().filter(p => kindOf(p) === k).sort((a, b) => a.name.localeCompare(b.name))]).filter(g => g[1].length);
 function calcEditor(p, ws) {
-  const ro = can("admin") ? "" : "disabled"; const w = latestFor(p, ws) || ws[ws.length - 1];
+  const ro = can("admin") ? "" : "disabled"; const w = latestPer(p), mo = freqOf(p) === "monthly";
+  const T = nextMonday(), TM = monthAdd(todayIso().slice(0, 7), 1), dm = x => { const d = pd(x); return WD[d.getUTCDay()].slice(0, 3) + " " + d.getUTCDate() + " " + MONTHS[d.getUTCMonth()].slice(0, 3); };
+  const opts = mo ? [[1, "The month before", "Most current, but the average is only final once that month ends."], [2, "Two months before", "Gives a full month to work out the levy and notify."], [3, "Three months before", "Longest notice; the levy trails prices the most."]].map(([n, t, h]) => ({on:mlagOf(p) === n, attr:`data-mlagv="${n}"`, t, sub:monthName(monthAdd(TM, -n)) + " average", h}))
+    : [[1, "The week just before", "Most current, but the average is only known once that week has ended — the levy is set as it starts."], [8, "Two weeks before", "Leaves a week to work out the levy and notify before it starts."], [15, "Three weeks before", "Two weeks' notice; the levy trails prices the most."]].map(([d, t, h]) => ({on:lagOf(p) === d, attr:`data-lagv="${d}"`, t, sub:dm(addDays(T, -d - 6)) + " – " + dm(addDays(T, -d)), h}));
   const bp1 = w ? srcPrice(w, p.source) : null, lv = w ? rawLevy(p, w) : null, fl = w ? levy(p, w) : null, np = w && bp1 != null && p.adj === "net" ? netParts(p, w) : null;
   return `<div class="editor" data-p="${p.id}">
     <div class="grid g4"><div><label>Name</label><input data-k="name" value="${esc(p.name)}" ${ro}></div>
@@ -466,37 +492,43 @@ function calcEditor(p, ws) {
       <div><label>Fuel cost component / weight (%)</label><input type="number" step="0.1" data-k="comp" value="${p.comp}" ${ro}></div>
       <div><label>Discount</label><input type="number" step="0.01" min="0" data-k="disc" value="${p.disc || 0}" ${ro}></div>
       <div><label>Discount type</label><select data-k="discMode" ${ro}><option value="pct" ${p.discMode !== "pts" ? "selected" : ""}>% off the levy</option><option value="pts" ${p.discMode === "pts" ? "selected" : ""}>percentage points off</option></select></div></div>
-    <div class="grid g2" style="margin-top:12px"><div><label>Which week's average sets the levy — the levy takes effect:</label><select data-k="lag" ${ro}>${Object.entries(LAGS).map(([d, l]) => `<option value="${d}" ${lagOf(p) === +d ? "selected" : ""}>${l}${w ? ` — week ending ${shortDate(w.we)} sets the levy from Monday ${shortDate(addDays(w.we, +d))}` : ""}</option>`).join("")}</select></div>
-      <div><label>Note on the base price</label><input data-k="baseNote" value="${esc(p.baseNote)}" ${ro}></div></div>
+    <div class="timing"><div class="row" style="justify-content:space-between"><div><b>When the levy changes, and which prices set it</b><div class="mut small">Pick how often this levy is set, then which earlier diesel prices it is based on.</div></div>
+        <div class="seg"><button data-freq="weekly" class="${mo ? "" : "on"}">Weekly</button><button data-freq="monthly" class="${mo ? "on" : ""}">Monthly</button></div></div>
+      <div class="mut small" style="margin:12px 0 6px">For the levy ${mo ? "that applies in <b style='color:var(--txt)'>" + monthName(TM) + "</b>" : "starting <b style='color:var(--txt)'>" + dm(T) + "</b>"}, use the average diesel price from:</div>
+      <div class="grid g3">${opts.map(o => `<div class="opt ${o.on ? "on" : ""}" ${o.attr}><div class="row" style="justify-content:space-between"><b>${o.t}</b>${o.on ? '<span class="pill ok">Selected</span>' : ""}</div><div style="color:var(--acc);font-weight:600;margin:4px 0">${o.sub}</div><div class="mut small">${o.h}</div></div>`).join("")}</div>
+      ${mo ? `<div class="mut small" style="margin-top:8px">A month's ${p.source === "tgp" ? "terminal gate average is the average of that month's weekday prices" : "retail average is the average of the weekly AIP figures for the weeks ending in that month"}, taken from Weekly prices.</div>` : ""}</div>
+    <div style="margin-top:12px"><label>Note on the base price</label><input data-k="baseNote" value="${esc(p.baseNote)}" ${ro}></div>
     <div class="grid g2" style="margin-top:12px">
       ${p.adj === "net" ? `<div><label>Fuel tax credit (cpl) and the date each rate started</label><div class="row">${(p.ftc || []).map((x, i) => `<span class="row" style="gap:4px"><input type="date" data-ftc="${i}" data-f="from" value="${x.from}" ${ro} style="width:150px"><input type="number" step="0.01" data-ftc="${i}" data-f="rate" value="${x.rate}" ${ro} style="width:80px">${can("admin") ? `<button class="btn sm danger" data-delftc="${i}">✕</button>` : ""}</span>`).join("")}${can("admin") ? '<button class="btn sm" data-addftc>+ Rate change</button>' : ""}</div></div>` : ""}</div>
-    <div class="row" style="margin-top:12px;justify-content:space-between"><span class="mut small">${w ? `Week ending ${longDate(w.we)}, for the levy from Monday ${longDate(effFor(p, w.we))}: ` + (bp1 == null ? `no ${SRC_SHORT[p.source]} price entered` : (np ? `${SRC_SHORT[p.source]} ${f2(np.price)} − GST ${f2(np.gst)} − fuel tax credit ${f2(np.ftc)} = ${f2(np.net)}; ` : "") + `(${f2(np ? np.net : bp1)} − ${f2(p.base)}) ÷ ${f2(p.base)} × ${p.comp}% = <b style="color:var(--acc)">${f2(lv)}%</b>` + (p.disc ? `, less ${discLabel(p)} discount = <b style="color:var(--acc)">${f2(fl)}%</b>` : "")) : "No weekly prices entered yet"}</span>
-      <span class="row">${can("edit") && unpublishedWeeks(p, ws).length ? `<button class="btn sm" data-pubold>Publish all ${unpublishedWeeks(p, ws).length} unpublished weeks</button>` : ""}${can("admin") ? '<button class="btn sm danger" data-delp>Delete this levy</button>' : ""}</span></div></div>`;
+    <div class="row" style="margin-top:12px;justify-content:space-between"><span class="mut small">${w ? `Latest: ${perLabel(w)}${w._m ? " (" + w._n + (p.source === "tgp" ? " days" : " weeks") + ")" : ""}, for the levy ${mo ? "in " : "from "}${effLabel(mo, effKey(p, w), true)}: ` + (bp1 == null ? `no ${SRC_SHORT[p.source]} price entered` : (np ? `${SRC_SHORT[p.source]} ${f2(np.price)} − GST ${f2(np.gst)} − fuel tax credit ${f2(np.ftc)} = ${f2(np.net)}; ` : "") + `(${f2(np ? np.net : bp1)} − ${f2(p.base)}) ÷ ${f2(p.base)} × ${p.comp}% = <b style="color:var(--acc)">${f2(lv)}%</b>` + (p.disc ? `, less ${discLabel(p)} discount = <b style="color:var(--acc)">${f2(fl)}%</b>` : "")) : mo ? "No complete month of prices yet" : "No weekly prices entered yet"}</span>
+      <span class="row">${can("edit") && unpublished(p).length ? `<button class="btn sm" data-pubold>Publish all ${unpublished(p).length} unpublished ${mo ? "months" : "weeks"}</button>` : ""}${can("admin") ? '<button class="btn sm danger" data-delp>Delete this levy</button>' : ""}</span></div></div>`;
 }
 function vCalcs() {
   const ws = weeksSorted(); const g = grouped();
   return `<div class="card"><div class="row" style="justify-content:space-between">${kindChips()}<div class="row">${can("edit") ? '<button class="btn" id="puball">Publish all latest</button>' : ""}${can("admin") ? '<button class="btn pri" id="addp">+ Add levy</button>' : ""}</div></div>
     <p class="mut small" style="margin:12px 0 0">Every levy uses <b style="color:var(--txt)">(week's price − base price) ÷ base price × fuel cost component</b>, less any discount. Click a row to see or change its settings. <b style="color:var(--txt)">Publish</b> locks in a week's rate with the settings used, so later changes to a base price, component or discount do not alter it in Levy history.</p></div>
-  <div class="card" style="padding:6px 0"><div class="scroll"><table class="t list"><thead><tr><th style="padding-left:18px">Levy</th><th>Follows</th><th class="right">Base (cpl)</th><th class="right">Component</th><th class="right">Discount</th><th class="right">Latest levy</th><th>Effective from</th><th>Published</th><th></th></tr></thead><tbody>
-  ${g.map(([k, ps]) => `<tr class="grp"><td colspan="9">${KINDS[k]} <span class="mut">· ${ps.length}</span></td></tr>` + ps.map(p => { const w = latestFor(p, ws), v = w ? levy(p, w) : null, open = calcOpen === p.id, pb = w ? pubOf(p, effFor(p, w.we)) : null;
+  <div class="card" style="padding:6px 0"><div class="scroll"><table class="t list"><thead><tr><th style="padding-left:18px">Levy</th><th>Follows</th><th>Set</th><th class="right">Base (cpl)</th><th class="right">Component</th><th class="right">Discount</th><th class="right">Latest levy</th><th>Effective from</th><th>Published</th><th></th></tr></thead><tbody>
+  ${g.map(([k, ps]) => `<tr class="grp"><td colspan="10">${KINDS[k]} <span class="mut">· ${ps.length}</span></td></tr>` + ps.map(p => { const w = latestPer(p), v = w ? levy(p, w) : null, open = calcOpen === p.id, pb = w ? pubOf(p, effKey(p, w)) : null, mo = freqOf(p) === "monthly";
     const st = v == null ? "" : pb && pb.levy === v ? `<span class="pill ok" title="Published by ${esc(pb.by)}, ${new Date(pb.at).toLocaleString("en-AU")}">Published</span>` : (pb ? `<span class="pill warn" title="Settings or prices have changed since this was published">Published at ${f2(pb.levy)}%</span> ` : "") + (can("edit") ? `<button class="btn sm pri" data-pub="${p.id}">${pb ? "Republish" : "Publish"}</button>` : pb ? "" : '<span class="pill">Not published</span>');
-    return `<tr class="clk ${open ? "open" : ""}" data-row="${p.id}"><td style="padding-left:18px"><b>${esc(p.name) || "<span class='mut'>(unnamed)</span>"}</b></td><td class="mut">${SRC_SHORT[p.source]}${p.adj === "net" ? " · less GST & FTC" : ""}</td><td class="right num">${f2(p.base)}</td><td class="right num">${p.comp}%</td><td class="right num">${discLabel(p) || '<span class="mut">—</span>'}</td>
-      <td class="right num"><b style="color:var(--acc);font-size:15px">${v == null ? "—" : f2(v) + "%"}</b></td><td class="mut" style="white-space:nowrap">${w ? shortDate(effFor(p, w.we)) : "no prices yet"}</td><td style="white-space:nowrap">${st}</td><td class="mut right" style="padding-right:18px">${open ? "▲" : "▼"}</td></tr>` + (open ? `<tr class="exp"><td colspan="9">${calcEditor(p, ws)}</td></tr>` : ""); }).join("")).join("") || '<tr><td colspan="9" class="mut" style="padding:18px">No levies in this group yet.</td></tr>'}
+    return `<tr class="clk ${open ? "open" : ""}" data-row="${p.id}"><td style="padding-left:18px"><b>${esc(p.name) || "<span class='mut'>(unnamed)</span>"}</b></td><td class="mut">${SRC_SHORT[p.source]}${p.adj === "net" ? " · less GST & FTC" : ""}</td><td><span class="pill" style="${mo ? "color:var(--warn)" : ""}">${mo ? "Monthly" : "Weekly"}</span></td><td class="right num">${f2(p.base)}</td><td class="right num">${p.comp}%</td><td class="right num">${discLabel(p) || '<span class="mut">—</span>'}</td>
+      <td class="right num"><b style="color:var(--acc);font-size:15px">${v == null ? "—" : f2(v) + "%"}</b></td><td class="mut" style="white-space:nowrap">${w ? effLabel(mo, effKey(p, w)) : "no prices yet"}</td><td style="white-space:nowrap">${st}</td><td class="mut right" style="padding-right:18px">${open ? "▲" : "▼"}</td></tr>` + (open ? `<tr class="exp"><td colspan="10">${calcEditor(p, ws)}</td></tr>` : ""); }).join("")).join("") || '<tr><td colspan="10" class="mut" style="padding:18px">No levies in this group yet.</td></tr>'}
   </tbody></table></div></div>${can("admin") ? "" : '<p class="mut small">Only administrators can change levy settings.</p>'}`;
 }
 function bCalcs() {
-  if ($("#puball")) $("#puball").onclick = () => { const ws = weeksSorted(); let n = 0; visProfiles().forEach(p => { const w = latestFor(p, ws); if (w && (pubOf(p, effFor(p, w.we)) || {}).levy !== levy(p, w) && publish(p, w)) n++; }); if (!n) return toast("Everything shown is already published"); save(n + " fuel lev" + (n > 1 ? "ies" : "y") + " published by " + (me.name || me.u)); };
+  if ($("#puball")) $("#puball").onclick = () => { const ws = weeksSorted(); let n = 0; visProfiles().forEach(p => { const w = latestPer(p); if (w && (pubOf(p, effKey(p, w)) || {}).levy !== levy(p, w) && publish(p, w)) n++; }); if (!n) return toast("Everything shown is already published"); save(n + " fuel lev" + (n > 1 ? "ies" : "y") + " published by " + (me.name || me.u)); };
   const add = $("#addp"); if (add) add.onclick = () => { const p = {id:uid(), name:"New levy", kind:kindFilter === "all" ? "customer" : kindFilter, source:"nat", base:125.6, comp:39, disc:0, discMode:"pct", baseNote:"", on:true}; D.profiles.push(p); calcOpen = p.id; markDirty(); render(); };
   $("#main").onchange = (e => { const c = e.target.closest("[data-p]"), k = e.target.dataset.k; if (!c) return; const p = D.profiles.find(x => x.id === c.dataset.p);
     if (e.target.dataset.ftc != null) { const x = p.ftc[+e.target.dataset.ftc]; if (e.target.dataset.f === "rate") x.rate = Math.max(0, num(e.target.value) ?? 0); else if (e.target.value) x.from = e.target.value; markDirty(); return render(); }
     if (!k) return; if (k === "adj" && e.target.value === "net" && !(p.ftc || []).length) p.ftc = [{from:"2024-07-01", rate:0}];
     p[k] = (k === "base" || k === "comp" || k === "disc") ? Math.max(0, num(e.target.value) ?? 0) : k === "lag" ? +e.target.value : e.target.value; markDirty(); render(); });
   $("#main").onclick = (e => { const t = e.target; const kf = t.closest("[data-kf]"); if (kf) { kindFilter = kf.dataset.kf; return render(); }
-    if (t.dataset.pub) { const p = D.profiles.find(x => x.id === t.dataset.pub), w = latestFor(p, weeksSorted()); if (publish(p, w)) save(p.name + " " + f2(levy(p, w)) + "% published for " + effFor(p, w.we)); return; }
+    if (t.dataset.pub) { const p = D.profiles.find(x => x.id === t.dataset.pub), w = latestPer(p); if (publish(p, w)) save(p.name + " " + f2(levy(p, w)) + "% published for " + effKey(p, w)); return; }
+    const fq = t.closest("[data-freq]"), lv = t.closest("[data-lagv]"), ml = t.closest("[data-mlagv]"), tp = (fq || lv || ml) && can("admin") && D.profiles.find(x => x.id === t.closest("[data-p]").dataset.p);
+    if (tp) { if (fq) tp.freq = fq.dataset.freq; if (lv) tp.lag = +lv.dataset.lagv; if (ml) tp.mlag = +ml.dataset.mlagv; markDirty(); return render(); }
     const cc = t.closest("[data-p]"), pp = cc && D.profiles.find(x => x.id === cc.dataset.p);
     if (pp && "addftc" in t.dataset) { pp.ftc = pp.ftc || []; pp.ftc.push({from:iso(new Date()), rate:0}); markDirty(); return render(); }
     if (pp && t.dataset.delftc != null) { pp.ftc.splice(+t.dataset.delftc, 1); markDirty(); return render(); }
-    if (pp && "pubold" in t.dataset) { const us = unpublishedWeeks(pp, weeksSorted()); us.forEach(w => publish(pp, w)); return save(pp.name + ": " + us.length + " weeks published"); }
+    if (pp && "pubold" in t.dataset) { const us = unpublished(pp); us.forEach(w => publish(pp, w)); return save(pp.name + ": " + us.length + " periods published"); }
     if (pp && "delp" in t.dataset) { if (!confirm('Delete "' + pp.name + '"?')) return; D.profiles = D.profiles.filter(x => x !== pp); calcOpen = null; markDirty(); return render(); }
     const row = t.closest("tr[data-row]"); if (row) { calcOpen = calcOpen === row.dataset.row ? null : row.dataset.row; render(); } });
 }
@@ -505,10 +537,13 @@ function bCalcs() {
 function vHistory() {
   const all = weeksSorted(); const g = grouped(); const P = g.flatMap(x => x[1]);
   if (!D.profiles.length) return `<div class="card">Nothing to show yet — add at least one levy.</div>`;
-  const byWe = Object.fromEntries(all.map(w => [w.we, w]));
+  const PER = {}; D.profiles.forEach(p => PER[p.id] = periods(p)); const isMo = p => freqOf(p) === "monthly";
   // a published record wins; otherwise the rate is worked out from current settings and shown as a draft
-  const at = (p, m) => { const pb = pubOf(p, m); if (pb) return {v:pb.levy, pub:true, price:pb.price, we:pb.we, src:pb.source, rec:pb}; const w = byWe[addDays(m, -lagOf(p))], v = w ? levy(p, w) : null; return v == null ? null : {v, pub:false, price:srcPrice(w, p.source), we:w.we, src:p.source, w}; };
-  const mondays = p => [...new Set([...Object.keys(p.pub || {}), ...all.filter(w => levy(p, w) != null).map(w => effFor(p, w.we))])].sort();
+  const atKey = (p, key) => { const pb = pubOf(p, key); if (pb) return {v:pb.levy, pub:true, price:pb.price, src:pb.source, rec:pb, label:pb.m ? monthName(pb.m) + " average" : "week ending " + shortDate(pb.we), key}; const w = PER[p.id].find(x => effKey(p, x) === key), v = w ? levy(p, w) : null; return v == null ? null : {v, pub:false, price:srcPrice(w, p.source), src:p.source, w, label:perLabel(w), key}; };
+  const at = (p, m) => atKey(p, isMo(p) ? m.slice(0, 7) + "-01" : m);   // m is a Monday; a monthly levy shows its month's rate under every Monday in that month
+  const keysOf = p => [...new Set([...Object.keys(p.pub || {}).filter(k => isMo(p) ? k.endsWith("-01") : pd(k).getUTCDay() === 1), ...PER[p.id].filter(w => levy(p, w) != null).map(w => effKey(p, w))])].sort();
+  const cap = [nextMonday(), ...P.filter(p => !isMo(p)).flatMap(keysOf)].sort().pop();
+  const mondays = p => !isMo(p) ? keysOf(p) : keysOf(p).flatMap(k => { const out = []; for (let d = k; d.slice(0, 7) === k.slice(0, 7) && d <= cap; d = addDays(d, 1)) if (pd(d).getUTCDay() === 1) out.push(d); return out; });
   const msAll = [...new Set(P.flatMap(mondays))].sort(); const ws = histWeeks ? msAll.slice(-histWeeks) : msAll; const col = ["#e8751a","#4fc3f7","#34c38f","#f1b44c","#b39ddb","#ef5350","#80cbc4","#f48fb1","#aed581","#90a4ae"];
   const series = P.map(p => ws.map(m => at(p, m))); const vals = series.flat().filter(Boolean).map(a => a.v);
   let chart = "";
@@ -516,29 +551,29 @@ function vHistory() {
     chart = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;margin-top:10px" font-size="11" fill="#9a9ac0">${[0, 1, 2, 3, 4].map(k => { const t = lo + k * (hi - lo) / 4; return `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="#333360"/><text x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t.toFixed(0)}%</text>`; }).join("")}
       ${ws.map((m, k) => k % step ? "" : `<text x="${x(k)}" y="${H - 8}" text-anchor="middle">${shortDate(m).slice(0, -3)}</text>`).join("")}
       ${series.map((v, i) => { const c = col[i % col.length]; let d = "", pen = false; v.forEach((a, k) => { if (!a) { pen = false; return; } d += (pen ? "L" : "M") + x(k).toFixed(1) + " " + y(a.v).toFixed(1); pen = true; });
-        return `<path d="${d}" fill="none" stroke="${c}" stroke-width="2"/>` + v.map((a, k) => !a ? "" : `<circle cx="${x(k).toFixed(1)}" cy="${y(a.v).toFixed(1)}" r="3.5" fill="${a.pub ? c : "#222240"}" stroke="${c}" stroke-width="1.5" pointer-events="none"/><circle class="hit" cx="${x(k).toFixed(1)}" cy="${y(a.v).toFixed(1)}" r="11" fill="${c}" fill-opacity="0" data-tip="${esc(P[i].name)}|${f2(a.v)}%${a.pub ? "" : " (draft)"}|Effective ${longDate(ws[k])}|${SRC_SHORT[a.src]} ${f2(a.price)} cpl, week ending ${shortDate(a.we)}|${c}"/>`).join(""); }).join("")}</svg>
+        return `<path d="${d}" fill="none" stroke="${c}" stroke-width="2"/>` + v.map((a, k) => !a ? "" : `<circle cx="${x(k).toFixed(1)}" cy="${y(a.v).toFixed(1)}" r="3.5" fill="${a.pub ? c : "#222240"}" stroke="${c}" stroke-width="1.5" pointer-events="none"/><circle class="hit" cx="${x(k).toFixed(1)}" cy="${y(a.v).toFixed(1)}" r="11" fill="${c}" fill-opacity="0" data-tip="${esc(P[i].name)}|${f2(a.v)}%${a.pub ? "" : " (draft)"}|${isMo(P[i]) ? monthName(a.key.slice(0, 7)) + " levy" : "Effective " + longDate(ws[k])}|${SRC_SHORT[a.src]} ${f2(a.price)} cpl, ${a.label}|${c}"/>`).join(""); }).join("")}</svg>
       <div class="row small" style="margin-top:6px">${P.map((p, i) => `<span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${col[i % col.length]};margin-right:6px"></i>${esc(p.name)}</span>`).join("")}<span class="mut" style="margin-left:auto">● published &nbsp; ○ draft</span></div>`; }
   const wk = ws.slice().reverse(); const cols = wk.length + 2;
   const chg = d => `<span style="color:${!d ? "var(--mut)" : d > 0 ? "var(--bad)" : "var(--ok)"}">${d == null ? "&nbsp;" : !d ? "–" : (d > 0 ? "▲ " : "▼ ") + f2(Math.abs(d))}</span>`;
   const cell = (p, m) => { const a = at(p, m), b = at(p, addDays(m, -7)), d = a && b ? r2(a.v - b.v) : null;
-    return `<td class="right num">${!a ? '<span class="mut">—</span>' : `<b ${a.pub ? "" : 'class="draft"'}>${f2(a.v)}%</b><div class="small">${a.pub ? chg(d) : '<span class="mut">draft</span>'}</div>`}</td>`; };
-  const detail = p => { const ms = mondays(p).reverse(); const net = ms.some(m => { const a = at(p, m); return a.pub ? a.rec.adj === "net" : p.adj === "net"; }); const anyDisc = ms.some(m => { const a = at(p, m); return a.pub ? a.rec.disc : p.disc; });
+    return `<td class="right num">${!a ? '<span class="mut">—</span>' : `<b ${a.pub ? "" : 'class="draft"'}>${f2(a.v)}%</b><div class="small">${a.pub ? (isMo(p) && !d ? `<span class="mut">${MONTHS[+a.key.slice(5, 7) - 1].slice(0, 3)}</span>` : chg(d)) : '<span class="mut">draft</span>'}</div>`}</td>`; };
+  const detail = p => { const mo = isMo(p), ms = keysOf(p).reverse(); const net = ms.some(m => { const a = atKey(p, m); return a.pub ? a.rec.adj === "net" : p.adj === "net"; }); const anyDisc = ms.some(m => { const a = atKey(p, m); return a.pub ? a.rec.disc : p.disc; });
     return `<div class="editor"><div class="mut small" style="margin-bottom:8px">${esc(p.name)} — full history, newest first. Published rows keep the settings that applied when they were published; draft rows use today's settings and will move if those change.</div>
-    <div class="scroll"><table class="t" style="width:auto"><thead><tr><th>Levy effective from</th><th>Prices for week ending</th><th class="right">Price (cpl)</th>${net ? '<th class="right">Less GST</th><th class="right">Less FTC</th><th class="right">Net price</th>' : ""}<th class="right">Base</th><th class="right">Component</th>${anyDisc ? '<th class="right">Standard</th><th class="right">Discount</th>' : ""}<th class="right">Levy</th><th>Change</th><th>Status</th></tr></thead><tbody>
-    ${ms.map(m => { const a = at(p, m), b = at(p, addDays(m, -7)), d = b ? r2(a.v - b.v) : null; const r = a.pub ? a.rec : snapshot(p, a.w);
-      return `<tr><td style="white-space:nowrap">${longDate(m)}</td><td class="mut">${shortDate(r.we)}</td><td class="right num">${f2(r.price)} <span class="mut small">${SRC_SHORT[r.source]}</span></td>${net ? `<td class="right num">${r.gst == null ? "—" : f2(r.gst)}</td><td class="right num">${r.ftc == null ? "—" : f2(r.ftc)}</td><td class="right num">${r.net == null ? "—" : f2(r.net)}</td>` : ""}<td class="right num">${f2(r.base)}</td><td class="right num">${r.comp}%</td>${anyDisc ? `<td class="right num mut">${f2(r.raw)}%</td><td class="right num mut">${r.disc ? (r.discMode === "pts" ? f2(r.disc) + " pts" : r.disc + "%") : "—"}</td>` : ""}<td class="right num"><b ${a.pub ? "" : 'class="draft"'}>${f2(a.v)}%</b></td><td class="num small">${d == null ? "" : chg(d)}</td>
-        <td style="white-space:nowrap">${a.pub ? `<span class="pill ok">Published</span> <span class="mut small">${esc(r.by)}, ${new Date(r.at).toLocaleDateString("en-AU")}</span>${can("admin") ? ` <button class="btn sm danger" data-unpub="${p.id}|${m}" title="Remove this published record">✕</button>` : ""}` : `<span class="pill">Draft</span>${can("edit") ? ` <button class="btn sm" data-pubwk="${p.id}|${a.we}">Publish</button>` : ""}`}</td></tr>`; }).join("")}</tbody></table></div></div>`; };
+    <div class="scroll"><table class="t" style="width:auto"><thead><tr><th>${mo ? "Levy applies in" : "Levy effective from"}</th><th>Prices used</th><th class="right">Price (cpl)</th>${net ? '<th class="right">Less GST</th><th class="right">Less FTC</th><th class="right">Net price</th>' : ""}<th class="right">Base</th><th class="right">Component</th>${anyDisc ? '<th class="right">Standard</th><th class="right">Discount</th>' : ""}<th class="right">Levy</th><th>Change</th><th>Status</th></tr></thead><tbody>
+    ${ms.map((m, i) => { const a = atKey(p, m), b = ms[i + 1] ? atKey(p, ms[i + 1]) : null, d = b ? r2(a.v - b.v) : null; const r = a.pub ? a.rec : snapshot(p, a.w);
+      return `<tr><td style="white-space:nowrap">${mo ? monthName(m.slice(0, 7)) : longDate(m)}</td><td class="mut" style="white-space:nowrap">${a.label}</td><td class="right num">${f2(r.price)} <span class="mut small">${SRC_SHORT[r.source]}</span></td>${net ? `<td class="right num">${r.gst == null ? "—" : f2(r.gst)}</td><td class="right num">${r.ftc == null ? "—" : f2(r.ftc)}</td><td class="right num">${r.net == null ? "—" : f2(r.net)}</td>` : ""}<td class="right num">${f2(r.base)}</td><td class="right num">${r.comp}%</td>${anyDisc ? `<td class="right num mut">${f2(r.raw)}%</td><td class="right num mut">${r.disc ? (r.discMode === "pts" ? f2(r.disc) + " pts" : r.disc + "%") : "—"}</td>` : ""}<td class="right num"><b ${a.pub ? "" : 'class="draft"'}>${f2(a.v)}%</b></td><td class="num small">${d == null ? "" : chg(d)}</td>
+        <td style="white-space:nowrap">${a.pub ? `<span class="pill ok">Published</span> <span class="mut small">${esc(r.by)}, ${new Date(r.at).toLocaleDateString("en-AU")}</span>${can("admin") ? ` <button class="btn sm danger" data-unpub="${p.id}|${m}" title="Remove this published record">✕</button>` : ""}` : `<span class="pill">Draft</span>${can("edit") ? ` <button class="btn sm" data-pubwk="${p.id}|${m}">Publish</button>` : ""}`}</td></tr>`; }).join("")}</tbody></table></div></div>`; };
   return `<div class="card"><div class="row" style="justify-content:space-between">${kindChips()}<div class="row"><span class="mut small">Weeks shown</span><div class="chips">${[[8,"8"],[13,"13"],[26,"26"],[0,"All"]].map(([n, l]) => `<button data-hw="${n}" class="${histWeeks === n ? "on" : ""}">${l}</button>`).join("")}</div></div></div>${chart}</div>
   <div class="card" style="padding:6px 0"><div class="scroll"><table class="t list sticky"><thead><tr><th style="padding-left:18px">Levy · effective from</th>${wk.map((m, i) => `<th class="right" style="${i ? "" : "color:var(--txt)"}">${shortDate(m).slice(0, -3)}${i ? "" : "<br>latest"}</th>`).join("")}<th></th></tr></thead><tbody>
   ${g.map(([k, ps]) => `<tr class="grp"><td colspan="${cols}">${KINDS[k]} <span class="mut">· ${ps.length}</span></td></tr>` + ps.map(p => { const open = histOpen === p.id;
     return `<tr class="clk ${open ? "open" : ""}" data-hrow="${p.id}"><td style="padding-left:18px;white-space:nowrap"><b>${esc(p.name)}</b></td>${wk.map(m => cell(p, m)).join("")}<td class="mut right" style="padding-right:18px">${open ? "▲" : "▼"}</td></tr>` + (open ? `<tr class="exp"><td colspan="${cols}">${detail(p)}</td></tr>` : ""); }).join("")).join("") || `<tr><td colspan="${cols}" class="mut" style="padding:18px">No levies in this group yet.</td></tr>`}
-  </tbody></table></div></div><p class="mut small">Each column is the Monday a levy took effect, newest on the left. Published rates are the recorded history and do not change. Rates marked draft have not been published: they are worked out from today's settings. Click a levy for its full history and workings.</p>`;
+  </tbody></table></div></div><p class="mut small">Each column is the Monday a levy took effect, newest on the left; a monthly levy shows its month's rate under every Monday in that month. Published rates are the recorded history and do not change. Rates marked draft have not been published: they are worked out from today's settings. Click a levy for its full history and workings.</p>`;
 }
 function bHistory() {
   $("#main").onclick = (e => { const kf = e.target.closest("[data-kf]"); if (kf) { kindFilter = kf.dataset.kf; return render(); }
     const hw = e.target.closest("[data-hw]"); if (hw) { histWeeks = +hw.dataset.hw; return render(); }
-    const t = e.target; if (t.dataset.pubwk) { const [id, we] = t.dataset.pubwk.split("|"), p = D.profiles.find(x => x.id === id), w = D.weeks.find(x => x.we === we); if (publish(p, w)) save(p.name + " " + f2(levy(p, w)) + "% published for " + effFor(p, we)); return; }
-    if (t.dataset.unpub) { const [id, m] = t.dataset.unpub.split("|"), p = D.profiles.find(x => x.id === id); if (!confirm("Remove the published record for " + longDate(m) + "? The week goes back to a draft.")) return; delete p.pub[m]; return save(p.name + ": published record removed for " + m); }
+    const t = e.target; if (t.dataset.pubwk) { const [id, key] = t.dataset.pubwk.split("|"), p = D.profiles.find(x => x.id === id), w = periods(p).find(x => effKey(p, x) === key); if (publish(p, w)) save(p.name + " " + f2(levy(p, w)) + "% published for " + key); return; }
+    if (t.dataset.unpub) { const [id, m] = t.dataset.unpub.split("|"), p = D.profiles.find(x => x.id === id); if (!confirm("Remove the published record for " + (freqOf(p) === "monthly" ? monthName(m.slice(0, 7)) : longDate(m)) + "? It goes back to a draft.")) return; delete p.pub[m]; return save(p.name + ": published record removed for " + m); }
     if (e.target.closest(".editor")) return; const row = e.target.closest("tr[data-hrow]"); if (row) { histOpen = histOpen === row.dataset.hrow ? null : row.dataset.hrow; render(); } });
 }
 
