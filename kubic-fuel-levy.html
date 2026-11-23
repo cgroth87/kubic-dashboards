@@ -61,7 +61,8 @@ input[type=range]{padding:0;accent-color:var(--acc)}input[type=checkbox]{width:a
 table.list td{padding:9px 8px}table.list th{padding:8px}
 tr.grp td{background:var(--bg);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:7px 18px!important;color:var(--acc)}
 tr.clk{cursor:pointer}tr.clk:hover td,tr.clk.open td{background:rgba(232,117,26,.07)}
-tr.exp>td{padding:0!important;background:var(--bg)}.editor{padding:16px 18px;border-left:3px solid var(--acc)}
+tr.exp>td{padding:0!important;background:var(--bg)}.editor{padding:16px 18px;border-left:3px solid var(--acc);max-width:min(1222px,calc(100vw - 278px));position:sticky;left:0}
+@media (max-width:900px){.editor{max-width:calc(100vw - 34px)}}
 table.sticky th:first-child,table.sticky tr.clk td:first-child{position:sticky;left:0;background:var(--panel);z-index:1}table.sticky tr.clk:hover td:first-child,table.sticky tr.clk.open td:first-child{background:#2b2640}
 #tip{position:fixed;display:none;pointer-events:none;z-index:150;background:#11111f;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.4);white-space:nowrap}
 #tip b{font-size:16px;display:block}circle.hit{cursor:pointer}circle.hit:hover{fill-opacity:.25}
@@ -466,7 +467,7 @@ function bData() {
 
 /* ===================== Levy calculations ===================== */
 const KINDS = {standard:"Kubic standard", customer:"Customer", carrier:"Carrier"};
-let kindFilter = "all", calcOpen = null, histOpen = null, histWeeks = 8;
+let kindFilter = "all", calcOpen = null, histOpen = null, histWeeks = 8, pubAll = false;
 const kindOf = p => KINDS[p.kind] ? p.kind : "standard";
 const visProfiles = () => D.profiles.filter(p => kindFilter === "all" || kindOf(p) === kindFilter);
 const discLabel = p => p.disc ? (p.discMode === "pts" ? f2(p.disc) + " pts" : p.disc + "%") : "";
@@ -498,10 +499,21 @@ function calcEditor(p, ws) {
       <div class="grid g3">${opts.map(o => `<div class="opt ${o.on ? "on" : ""}" ${o.attr}><div class="row" style="justify-content:space-between"><b>${o.t}</b>${o.on ? '<span class="pill ok">Selected</span>' : ""}</div><div style="color:var(--acc);font-weight:600;margin:4px 0">${o.sub}</div><div class="mut small">${o.h}</div></div>`).join("")}</div>
       ${mo ? `<div class="mut small" style="margin-top:8px">A month's ${p.source === "tgp" ? "terminal gate average is the average of that month's weekday prices" : "retail average is the average of the weekly AIP figures for the weeks ending in that month"}, taken from Weekly prices.</div>` : ""}</div>
     <div style="margin-top:12px"><label>Note on the base price</label><input data-k="baseNote" value="${esc(p.baseNote)}" ${ro}></div>
+    ${(() => { const keys = [...new Set([...Object.keys(p.pub || {}).filter(k => mo ? k.endsWith("-01") : pd(k).getUTCDay() === 1), ...periods(p).filter(x => levy(p, x) != null).map(x => effKey(p, x))])].sort().reverse(); if (!keys.length) return "";
+      const shown = pubAll ? keys : keys.slice(0, 8), pers = periods(p);
+      return `<div class="timing"><div class="row" style="justify-content:space-between"><div><b>Publish ${mo ? "months" : "weeks"}, including past ones</b><div class="mut small">Each row is worked out with the settings above as they are right now. To record a past ${mo ? "month" : "week"} that used different settings, change the settings first, publish that row, then change them back.</div></div>
+        ${can("edit") && unpublished(p).length ? `<button class="btn sm" data-pubold>Publish all ${unpublished(p).length} unpublished</button>` : ""}</div>
+      <div class="scroll" style="margin-top:10px"><table class="t"><thead><tr><th>${mo ? "Levy applies in" : "Levy effective from"}</th><th>Prices used</th><th class="right">Price (cpl)</th><th class="right">With today's settings</th><th class="right">Published</th><th>Status</th><th></th></tr></thead><tbody>
+      ${shown.map(k => { const per = pers.find(x => effKey(p, x) === k), now = per ? levy(p, per) : null, pb = pubOf(p, k), same = pb && now != null && pb.levy === now;
+        return `<tr><td style="white-space:nowrap">${mo ? monthName(k.slice(0, 7)) : longDate(k)}</td><td class="mut" style="white-space:nowrap">${per ? perLabel(per) : pb.m ? monthName(pb.m) + " average" : "week ending " + shortDate(pb.we)}</td><td class="right num">${f2(per ? srcPrice(per, p.source) : pb.price)}</td>
+          <td class="right num">${now == null ? '<span class="mut">—</span>' : f2(now) + "%"}</td><td class="right num">${pb ? `<b>${f2(pb.levy)}%</b>` : '<span class="mut">—</span>'}</td>
+          <td>${pb ? `<span class="pill ${same || now == null ? "ok" : "warn"}" style="white-space:nowrap">${same || now == null ? "Published" : "Published — differs"}</span> <span class="mut small">${esc(pb.by)}, ${new Date(pb.at).toLocaleDateString("en-AU")} · base ${f2(pb.base)}, ${pb.comp}%${pb.disc ? ", less " + (pb.discMode === "pts" ? f2(pb.disc) + " pts" : pb.disc + "%") : ""}</span>` : '<span class="pill">Not published</span>'}</td>
+          <td class="right" style="white-space:nowrap">${can("edit") && now != null && !same ? `<button class="btn sm ${pb ? "" : "pri"}" data-pubwk="${p.id}|${k}">${pb ? "Republish at " + f2(now) + "%" : "Publish"}</button>` : ""}${pb && can("admin") ? ` <button class="btn sm danger" data-unpub="${p.id}|${k}" title="Remove this published record">✕</button>` : ""}</td></tr>`; }).join("")}
+      </tbody></table></div>${keys.length > 8 ? `<div style="margin-top:8px"><a data-puball style="cursor:pointer" class="small">${pubAll ? "Show the latest 8 only" : "Show all " + keys.length + (mo ? " months" : " weeks")}</a></div>` : ""}</div>`; })()}
     <div class="grid g2" style="margin-top:12px">
       ${p.adj === "net" ? `<div><label>Fuel tax credit (cpl) and the date each rate started</label><div class="row">${(p.ftc || []).map((x, i) => `<span class="row" style="gap:4px"><input type="date" data-ftc="${i}" data-f="from" value="${x.from}" ${ro} style="width:150px"><input type="number" step="0.01" data-ftc="${i}" data-f="rate" value="${x.rate}" ${ro} style="width:80px">${can("admin") ? `<button class="btn sm danger" data-delftc="${i}">✕</button>` : ""}</span>`).join("")}${can("admin") ? '<button class="btn sm" data-addftc>+ Rate change</button>' : ""}</div></div>` : ""}</div>
     <div class="row" style="margin-top:12px;justify-content:space-between"><span class="mut small">${w ? `Latest: ${perLabel(w)}${w._m ? " (" + w._n + (p.source === "tgp" ? " days" : " weeks") + ")" : ""}, for the levy ${mo ? "in " : "from "}${effLabel(mo, effKey(p, w), true)}: ` + (bp1 == null ? `no ${SRC_SHORT[p.source]} price entered` : (np ? `${SRC_SHORT[p.source]} ${f2(np.price)} − GST ${f2(np.gst)} − fuel tax credit ${f2(np.ftc)} = ${f2(np.net)}; ` : "") + `(${f2(np ? np.net : bp1)} − ${f2(p.base)}) ÷ ${f2(p.base)} × ${p.comp}% = <b style="color:var(--acc)">${f2(lv)}%</b>` + (p.disc ? `, less ${discLabel(p)} discount = <b style="color:var(--acc)">${f2(fl)}%</b>` : "")) : mo ? "No complete month of prices yet" : "No weekly prices entered yet"}</span>
-      <span class="row">${can("edit") && unpublished(p).length ? `<button class="btn sm" data-pubold>Publish all ${unpublished(p).length} unpublished ${mo ? "months" : "weeks"}</button>` : ""}${can("admin") ? '<button class="btn sm danger" data-delp>Delete this levy</button>' : ""}</span></div></div>`;
+      <span class="row">${can("admin") ? '<button class="btn sm danger" data-delp>Delete this levy</button>' : ""}</span></div></div>`;
 }
 function vCalcs() {
   const ws = weeksSorted(); const g = grouped();
@@ -523,6 +535,9 @@ function bCalcs() {
     p[k] = (k === "base" || k === "comp" || k === "disc") ? Math.max(0, num(e.target.value) ?? 0) : k === "lag" ? +e.target.value : e.target.value; markDirty(); render(); });
   $("#main").onclick = (e => { const t = e.target; const kf = t.closest("[data-kf]"); if (kf) { kindFilter = kf.dataset.kf; return render(); }
     if (t.dataset.pub) { const p = D.profiles.find(x => x.id === t.dataset.pub), w = latestPer(p); if (publish(p, w)) save(p.name + " " + f2(levy(p, w)) + "% published for " + effKey(p, w)); return; }
+    if (t.dataset.pubwk) { const [id, key] = t.dataset.pubwk.split("|"), p = D.profiles.find(x => x.id === id), w = periods(p).find(x => effKey(p, x) === key); if (publish(p, w)) save(p.name + " " + f2(levy(p, w)) + "% published for " + key); return; }
+    if (t.dataset.unpub) { const [id, m] = t.dataset.unpub.split("|"), p = D.profiles.find(x => x.id === id); if (!confirm("Remove the published record for " + (freqOf(p) === "monthly" ? monthName(m.slice(0, 7)) : longDate(m)) + "? It goes back to unpublished.")) return; delete p.pub[m]; return save(p.name + ": published record removed for " + m); }
+    if ("puball" in t.dataset) { pubAll = !pubAll; return render(); }
     const fq = t.closest("[data-freq]"), lv = t.closest("[data-lagv]"), ml = t.closest("[data-mlagv]"), tp = (fq || lv || ml) && can("admin") && D.profiles.find(x => x.id === t.closest("[data-p]").dataset.p);
     if (tp) { if (fq) tp.freq = fq.dataset.freq; if (lv) tp.lag = +lv.dataset.lagv; if (ml) tp.mlag = +ml.dataset.mlagv; markDirty(); return render(); }
     const cc = t.closest("[data-p]"), pp = cc && D.profiles.find(x => x.id === cc.dataset.p);
