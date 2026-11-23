@@ -262,9 +262,10 @@ async function fetchRemote(token) {
 async function pushRemote(token, message) {
   const body = {message, content:b64(enc.encode(JSON.stringify(file, null, 1))), branch:repo.branch}; if (fileSha) body.sha = fileSha;
   const r = await fetch(apiUrl(), {method:"PUT", headers:{Accept:"application/vnd.github+json", Authorization:"Bearer " + token, "Content-Type":"application/json"}, body:JSON.stringify(body)});
-  if (!r.ok) { const e = new Error("GitHub " + r.status); e.status = r.status; throw e; }
+  if (!r.ok) { const e = new Error("GitHub " + r.status); e.status = r.status; try { e.gh = (await r.json()).message || ""; } catch (x) { e.gh = ""; } throw e; }
   fileSha = (await r.json()).content.sha;
 }
+let saveErr = null, tokMsg = null;
 async function save(message) {
   D.weeks = weeksSorted();
   file.rev = (file.rev || 0) + 1; file.savedAt = new Date().toISOString(); file.savedBy = me.name || me.u;
@@ -275,10 +276,10 @@ async function save(message) {
   try {
     if (!fileSha) { const cur = await fetchRemote(D.ghToken); if (cur.sha) fileSha = cur.sha; }
     await pushRemote(D.ghToken, message || ("Fuel levy data updated by " + file.savedBy));
-    unsynced = false; toast("Saved to GitHub");
+    unsynced = false; saveErr = null; toast("Saved to GitHub");
   } catch (e) {
-    unsynced = true; if (e.status === 409 || e.status === 422) localStorage.removeItem("kfl_file");
-    toast(e.status === 409 || e.status === 422 ? "Someone else saved first — reload the page, then redo your change" : e.status === 401 || e.status === 403 || e.status === 404 ? "GitHub refused the save — on GitHub, edit the token so it can access the " + repo.repo + " repository with Contents set to Read and write" : "Could not reach GitHub — saved in this browser only");
+    unsynced = true; saveErr = {status:e.status || 0, gh:e.gh || ""}; if (e.status === 409 || e.status === 422) localStorage.removeItem("kfl_file");
+    toast(e.status === 409 || e.status === 422 ? "Someone else saved first — reload the page, then redo your change" : e.status === 401 || e.status === 403 || e.status === 404 ? "GitHub refused the save — open Settings and press Test and save token to see why" : "Could not reach GitHub — saved in this browser only");
   }
   render();
 }
@@ -386,7 +387,7 @@ function enter() {
 const can = what => me.role === "admin" || (what === "edit" && me.role === "editor");
 
 /* ===================== Shell ===================== */
-const VIEWS = [["data","Weekly prices"],["calcs","Levy calculations"],["history","Levy history"],["users","Users"],["settings","Settings"]];
+const VIEWS = [["data","Weekly prices"],["calcs","Levy calculations"],["history","Levy history"],["users","My account"],["settings","Settings"]];
 function render() {
   $("#nav").innerHTML = VIEWS.filter(v => (v[0] !== "users" && v[0] !== "settings") || can("admin") || v[0] === "users").map(v => `<a data-v="${v[0]}" class="${view === v[0] ? "on" : ""}">${v[1]}</a>`).join("");
   $("#nav").onclick = e => { const v = e.target.dataset.v; if (v) { view = v; render(); window.scrollTo(0, 0); } };
@@ -611,50 +612,79 @@ function bCustomers() {
 /* ===================== Users ===================== */
 function vUsers() {
   return `<div class="card"><h2>My password</h2><div class="grid g3"><div><label>New password (10+ characters)</label><input type="password" id="mp1"></div><div><label>Confirm</label><input type="password" id="mp2"></div><div style="align-self:end"><button class="btn" id="mpgo">Change password</button></div></div>
-    <div class="row" style="margin-top:16px"><button class="btn" id="rcnew">Create a new recovery code</button><span class="mut small">${me.rwrap ? "You have a recovery code. A new one cancels it." : "You have no recovery code yet — create one so you can reset a forgotten password yourself."}</span></div></div>
-  ${can("admin") ? `<div class="card"><h2>Users</h2><table class="t"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th></th></tr></thead><tbody>
-  ${file.users.map(u => `<tr data-u="${esc(u.u)}"><td>${esc(u.name)}${u.mustChange ? ' <span class="pill warn">temporary password</span>' : ""}</td><td>${esc(u.u)}</td>
-    <td><select data-role style="width:auto" ${u.u === me.u ? "disabled" : ""}>${["admin","editor","viewer"].map(r => `<option ${u.role === r ? "selected" : ""}>${r}</option>`).join("")}</select></td>
-    <td class="right">${u.u === me.u ? "" : '<button class="btn sm" data-reset>Reset password</button> <button class="btn sm danger" data-delu>Remove</button>'}</td></tr>`).join("")}
-  </tbody></table>
-  <h3 style="margin-top:20px">Add a user</h3><div class="grid g4"><div><label>Name</label><input id="nu_name"></div><div><label>Username</label><input id="nu_user" autocapitalize="none"></div>
-    <div><label>Role</label><select id="nu_role"><option>editor</option><option>viewer</option><option>admin</option></select></div><div><label>Temporary password</label><input id="nu_pw"></div></div>
-  <div class="row" style="margin-top:12px"><button class="btn pri" id="nu_go">Add user</button><span class="mut small">Give them the temporary password yourself; they choose their own at first sign-in.</span></div>
-  <p class="mut small" style="margin-top:14px"><b>Admin</b> changes everything. <b>Editor</b> enters weekly prices. <b>Viewer</b> can look but not change anything.</p></div>` : ""}`;
+    <div class="row" style="margin-top:16px"><button class="btn" id="rcnew">Create a new recovery code</button><span class="mut small">${me.rwrap ? "You have a recovery code. A new one cancels it." : "You have no recovery code yet — create one so you can reset a forgotten password yourself."}</span></div>
+    <p class="mut small" style="margin:14px 0 0">Signed in as <b style="color:var(--txt)">${esc(me.u)}</b> · ${ROLE[me.role] || me.role}</p></div>`;
 }
 function bUsers() {
   $("#mpgo").onclick = async () => { const p = $("#mp1").value; if (p.length < 10) return toast("Password must be at least 10 characters"); if (p !== $("#mp2").value) return toast("Passwords do not match"); await setPassword(me, p, false); await save("Password changed for " + me.u); };
   $("#rcnew").onclick = async () => { const code = await makeRecovery(me); await save("Recovery code created for " + me.u); showCode(code); };
-  if (!can("admin")) return;
-  const tempPw = () => "Kubic-" + Array.from(rnd(6), b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
-  $("#nu_pw").value = tempPw();
-  $("#nu_go").onclick = async () => { const u = $("#nu_user").value.trim().toLowerCase(), n = $("#nu_name").value.trim(), pw = $("#nu_pw").value;
-    if (!u || !n) return toast("Enter a name and username"); if (file.users.some(x => x.u === u)) return toast("That username is taken"); if (pw.length < 8) return toast("Temporary password is too short");
-    file.users.push(await makeUser(u, n, $("#nu_role").value, pw, keyRaw, true)); await save("User added: " + u); };
-  $("#main").onchange = (async e => { if (!("role" in e.target.dataset)) return; const u = file.users.find(x => x.u === e.target.closest("tr").dataset.u); u.role = e.target.value; await save("Role changed for " + u.u); });
-  $("#main").onclick = (async e => { const tr = e.target.closest("tr[data-u]"); if (!tr) return; const u = file.users.find(x => x.u === tr.dataset.u);
-    if ("reset" in e.target.dataset) { const pw = prompt("Temporary password for " + u.name + ":", tempPw()); if (!pw) return; await setPassword(u, pw, true); await save("Password reset for " + u.u); }
-    if ("delu" in e.target.dataset) { if (!confirm("Remove " + u.name + "?")) return; file.users = file.users.filter(x => x !== u); await save("User removed: " + u.u); } });
 }
 
 /* ===================== Settings ===================== */
+const ROLE = {admin:"Master — can change everything", editor:"Editor — prices and publishing", viewer:"User — view only"};
+const tempPw = () => "Kubic-" + Array.from(rnd(6), b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
+function usersCard() {
+  const masters = file.users.filter(u => u.role === "admin").length;
+  return `<div class="card"><h2>Users</h2><p class="mut">A <b style="color:var(--txt)">Master</b> login can change everything: prices, levy settings, publishing, users and these settings. A <b style="color:var(--txt)">User</b> login can open every screen and see every levy, but cannot change, publish or save anything.</p>
+  ${unsynced || !D.ghToken ? '<div class="banner">Other people cannot sign in yet. Logins are only shared once this tool is saving to GitHub — the status at the top right must read “Saved to GitHub”. Fix the GitHub token above first.</div>' : ""}
+  <table class="t"><thead><tr><th>Name</th><th>Username</th><th>Access</th><th></th></tr></thead><tbody>
+  ${file.users.map(u => `<tr data-u="${esc(u.u)}"><td><b>${esc(u.name)}</b>${u.u === me.u ? ' <span class="pill">you</span>' : ""}${u.mustChange ? ' <span class="pill warn">temporary password — not signed in yet</span>' : ""}</td><td>${esc(u.u)}</td>
+    <td><select data-role style="width:auto" ${u.u === me.u ? "disabled" : ""}>${["admin","viewer"].concat(u.role === "editor" ? ["editor"] : []).map(r => `<option value="${r}" ${u.role === r ? "selected" : ""}>${ROLE[r]}</option>`).join("")}</select></td>
+    <td class="right">${u.u === me.u ? "" : '<button class="btn sm" data-reset>Reset password</button> <button class="btn sm danger" data-delu>Remove</button>'}</td></tr>`).join("")}
+  </tbody></table>
+  <div class="timing"><b>Add a user</b><div class="grid g4" style="margin-top:10px"><div><label>Name</label><input id="nu_name" placeholder="e.g. Emma Smith"></div><div><label>Username (what they type to sign in)</label><input id="nu_user" autocapitalize="none" placeholder="e.g. emma"></div>
+    <div><label>Access</label><select id="nu_role"><option value="viewer">${ROLE.viewer}</option><option value="admin">${ROLE.admin}</option></select></div><div><label>Temporary password</label><input id="nu_pw"></div></div>
+  <div class="row" style="margin-top:12px"><button class="btn pri" id="nu_go">Add user</button><span class="mut small">Send them the link, their username and this temporary password. They choose their own password the first time they sign in.</span></div></div>
+  <div id="nu_done"></div></div>`;
+}
+function bindUsers() {
+  $("#nu_pw").value = tempPw();
+  $("#nu_go").onclick = async () => { const u = $("#nu_user").value.trim().toLowerCase(), n = $("#nu_name").value.trim(), pw = $("#nu_pw").value, role = $("#nu_role").value;
+    if (!u || !n) return toast("Enter a name and username"); if (!/^[a-z0-9._-]+$/.test(u)) return toast("Username can only use letters, numbers, dot, dash and underscore"); if (file.users.some(x => x.u === u)) return toast("That username is taken"); if (pw.length < 8) return toast("Temporary password is too short");
+    file.users.push(await makeUser(u, n, role, pw, keyRaw, true)); await save("User added: " + u); handover(n, u, pw); };
+}
+function handover(name, u, pw) {   // details to pass on, shown once
+  const link = location.origin + location.pathname, txt = `Kubic Fuel Levy\nLink: ${link}\nUsername: ${u}\nTemporary password: ${pw}\nYou will be asked to choose your own password the first time you sign in.`;
+  const el = $("#nu_done"); if (!el) return; el.innerHTML = `<div class="rate" style="margin-top:14px;border-color:var(--ok)"><b>Login ready for ${esc(name)}</b><pre style="margin:8px 0;white-space:pre-wrap;font:13px ui-monospace,Menlo,Consolas,monospace">${esc(txt)}</pre><button class="btn sm" id="nu_copy">Copy these details</button> <span class="mut small">The temporary password is not shown again.</span></div>`;
+  $("#nu_copy").onclick = async () => { try { await navigator.clipboard.writeText(txt); toast("Copied"); } catch (e) { toast("Select the text and copy it by hand"); } };
+}
+
 function vSettings() {
   const s = D.settings; const F = (k, l, ta) => `<div><label>${l}</label>${ta ? `<textarea data-s="${k}" rows="${ta}">${esc(s[k])}</textarea>` : `<input data-s="${k}" value="${esc(s[k])}">`}</div>`;
   return `<div class="card"><h2>Sharing through GitHub</h2><p class="mut">Everything is stored, encrypted, in one file in your GitHub repository. With a token saved here, every signed-in editor's changes are committed straight to GitHub. Without one, changes stay in this browser and you upload the downloaded data file by hand.</p>
     <div class="grid g4"><div><label>Owner</label><input data-r="owner" value="${esc(repo.owner)}"></div><div><label>Repository</label><input data-r="repo" value="${esc(repo.repo)}"></div><div><label>Branch</label><input data-r="branch" value="${esc(repo.branch)}"></div><div><label>Data file</label><input data-r="path" value="${esc(repo.path)}"></div></div>
-    <div style="margin-top:12px"><label>GitHub token — fine-grained, this repository only, “Contents: Read and write”</label><input type="password" id="tok" value="${esc(D.ghToken)}" placeholder="github_pat_…"></div>
-    <div class="row" style="margin-top:12px"><button class="btn" id="toktest">Test and save token</button><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" class="small">Create a token on GitHub</a></div></div>
+    <div style="margin-top:12px"><label>GitHub token</label><div class="row"><input type="password" id="tok" value="${esc(D.ghToken)}" placeholder="github_pat_… or ghp_…" style="flex:1" autocomplete="off"><button class="btn sm" id="tokshow">Show</button></div></div>
+    <div class="row" style="margin-top:12px"><button class="btn pri" id="toktest">Test and save token</button><span class="pill ${!unsynced && D.ghToken ? "ok" : "warn"}">${!unsynced && D.ghToken ? "Connected — saving to GitHub" : "Not connected"}</span></div>
+    ${tokMsg ? `<div class="rate" style="margin-top:12px;border-color:${tokMsg.ok ? "var(--ok)" : "var(--bad)"}"><b style="color:${tokMsg.ok ? "var(--ok)" : "var(--bad)"}">${tokMsg.ok ? "Working" : "Not working"}</b><div style="margin-top:4px">${tokMsg.text}</div>${tokMsg.gh ? `<div class="mut small" style="margin-top:6px">GitHub's reply: ${esc(tokMsg.gh)}</div>` : ""}</div>` : ""}
+    <details style="margin-top:14px" ${!unsynced && D.ghToken ? "" : "open"}><summary style="cursor:pointer;color:var(--acc)">How to make a token that works</summary>
+      <div class="grid g2" style="margin-top:10px;align-items:start"><div class="rate"><b>Easiest: a classic token</b><ol style="margin:8px 0 0;padding-left:18px"><li>Open <a href="https://github.com/settings/tokens/new?scopes=public_repo&description=Kubic%20fuel%20levy" target="_blank" rel="noopener">this GitHub page</a> while signed in as ${esc(repo.owner)}.</li><li>Leave the <b>public_repo</b> box ticked. Tick nothing else.</li><li>Set an expiry, click <b>Generate token</b>, and copy it (starts <code>ghp_</code>).</li><li>Paste it above and click Test and save token.</li></ol></div>
+      <div class="rate"><b>Tighter: a fine-grained token</b><ol style="margin:8px 0 0;padding-left:18px"><li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">this GitHub page</a>.</li><li><b>Repository access</b>: “Only select repositories”, then pick <b>${esc(repo.repo)}</b>.</li><li><b>Permissions → Repository permissions → Contents</b>: set to <b>Read and write</b>.</li><li>Generate, copy (starts <code>github_pat_</code>), paste above and test.</li></ol><div class="mut small" style="margin-top:6px">Both steps 2 and 3 are needed. A token with neither shows “no access to any repositories” on GitHub and cannot save.</div></div></div></details></div>
+  ${usersCard()}
   <div class="card"><h2>Backup</h2><div class="row"><button class="btn" id="dl2">Download encrypted data file</button></div></div>`;
 }
 function bSettings() {
-  $("#main").onchange = (e => { const k = e.target.dataset.s, r = e.target.dataset.r;
+  bindUsers();
+  $("#main").onclick = (async e => { const tr = e.target.closest("tr[data-u]"); if (!tr) return; const u = file.users.find(x => x.u === tr.dataset.u);
+    if ("reset" in e.target.dataset) { const pw = tempPw(); if (!confirm("Reset the password for " + u.name + "? Their current password stops working.")) return; await setPassword(u, pw, true); await save("Password reset for " + u.u); handover(u.name, u.u, pw); }
+    if ("delu" in e.target.dataset) { if (!confirm("Remove " + u.name + "? They will no longer be able to sign in.")) return; file.users = file.users.filter(x => x !== u); await save("User removed: " + u.u); } });
+  $("#main").onchange = (async e => { const k = e.target.dataset.s, r = e.target.dataset.r;
+    if ("role" in e.target.dataset) { const u = file.users.find(x => x.u === e.target.closest("tr").dataset.u); u.role = e.target.value; return save("Access changed for " + u.u); }
     if (k) { D.settings[k] = k === "historyWeeks" ? Math.max(2, Math.min(26, parseInt(e.target.value) || 8)) : e.target.value; markDirty(); }
     if (r) { repo[r] = e.target.value.trim(); localStorage.setItem("kfl_repo", JSON.stringify(repo)); fileSha = null; toast("Data location updated for this browser"); } });
   $("#dl2").onclick = downloadFile;
-  $("#toktest").onclick = async () => { const t = $("#tok").value.trim(); if (!t) { D.ghToken = ""; return save(); }
-    try { const r = await fetch(`https://api.github.com/repos/${repo.owner}/${repo.repo}`, {headers:{Authorization:"Bearer " + t, Accept:"application/vnd.github+json"}}); if (!r.ok) throw 0; const j = await r.json(); if (j.permissions && !j.permissions.push) throw 1; }
-    catch (e) { return toast(e === 1 ? "Token works but cannot write to this repository" : "GitHub rejected that token for this repository"); }
-    D.ghToken = t; await save("GitHub token updated"); };
+  $("#tokshow").onclick = () => { const i = $("#tok"); i.type = i.type === "password" ? "text" : "password"; $("#tokshow").textContent = i.type === "password" ? "Show" : "Hide"; };
+  $("#toktest").onclick = async () => { const t = $("#tok").value.replace(/\s+/g, ""); const fix = `On GitHub, edit the token so that <b>Repository access</b> includes <b>${esc(repo.repo)}</b> and <b>Contents</b> is set to <b>Read and write</b> — or use the classic token steps below. Then press Test and save token again; the same token keeps working once its permissions are fixed.`;
+    if (!t) { D.ghToken = ""; tokMsg = null; return save(); }
+    if (!/^(github_pat_|ghp_|gho_|ghu_)[A-Za-z0-9_]{20,}$/.test(t)) { tokMsg = {ok:false, text:"That does not look like a complete GitHub token. It should start with <b>github_pat_</b> or <b>ghp_</b> and have no spaces. GitHub shows a token only once, when it is created — if you did not copy it then, use <b>Regenerate token</b> on GitHub and paste the new value."}; return render(); }
+    $("#toktest").disabled = true; $("#toktest").textContent = "Testing…";
+    let who = null, st = 0, gh = "";
+    try { const r = await fetch("https://api.github.com/user", {headers:{Authorization:"Bearer " + t, Accept:"application/vnd.github+json"}}); st = r.status; const j = await r.json().catch(() => ({})); if (r.ok) who = j.login; else gh = j.message || ""; }
+    catch (e) { tokMsg = {ok:false, text:"This browser could not reach GitHub at all. Check the internet connection, or whether a work firewall or ad-blocker is blocking api.github.com."}; return render(); }
+    if (st === 401) { tokMsg = {ok:false, gh, text:"GitHub does not recognise this token. It was mis-copied, has expired, or was deleted or regenerated since. Use <b>Regenerate token</b> on GitHub and paste the new value."}; return render(); }
+    D.ghToken = t; await save("GitHub connection set up");
+    if (!unsynced) tokMsg = {ok:true, text:`Saved to <b>${esc(repo.owner)}/${esc(repo.repo)}</b>${who ? " as " + esc(who) : ""}. Everyone who signs in now shares the same data.`};
+    else { const e = saveErr || {}; tokMsg = {ok:false, gh:e.gh, text:e.status === 403 || e.status === 404 ? `The token is genuine${who ? " (it belongs to " + esc(who) + ")" : ""}, but GitHub will not let it write to <b>${esc(repo.owner)}/${esc(repo.repo)}</b>. ` + fix : e.status === 409 || e.status === 422 ? "GitHub accepted the token but refused this save because the data file changed underneath. Reload the page and test again." : e.status ? "GitHub refused the save (error " + e.status + "). " + fix : "The token looks fine but the save could not reach GitHub. Try again."}; }
+    render(); };
 }
 
 /* ===================== Generate ===================== */
