@@ -1,0 +1,41 @@
+{
+ "v": 1,
+ "rev": 3,
+ "users": [
+  {
+   "u": "bdm@kubic.com.au",
+   "name": "Carl",
+   "role": "admin",
+   "salt": "/PgM+0F4JztwoC89Yo5cgQ==",
+   "iter": 250000,
+   "wrap": {
+    "iv": "5q2qTKblYnZ2HzDz",
+    "ct": "ZFIPCW12gJu6WCUX9lSnPxnqxKN4biym3yUsehzky/tmj5X9GPZSymb9utDyvsBq"
+   },
+   "mustChange": false,
+   "rsalt": "oXhpBA3TSK6puHkUTnqYiQ==",
+   "rwrap": {
+    "iv": "jQQooWQRJz002TVT",
+    "ct": "x2bSCNEqskwWFGzFvvm+duqh8Ii9fNwpMtx4tb2EybMXJzUM11xEs60Hq3BQzr6y"
+   }
+  },
+  {
+   "u": "linehaul",
+   "name": "Linehaul",
+   "role": "editor",
+   "salt": "J6D1f19532SZNiFXngwudg==",
+   "iter": 250000,
+   "wrap": {
+    "iv": "VlHECyN1f+jUEd1K",
+    "ct": "x80wCNmhFG+hwhJAFMUkVTRBJnNgGgDG/Zzh9mWH3S3icGe6lpkSlG3/QR0f0sr5"
+   },
+   "mustChange": true
+  }
+ ],
+ "savedAt": "2026-11-24T00:56:19.108Z",
+ "savedBy": "Carl",
+ "box": {
+  "iv": "FcTZnNL7w4W3noLq",
+  "ct": "T7F/y7JD8noR6w0q0u3wuQgVN/ApgJy5PpUcdKPhHokmecCBrY4m2jgotsuk4lG/CUrdVe15HcCaLqzO54SD00kShXo4sdyyUZXbIj54zaMVFN7D6K9pxonvWuQd"
+ }
+}
