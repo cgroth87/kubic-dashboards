@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Kubic Load Sheets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1a1a2e;--panel:#222240;--panel2:#2a2a4d;--line:#333360;--txt:#e8e8f2;--mut:#9a9ac0;--acc:#e8751a;--ok:#34c38f;--bad:#ef5350;--warn:#f1b44c}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--txt);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:15px;margin:0 0 12px}
+p{margin:0 0 10px}a{color:var(--acc)}
+.mut{color:var(--mut)}.small{font-size:12px}.right{text-align:right}
+input,select,textarea,button{font:inherit;color:inherit}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:-1px}
+input::placeholder,textarea::placeholder{color:#6c6c92}
+textarea{resize:vertical;min-height:90px}
+label{display:block;font-size:12px;color:var(--mut);margin:0 0 4px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--acc)}.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+.btn.sm{padding:4px 10px;font-size:12px}.btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.btn.wide{width:100%;padding:11px 14px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.link{background:none;border:0;padding:0;color:var(--mut);cursor:pointer;font-size:13px}.link:hover{color:var(--acc)}.link.danger:hover{color:var(--bad)}
+.wordmark{font-weight:700;letter-spacing:.08em;font-size:15px}.wordmark i{display:inline-block;width:11px;height:11px;background:var(--acc);margin:0 6px;vertical-align:-1px}
+/* auth */
+#auth{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+.authbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:32px;width:100%;max-width:400px}
+.authbox .f{margin-bottom:14px}.err{color:var(--bad);font-size:13px;min-height:18px;margin:8px 0}
+/* shell */
+#app{display:none;min-height:100%}
+.side{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
+.side .wordmark{padding:20px 18px}
+.nav a{display:block;padding:10px 18px;color:var(--mut);text-decoration:none;border-left:3px solid transparent;cursor:pointer}
+.nav a:hover{color:var(--txt)}.nav a.on{color:var(--txt);border-left-color:var(--acc);background:rgba(232,117,26,.08)}
+.side .who{margin-top:auto;padding:16px 18px;border-top:1px solid var(--line);font-size:12px}
+.main{margin-left:220px;padding:24px 28px 60px;max-width:1280px}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}.top .sp{flex:1}
+.pill{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;background:rgba(154,154,192,.15);color:var(--mut)}
+.pill.ok{background:rgba(52,195,143,.15);color:var(--ok)}.pill.warn{background:rgba(241,180,76,.15);color:var(--warn)}.pill.bad{background:rgba(239,83,80,.15);color:var(--bad)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+.card h2 .n{color:var(--acc);margin-right:6px}
+.grid{display:grid;gap:12px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}.span2{grid-column:span 2}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.row .sp{flex:1}
+.cols{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:20px;align-items:start}
+.sticky{position:sticky;top:20px}
+table.t{width:100%;border-collapse:collapse}
+table.t th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);text-align:left;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t td{padding:9px 8px;border-bottom:1px solid rgba(51,51,96,.5);vertical-align:top}
+table.t ul{margin:0;padding-left:16px}
+.scroll{overflow-x:auto}
+.rate{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px}
+.banner{background:rgba(241,180,76,.12);border:1px solid rgba(241,180,76,.4);color:var(--warn);border-radius:8px;padding:10px 14px;margin-bottom:16px}
+.checks{background:rgba(241,180,76,.1);border:1px solid rgba(241,180,76,.35);border-radius:8px;padding:10px 12px;margin:12px 0;font-size:12px}
+.checks b{color:var(--warn)}.checks ul{margin:6px 0 0;padding-left:16px}
+.errbox{background:rgba(239,83,80,.1);border:1px solid rgba(239,83,80,.4);color:#ff9d9b;border-radius:8px;padding:10px 12px;margin:12px 0;font-size:13px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.chips button{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--mut);cursor:pointer}
+.chips button:hover{border-color:var(--acc);color:var(--txt)}.chips button.on{background:rgba(52,195,143,.12);border-color:rgba(52,195,143,.4);color:var(--ok);cursor:default}
+.timing{margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--panel)}
+input[type=checkbox]{width:auto;accent-color:var(--acc)}
+.note{font-size:12px;color:var(--mut);margin-top:4px}.note.warn{color:var(--warn)}
+#toast{position:fixed;right:20px;bottom:20px;background:var(--panel2);border:1px solid var(--acc);border-radius:8px;padding:10px 16px;display:none;z-index:99;max-width:420px}
+@media (max-width:1000px){.cols{grid-template-columns:1fr}.sticky{position:static}}
+@media (max-width:900px){.side{position:static;width:auto;flex-direction:row;flex-wrap:wrap;align-items:center}.nav{display:flex;flex-wrap:wrap}.side .who{margin:0;border:0}.main{margin:0;padding:16px}.g2,.g3,.g4{grid-template-columns:1fr}.span2{grid-column:auto}}
+</style>
+</head>
+<body>
+<div id="auth"><div class="authbox" id="authbox"><div class="wordmark">KUBIC<i></i>LOAD SHEETS</div><p class="mut" style="margin-top:14px">Loading…</p></div></div>
+<div id="app">
+  <aside class="side">
+    <div class="wordmark">KUBIC<i></i>LOAD SHEETS</div>
+    <nav class="nav" id="nav"></nav>
+    <div class="who" id="who"></div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+<div id="toast"></div>
+<!-- pdf-lib 1.17.1 (MIT) — builds the PDF in the browser; nothing is uploaded anywhere -->
+<script src="vendor/pdf-lib.min.js"></script>
+<script>
+"use strict";
+/* ===================== Config ===================== */
+const HEAD = '<div class="wordmark">KUBIC<i></i>LOAD SHEETS</div>';
+const PDF_LOGO = "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";   // white Kubic logo for the dark PDF header
+const DEFAULT_REPO = {owner:"cgroth87", repo:"kubic-dashboards", branch:"main", path:"load-sheets-data.json"};
+const PBKDF2_ITER = 250000;
+const HISTORY_MAX = 400;           // most recent sheets kept in the shared file
+const VEHICLES = ["Semi","Semi Mezz","Semi Straight","Semi with Rear Doors","B-Double","B-Double Mezz","B-Double Straight","B-Double 4.3m","B-Double 4.6m"];
+const TIMES = ["5:30 AM","6:00 AM","7:00 AM","8:00 AM","9:00 AM","9:30 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM"];
+const STANDARD = [
+  ["Straps and angles", "Straps and angles must be used."],
+  ["Photos", "Photos must be taken after loading / strapping, before the curtains are closed, and again once you get to destination."],
+  ["Call Kubic on delay", "Call Kubic immediately if there is any delay to making the timeslot, so we can call the customer to ensure you can get unloaded."]
+];
+
+/* ===================== Helpers ===================== */
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const lines = s => String(s || "").split("\n").map(l => l.trim()).filter(Boolean);
+const now = () => new Date().toISOString();
+const shortDate = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); return m ? `${+m[3]} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m[2] - 1]} ${m[1].slice(2)}` : "—"; };
+const stamp = s => s ? new Date(s).toLocaleString("en-AU", {day:"2-digit", month:"short", year:"2-digit", hour:"2-digit", minute:"2-digit"}) : "";
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = "none", msg.length > 70 ? 9000 : 3200); }
+
+/* ===================== Crypto ===================== */
+const enc = new TextEncoder(), dec = new TextDecoder();
+const b64 = buf => { const a = new Uint8Array(buf); let s = ""; for (let i = 0; i < a.length; i += 0x8000) s += String.fromCharCode.apply(null, a.subarray(i, i + 0x8000)); return btoa(s); };
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const rnd = n => crypto.getRandomValues(new Uint8Array(n));
+async function pwKey(password, salt, iter) {
+  const base = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:iter, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+}
+const aesKey = raw => crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt","decrypt"]);
+async function seal(key, bytes) { const iv = rnd(12); const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, bytes); return {iv:b64(iv), ct:b64(ct)}; }
+async function open(key, box) { return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM", iv:unb64(box.iv)}, key, unb64(box.ct))); }
+async function makeUser(username, name, role, password, dataKeyRaw, mustChange) {
+  const salt = rnd(16); const k = await pwKey(password, salt, PBKDF2_ITER);
+  return {u:username.trim().toLowerCase(), name:name.trim(), role, salt:b64(salt), iter:PBKDF2_ITER, wrap:await seal(k, dataKeyRaw), mustChange:!!mustChange};
+}
+const normCode = c => String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+async function makeRecovery(rec) {   // a second way to unlock the data key, for a forgotten password
+  const raw = Array.from(rnd(20), b => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 32]).join(""); const salt = rnd(16);
+  rec.rsalt = b64(salt); rec.rwrap = await seal(await pwKey(raw, salt, PBKDF2_ITER), keyRaw); touched.users.add(rec.u); return raw.match(/.{5}/g).join("-");
+}
+function showCode(code) {
+  const o = document.createElement("div"); o.style.cssText = "position:fixed;inset:0;background:rgba(10,10,25,.85);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px";
+  o.innerHTML = `<div class="authbox" style="max-width:460px"><h2>Your recovery code</h2><p class="mut small">Keep this somewhere safe. If you forget your password, this code is the only way to set a new one yourself — it is not shown again. Making a new code cancels the old one.</p>
+    <div style="font:600 18px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;background:var(--bg);border:1px solid var(--acc);border-radius:8px;padding:14px;text-align:center;user-select:all" id="rc_code">${code}</div>
+    <div class="row" style="margin-top:16px;justify-content:space-between"><button class="btn" id="rc_copy">Copy code</button><button class="btn pri" id="rc_ok">I have saved it</button></div></div>`;
+  document.body.appendChild(o);
+  $("#rc_copy", o).onclick = async () => { try { await navigator.clipboard.writeText(code); toast("Code copied"); } catch (e) { toast("Select the code and copy it by hand"); } };
+  $("#rc_ok", o).onclick = () => o.remove();
+}
+
+/* ===================== PDF (load order + proof of delivery on the Kubic template) ===================== */
+const LoadSheetPdf = (() => {
+const { PDFDocument, StandardFonts, rgb } = PDFLib;
+const W = 595.276;
+const H = 841.89;
+const L = 42.5;
+const R = 552.8;
+const MID = 161.6;
+const ROW = 19.84;
+const PAGE_LIMIT = 780;
+const ORANGE = rgb(0.952941, 0.439216, 0.129412);
+const DARK = rgb(0.101961, 0.101961, 0.101961);
+const GREY = rgb(0.937255, 0.937255, 0.937255);
+const LINE = rgb(0.588235, 0.588235, 0.588235);
+const YELLOW = rgb(1, 0.93, 0.55);
+const WHITE = rgb(1, 1, 1);
+const BLACK = rgb(0, 0, 0);
+const FOOTER = "KUBIC TRANSPORT  |  11 Leader Street, Truganina VIC 3029  |  bdm@kubic.com.au  |  www.kubic.com.au";
+const TERMS = [
+  ["Requirements:", " Please communicate any delays after 30mins waiting. Please ensure you check the freight weight and do not overload, correctly restrain your load with correct distribution over the axles, always wear PPE, safe driving procedures to be adhered to and fatigue management plan to be completed."],
+  ["Futiles & Fees:", " Load Rate is agreed to upon receival of this Kubic Load order. Kubic Transport will not be liable for extra fees, demurrage, surcharges or futiles, unless explicitly authorized by Kubic Transport Management."],
+  ["Payment terms:", " 30 Days from received invoice and complete signed PODs including pallet dockets. If no paperwork is provided to the carrier, then the driver should ask to have a Runsheet signed/Manual docket as a POD."],
+  ["", "PLEASE QUOTE THE ABOVE KUBIC LOAD ORDER ON INVOICE. No payments will be made unless a signed POD and all accompanying paperwork is provided."],
+  ["", "Please send all Invoices and Signed PODs to Accounts: accounts@kubic.com.au & pods@kubic.com.au"]
+];
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+function parseIsoDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+  if (!m) return null;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return isNaN(d.getTime()) ? null : d;
+}
+function formatLongDate(iso) {
+  const d = parseIsoDate(iso);
+  if (!d) return iso || "";
+  const n = d.getUTCDate();
+  const suffix = n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th";
+  return `${DAYS[d.getUTCDay()]} ${n}${suffix} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+function vehicleShort(vehicle) {
+  return (vehicle || "").split(" \u2014 ")[0].trim();
+}
+function stopName(s) {
+  return `${(s.title || s.company || "").trim().toUpperCase()} / ${(s.suburb || "").trim().toUpperCase()}`;
+}
+function routeTitle(job) {
+  return `${vehicleShort(job.vehicle).toUpperCase()} \u2014 ${job.pickups.map(stopName).join(" + ")} TO ${job.deliveries.map(stopName).join(" + ")}`;
+}
+function loadSheetFileName(job) {
+  const d = parseIsoDate(job.pickups[0]?.date || "");
+  const stamp = d ? `${String(d.getUTCDate()).padStart(2, "0")}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCFullYear()).slice(2)}` : "LOAD";
+  const uniq = (xs) => xs.filter((x, i) => x && xs.indexOf(x) === i);
+  const from = uniq(job.pickups.map((p) => (p.suburb || "").trim().toUpperCase())).join(" + ");
+  const to = uniq(job.deliveries.map((p) => (p.suburb || "").trim().toUpperCase())).join(" + ");
+  const name = `${stamp} - ${job.podOnly ? "POD - " : ""}${vehicleShort(job.vehicle).toUpperCase()} ${from} - ${to}`;
+  return name.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim() + ".pdf";
+}
+const REPLACEMENTS = {
+  "\xB3": "3",
+  "\xB2": "2",
+  "\xB9": "1",
+  "\u2192": "->",
+  "\u2190": "<-",
+  "\u2265": ">=",
+  "\u2264": "<=",
+  "\xA0": " ",
+  "\u2009": " ",
+  "\u200B": "",
+  "\u2011": "-",
+  "\u2010": "-",
+  "\u2212": "-",
+  "	": " ",
+  "\r": " ",
+  "\n": " "
+};
+function clean(ctx, text2) {
+  let out = "";
+  for (const ch of Array.from(text2 ?? "")) {
+    const rep = REPLACEMENTS[ch];
+    if (rep !== void 0) {
+      out += rep;
+      continue;
+    }
+    if (ctx.charset.has(ch.codePointAt(0))) out += ch;
+  }
+  return out;
+}
+function wrap(font, size, text2, maxWidth) {
+  const words = text2.split(" ").filter((w) => w.length > 0);
+  const lines = [];
+  let cur = "";
+  const push = () => {
+    if (cur) lines.push(cur);
+    cur = "";
+  };
+  for (let word of words) {
+    while (font.widthOfTextAtSize(word, size) > maxWidth && word.length > 1) {
+      let cut = word.length - 1;
+      while (cut > 1 && font.widthOfTextAtSize(word.slice(0, cut), size) > maxWidth) cut--;
+      if (cur) push();
+      lines.push(word.slice(0, cut));
+      word = word.slice(cut);
+    }
+    const trial = cur ? `${cur} ${word}` : word;
+    if (font.widthOfTextAtSize(trial, size) <= maxWidth) cur = trial;
+    else {
+      push();
+      cur = word;
+    }
+  }
+  push();
+  return lines;
+}
+function roundRect(page, x, top, w, h, r, color = ORANGE) {
+  const path = `M ${r} 0 H ${w - r} Q ${w} 0 ${w} ${r} V ${h - r} Q ${w} ${h} ${w - r} ${h} H ${r} Q 0 ${h} 0 ${h - r} V ${r} Q 0 0 ${r} 0 Z`;
+  page.drawSvgPath(path, { x, y: H - top, color, borderWidth: 0 });
+}
+function text(ctx, s, x, top, size, font, color = BLACK, align = "left") {
+  if (!s) return;
+  const width = align === "left" ? 0 : font.widthOfTextAtSize(s, size);
+  const dx = align === "right" ? -width : align === "center" ? -width / 2 : 0;
+  ctx.page.drawText(s, { x: x + dx, y: H - top, size, font, color });
+}
+function box(ctx, x, top, w, h, fill, borderWidth = 1) {
+  ctx.page.drawRectangle({ x, y: H - top - h, width: w, height: h, color: fill, borderColor: LINE, borderWidth });
+}
+function newPage(ctx, title) {
+  ctx.page = ctx.doc.addPage([W, H]);
+  const p = ctx.page;
+  p.drawRectangle({ x: 0, y: H - 102, width: W, height: 102, color: DARK });
+  p.drawLine({ start: { x: 0, y: H - 102 }, end: { x: W, y: H - 102 }, thickness: 1.5, color: ORANGE });
+  if (ctx.logo) p.drawImage(ctx.logo, { x: 42.5, y: H - 90.7, width: 129.9, height: 56.7 });
+  text(ctx, "Kubic Transport Pty Ltd", R, 35, 9, ctx.bold, WHITE, "right");
+  ["ABN 78 613 309 489", "11 Leader Street, Truganina VIC 3029", "T  0428 279 523", "E  bdm@kubic.com.au"].forEach((t, i) => text(ctx, t, R, 46.3 + 11.35 * i, 8, ctx.regular, WHITE, "right"));
+  text(ctx, "www.kubic.com.au", R, 91.7, 8, ctx.regular, ORANGE, "right");
+  const lines = wrap(ctx.bold, 11, clean(ctx, title), R - L - 22.8);
+  const bandH = 8.5 + 14.2 * Math.max(lines.length, 1);
+  const top = 119.1;
+  roundRect(p, L, top, R - L, bandH, 6);
+  lines.forEach((t, i) => text(ctx, t, 53.9, top + 15.2 + 14.2 * i, 11, ctx.bold, WHITE));
+  roundRect(p, L, 790.9, R - L, 22.6, 6);
+  text(ctx, FOOTER, W / 2, 807.2, 8, ctx.bold, WHITE, "center");
+  return top + bandH + 11.3;
+}
+function measureRow(ctx, row) {
+  const hl = row.style === "highlight";
+  const font = row.style && row.style !== "normal" ? ctx.bold : ctx.regular;
+  const vw = R - MID - 11.4;
+  let lines;
+  if (Array.isArray(row.value)) {
+    lines = [];
+    for (const item of row.value) {
+      const wrapped = wrap(font, 10, clean(ctx, item), vw - 10);
+      wrapped.forEach((w, i) => lines.push({ bullet: i === 0 ? "\u2022" : "", t: w }));
+    }
+    if (lines.length === 0) lines = [{ bullet: null, t: "" }];
+  } else {
+    const wrapped = wrap(font, 10, clean(ctx, row.value || ""), vw);
+    lines = (wrapped.length ? wrapped : [""]).map((t) => ({ bullet: null, t }));
+  }
+  const lead = hl ? 13 : 12;
+  const h = ROW + lead * (lines.length - 1) + (hl ? 4 : 0);
+  return { hl, font, lines, lead, h };
+}
+function drawTable(ctx, y, sections, pageTitle) {
+  for (const section of sections) {
+    const first = section.rows[0] ? measureRow(ctx, section.rows[0]).h : 0;
+    if (y + ROW + first > PAGE_LIMIT) y = newPage(ctx, pageTitle);
+    box(ctx, L, y, R - L, ROW, GREY);
+    text(ctx, clean(ctx, section.head), 48.2, y + 13.4, 9, ctx.bold);
+    y += ROW;
+    for (const row of section.rows) {
+      const m = measureRow(ctx, row);
+      if (y + m.h > PAGE_LIMIT) y = newPage(ctx, pageTitle);
+      box(ctx, L, y, MID - L, m.h, m.hl ? ORANGE : GREY);
+      box(ctx, MID, y, R - MID, m.h, m.hl ? YELLOW : WHITE);
+      text(ctx, clean(ctx, m.hl ? row.label.toUpperCase() : row.label), 48.2, y + 13.2, 8, ctx.bold, m.hl ? WHITE : BLACK);
+      m.lines.forEach((ln, k) => {
+        const yy = y + 13.6 + m.lead * k + (m.hl ? 2 : 0);
+        if (ln.bullet === null) text(ctx, ln.t, MID + 5.7, yy, 10, m.font);
+        else {
+          if (ln.bullet) text(ctx, ln.bullet, MID + 5.7, yy, 10, m.font);
+          text(ctx, ln.t, MID + 15.7, yy, 10, m.font);
+        }
+      });
+      y += m.h;
+    }
+  }
+  return y;
+}
+function drawTerms(ctx, y, pageTitle) {
+  const paras = TERMS.map(([boldPart, body]) => {
+    const words = (boldPart + body).split(" ");
+    const nBold = boldPart ? boldPart.split(" ").length : 0;
+    const lines = [];
+    let line = [];
+    let cur = 0;
+    words.forEach((w, i) => {
+      const font = i < nBold ? ctx.bold : ctx.regular;
+      const ww = font.widthOfTextAtSize(`${w} `, 8);
+      if (cur + ww > R - 48.2 + 3 && line.length) {
+        lines.push(line);
+        line = [];
+        cur = 0;
+      }
+      line.push({ w, font });
+      cur += ww;
+    });
+    lines.push(line);
+    return lines;
+  });
+  const nLines = paras.reduce((n, p) => n + p.length, 0);
+  let gap = 12.8;
+  if (y + 9.6 + nLines * 9.9 + gap * (paras.length - 1) > PAGE_LIMIT) {
+    gap = (PAGE_LIMIT - y - 9.6 - nLines * 9.9) / (paras.length - 1);
+    if (gap < 4) {
+      y = newPage(ctx, pageTitle);
+      gap = 12.8;
+    }
+  }
+  y += 9.6;
+  for (const lines of paras) {
+    for (const line of lines) {
+      let x = 48.2;
+      for (const { w, font } of line) {
+        text(ctx, w, x, y, 8, font);
+        x += font.widthOfTextAtSize(`${w} `, 8);
+      }
+      y += 9.9;
+    }
+    y += gap;
+  }
+}
+const POD_BLOCK_HEIGHT = 22.7 + 121.9 + 6;
+function drawPod(ctx, y, pageTitle) {
+  if (y + POD_BLOCK_HEIGHT > PAGE_LIMIT + 8) y = newPage(ctx, pageTitle);
+  const p = ctx.page;
+  roundRect(p, L, y, R - L, 22.7, 6);
+  text(ctx, "PROOF OF DELIVERY", 53.9, y + 15.2, 11, ctx.bold, WHITE);
+  const b = y + 22.7;
+  const rule = (x1, x2, top) => p.drawLine({ start: { x: x1, y: H - top }, end: { x: x2, y: H - top }, thickness: 0.5, color: LINE });
+  text(ctx, "Receiver Name:", L, b + 12.5, 9, ctx.bold);
+  rule(141.7, R, b + 14.2);
+  text(ctx, "Signature:", L, b + 40.8, 9, ctx.bold);
+  rule(141.7, 283.5, b + 42.5);
+  text(ctx, "Date:", 311.8, b + 40.8, 9, ctx.bold);
+  rule(368.5, R, b + 42.5);
+  text(ctx, "Goods Received:", L, b + 69.2, 9, ctx.bold);
+  box(ctx, 141.7, b + 59.5, 11.4, 11.4, WHITE, 0.5);
+  box(ctx, 326, b + 59.5, 11.4, 11.4, WHITE, 0.5);
+  text(ctx, "Received in Full / Good Order", 158.7, b + 69.2, 9, ctx.regular);
+  text(ctx, "Damaged / Shortage", 343, b + 69.2, 9, ctx.regular);
+  text(ctx, "Comments:", L, b + 97.5, 9, ctx.bold);
+  rule(113.4, R, b + 99.2);
+  rule(L, R, b + 121.9);
+}
+function validateLoadSheet(job) {
+  const problems = [];
+  if (!job.pickups.length) problems.push("Add at least one pick up.");
+  if (!job.deliveries.length) problems.push("Add at least one delivery.");
+  job.pickups.forEach((p, i) => {
+    if (!p.company.trim() || !p.suburb.trim()) problems.push(`Pick up ${i + 1} needs a company and a suburb.`);
+  });
+  job.deliveries.forEach((p, i) => {
+    if (!p.company.trim() || !p.suburb.trim()) problems.push(`Delivery ${i + 1} needs a company and a suburb.`);
+  });
+  if (!job.vehicle.trim()) problems.push("Choose a vehicle type.");
+  return problems;
+}
+async function buildLoadSheetPdf(job, logoPng) {
+  const doc = await PDFDocument.create();
+  const regular = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const logo = logoPng ? await doc.embedPng(logoPng) : null;
+  const ctx = { doc, page: void 0, regular, bold, logo, charset: new Set(regular.getCharacterSet()) };
+  const route = routeTitle(job);
+  doc.setTitle(clean(ctx, `Kubic Load Order \u2014 ${route}`));
+  doc.setAuthor("Kubic Transport Pty Ltd");
+  const multiPick = job.pickups.length > 1;
+  const multiDrop = job.deliveries.length > 1;
+  const instructions = job.instructions.map((s) => s.trim()).filter(Boolean);
+  const instructionRow = {
+    label: "Instructions:",
+    value: job.highlight || instructions.length > 1 ? instructions : instructions[0] || "",
+    style: job.highlight && instructions.length ? "highlight" : "normal"
+  };
+  const stopRows = (s) => {
+    const rows = [{ label: "Company:", value: s.company }, { label: "Address:", value: s.address }];
+    if (s.contact && s.contact.trim()) rows.push({ label: "Contact:", value: s.contact });
+    rows.push({ label: "Date:", value: formatLongDate(s.date) }, { label: "Time:", value: s.time });
+    return rows;
+  };
+  const sections = (drops) => {
+    const out = job.pickups.map((p, i) => ({ head: multiPick ? `PICK UP ${i + 1} DETAILS` : "PICK UP DETAILS", rows: stopRows(p) }));
+    drops.forEach(({ stop, n }) => out.push({ head: multiDrop ? `DELIVERY ${n} DETAILS` : "DELIVERY DETAILS", rows: stopRows(stop) }));
+    if (job.quantity && job.quantity.trim() || job.reference && job.reference.trim()) {
+      out.push({ head: "LOAD DETAILS", rows: [{ label: "Quantity:", value: job.quantity || "" }, { label: "Reference:", value: job.reference || "" }] });
+    }
+    return out;
+  };
+  const allDrops = job.deliveries.map((stop, i) => ({ stop, n: i + 1 }));
+  if (!job.podOnly) {
+    const title = `KUBIC LOAD ORDER \u2014 ${route}`;
+    let y = newPage(ctx, title);
+    y = drawTable(ctx, y, [
+      ...sections(allDrops),
+      { head: "INSTRUCTIONS & AGREED RATE", rows: [
+        { label: "Vehicle:", value: job.vehicle },
+        { label: "Carrier:", value: job.carrier },
+        { label: "Rate:", value: job.rate, style: "bold" },
+        instructionRow
+      ] }
+    ], title);
+    drawTerms(ctx, y, title);
+  }
+  for (const drop of allDrops) {
+    const title = `PROOF OF DELIVERY \u2014 ${multiDrop ? `DROP ${drop.n} OF ${allDrops.length} \u2014 ` : ""}${route}`;
+    let y = newPage(ctx, title);
+    y = drawTable(ctx, y, [
+      ...sections([drop]),
+      { head: "INSTRUCTIONS", rows: [{ label: "Vehicle:", value: job.vehicle }, instructionRow] }
+    ], title);
+    drawPod(ctx, y, title);
+  }
+  return doc.save();
+}
+
+return { buildLoadSheetPdf, formatLongDate, loadSheetFileName, routeTitle, validateLoadSheet, vehicleShort };
+})();
+
+/* ===================== State ===================== */
+let repo = Object.assign({}, DEFAULT_REPO);
+try { const m = location.hostname.match(/^(.+)\.github\.io$/); if (m) { repo.owner = m[1]; const seg = location.pathname.split("/").filter(Boolean); if (seg.length > 1 || (seg.length === 1 && !/\.html?$/.test(seg[0]))) repo.repo = seg[0]; }
+  Object.assign(repo, JSON.parse(localStorage.getItem("kls_repo") || "{}")); } catch (e) {}
+let file = null;      // {v, rev, savedAt, savedBy, users:[], box:{iv,ct}}
+let fileSha = null;   // sha of the file on GitHub that our copy is based on
+let keyRaw = null;    // data key bytes
+let me = null;        // user record
+let D = null;         // decrypted payload {sites, sheets, ghToken}
+let unsynced = false, view = "new";
+// What this browser has changed since it last matched GitHub — used to merge with other people's saves.
+const touched = {users:new Set(), usersGone:new Set(), sitesGone:new Set(), sheetsGone:new Set(), token:false};
+let base = {sites:new Set(), sheets:new Set()};   // ids that existed when we last matched GitHub
+const snapBase = () => { base = {sites:new Set(D.sites.map(s => s.id)), sheets:new Set(D.sheets.map(s => s.id))}; };
+const clearTouched = () => { touched.users.clear(); touched.usersGone.clear(); touched.sitesGone.clear(); touched.sheetsGone.clear(); touched.token = false; };
+
+const emptyStop = () => ({siteId:"", company:"", title:"", suburb:"", address:"", contact:"", date:"", time:""});
+const emptyForm = () => ({pickups:[emptyStop()], deliveries:[emptyStop()], vehicle:"", carrier:"", rate:"", quantity:"", reference:"", instructions:"", highlight:true});
+let F = emptyForm();            // the load sheet being built
+let formErr = "";
+let siteEdit = null;            // null | {id|null, ...fields}
+let histQ = "", siteQ = "";
+
+const seedData = () => ({sites: [], sheets: [], ghToken: ""});
+
+/* ===================== GitHub storage ===================== */
+const apiUrl = () => `https://api.github.com/repos/${repo.owner}/${repo.repo}/contents/${repo.path}`;
+async function fetchRemote(token) {
+  try {
+    const h = {Accept:"application/vnd.github+json"}; if (token) h.Authorization = "Bearer " + token;
+    const r = await fetch(apiUrl() + "?ref=" + encodeURIComponent(repo.branch) + "&t=" + Date.now(), {headers:h, cache:"no-store"});
+    if (r.status === 404) return {missing:true};
+    if (r.ok) { const j = await r.json(); return {file:JSON.parse(dec.decode(unb64(j.content.replace(/\n/g, "")))), sha:j.sha}; }
+    if (token) return {error:true, status:r.status};
+  } catch (e) { if (token) return {error:true, status:0}; }
+  try { const r = await fetch(repo.path + "?t=" + Date.now(), {cache:"no-store"}); if (r.ok) return {file:await r.json(), sha:null}; if (r.status === 404) return {missing:true}; } catch (e) {}
+  return {error:true, status:0};
+}
+async function pushRemote(token, message) {
+  const body = {message, content:b64(enc.encode(JSON.stringify(file, null, 1))), branch:repo.branch}; if (fileSha) body.sha = fileSha;
+  const r = await fetch(apiUrl(), {method:"PUT", headers:{Accept:"application/vnd.github+json", Authorization:"Bearer " + token, "Content-Type":"application/json"}, body:JSON.stringify(body)});
+  if (!r.ok) { const e = new Error("GitHub " + r.status); e.status = r.status; try { e.gh = (await r.json()).message || ""; } catch (x) { e.gh = ""; } throw e; }
+  fileSha = (await r.json()).content.sha;
+}
+
+/** Fold someone else's saved copy into ours: their changes are kept unless this browser changed the same thing since. */
+async function mergeRemote(remote) {
+  const RD = JSON.parse(dec.decode(await open(await aesKey(keyRaw), remote.box)));   // throws if the file was re-created with a different key
+  const fold = (ours, theirs, baseIds, gone) => {
+    const out = new Map((theirs || []).filter(x => !gone.has(x.id)).map(x => [x.id, x]));
+    for (const x of ours) {
+      const r = out.get(x.id);
+      if (r) { if ((x.at || "") > (r.at || "")) out.set(x.id, x); }          // both have it: newest edit wins
+      else if (!baseIds.has(x.id)) out.set(x.id, x);                           // ours is new since the last match
+      // otherwise it was removed by someone else — leave it removed
+    }
+    return Array.from(out.values());
+  };
+  D.sites = fold(D.sites, RD.sites, base.sites, touched.sitesGone).sort((a, b) => a.company.localeCompare(b.company));
+  D.sheets = fold(D.sheets, RD.sheets, base.sheets, touched.sheetsGone).sort((a, b) => (b.at || "").localeCompare(a.at || "")).slice(0, HISTORY_MAX);
+  if (!touched.token) D.ghToken = RD.ghToken || D.ghToken;
+  const users = new Map((remote.users || []).filter(u => !touched.usersGone.has(u.u)).map(u => [u.u, u]));
+  for (const u of file.users) if (touched.users.has(u.u)) users.set(u.u, u);
+  file.users = Array.from(users.values());
+  file.rev = Math.max(file.rev || 0, remote.rev || 0);
+  const mine = file.users.find(u => u.u === me.u);
+  if (!mine) { sessionStorage.removeItem("kls_sess"); alert("Your login has been removed by an administrator."); location.reload(); throw new Error("removed"); }
+  me = mine;
+}
+
+let saveErr = null, tokMsg = null, saving = Promise.resolve();
+/** Save everything. Saves queue up so two quick actions cannot overlap. */
+function save(message) { saving = saving.then(() => doSave(message), () => doSave(message)); return saving; }
+async function doSave(message) {
+  const by = me.name || me.u;
+  const sealUp = async () => {
+    file.rev = (file.rev || 0) + 1; file.savedAt = now(); file.savedBy = by;
+    file.box = await seal(await aesKey(keyRaw), enc.encode(JSON.stringify(D)));
+    localStorage.setItem("kls_file", JSON.stringify(file));
+  };
+  if (!D.ghToken) { await sealUp(); unsynced = true; render(); toast("Saved in this browser only — add a GitHub token in Settings to share"); return; }
+  try {
+    for (let attempt = 0; ; attempt++) {
+      const cur = await fetchRemote(D.ghToken);
+      if (cur.error) { const e = new Error("fetch"); e.status = cur.status; throw e; }
+      if (cur.file && cur.sha !== fileSha) await mergeRemote(cur.file);
+      fileSha = cur.sha || null;
+      await sealUp();
+      try { await pushRemote(D.ghToken, "Load sheets data updated"); break; }
+      catch (e) { if ((e.status === 409 || e.status === 422) && attempt < 2) continue; throw e; }   // someone saved in between: merge again
+    }
+    unsynced = false; saveErr = null; clearTouched(); snapBase();
+  } catch (e) {
+    if (e.message === "removed") return;
+    await sealUp().catch(() => {});
+    unsynced = true; saveErr = {status:e.status || 0, gh:e.gh || ""};
+    toast(e.status === 401 || e.status === 403 || e.status === 404 ? "GitHub refused the save — an administrator needs to check the token in Settings" : e.status === 409 || e.status === 422 ? "Could not save because the shared file kept changing — try again in a moment" : e.name === "OperationError" ? "The shared data file was replaced and no longer matches this login — reload the page" : "Could not reach GitHub — saved in this browser only");
+  }
+  render();
+}
+
+/** Pick up other people's changes without saving anything of ours. */
+let lastSync = 0;
+async function refresh(force) {
+  if (!D || !D.ghToken || unsynced || (!force && Date.now() - lastSync < 30000)) return;
+  lastSync = Date.now();
+  await (saving = saving.then(async () => {
+    const cur = await fetchRemote(D.ghToken);
+    if (!cur.file || cur.sha === fileSha) return;
+    try { await mergeRemote(cur.file); file.box = cur.file.box; file.savedAt = cur.file.savedAt; file.savedBy = cur.file.savedBy; fileSha = cur.sha; snapBase(); render(); } catch (e) {}
+  }, () => {}));
+}
+function downloadFile() { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 1)], {type:"application/json"})); a.download = repo.path.split("/").pop(); a.click(); }
+
+/* ===================== Auth ===================== */
+async function boot() {
+  const box = $("#authbox");
+  const res = await fetchRemote();
+  let local = null; try { local = JSON.parse(localStorage.getItem("kls_file") || "null"); } catch (e) {}
+  if (res.file) { file = res.file; fileSha = res.sha; if (local && (local.rev || 0) > (file.rev || 0)) { file = local; unsynced = true; fileSha = null; } }
+  else if (local) { file = local; unsynced = true; }
+  if (!file) {
+    box.innerHTML = HEAD + `<h2 style="margin-top:18px">First-time setup</h2>
+      <p class="mut small">${res.error ? "Could not reach the data file on GitHub. If this tool has already been set up, check your connection and reload rather than setting up again." : "No data file exists yet. Create the administrator login — you can add other users afterwards. These logins are separate from every other Kubic tool."}</p>
+      <div class="f"><label for="s_name">Your name</label><input id="s_name" autocomplete="name"></div>
+      <div class="f"><label for="s_user">Username</label><input id="s_user" autocapitalize="none" autocomplete="username"></div>
+      <div class="f"><label for="s_pw">Password (10+ characters)</label><input id="s_pw" type="password"></div>
+      <div class="f"><label for="s_pw2">Confirm password</label><input id="s_pw2" type="password"></div>
+      <div class="f"><label for="s_tok">GitHub token (optional — can be added later in Settings)</label><input id="s_tok" type="password" placeholder="github_pat_…"></div>
+      <div class="err" id="a_err"></div><button class="btn pri" id="s_go" style="width:100%">Create and sign in</button>
+      <p class="mut small" style="margin-top:12px">Data file: ${esc(repo.owner)}/${esc(repo.repo)}/${esc(repo.path)}</p>`;
+    $("#s_go").onclick = async () => {
+      const name = $("#s_name").value, u = $("#s_user").value.trim().toLowerCase(), pw = $("#s_pw").value;
+      if (!u || !name.trim()) return $("#a_err").textContent = "Enter a name and username.";
+      if (pw.length < 10) return $("#a_err").textContent = "Password must be at least 10 characters.";
+      if (pw !== $("#s_pw2").value) return $("#a_err").textContent = "Passwords do not match.";
+      $("#s_go").disabled = true;
+      keyRaw = rnd(32); D = seedData(); D.ghToken = $("#s_tok").value.replace(/\s+/g, ""); touched.token = true;
+      file = {v:1, rev:0, users:[await makeUser(u, name, "admin", pw, keyRaw)]}; me = file.users[0]; touched.users.add(me.u); const code = await makeRecovery(me);
+      startSession(); enter(); await save("Load sheet generator set up"); showCode(code);
+    };
+    return;
+  }
+  const sess = (() => { try { return JSON.parse(sessionStorage.getItem("kls_sess") || "null"); } catch (e) { return null; } })();
+  if (sess) { try { keyRaw = unb64(sess.k); D = JSON.parse(dec.decode(await open(await aesKey(keyRaw), file.box))); me = file.users.find(x => x.u === sess.u); if (me) return enter(); } catch (e) { sessionStorage.removeItem("kls_sess"); } }
+  box.innerHTML = HEAD + `<h2 style="margin-top:18px">Sign in</h2>
+    <div class="f"><label for="l_user">Username</label><input id="l_user" autocapitalize="none" autocomplete="username"></div>
+    <div class="f"><label for="l_pw">Password</label><input id="l_pw" type="password" autocomplete="current-password"></div>
+    <div class="err" id="a_err"></div><button class="btn pri" id="l_go" style="width:100%">Sign in</button>
+    <p class="small" style="margin:14px 0 0;text-align:center"><a id="l_forgot" style="cursor:pointer">Forgot password?</a></p>`;
+  $("#l_forgot").onclick = () => { forgotScreen.u = $("#l_user").value.trim(); forgotScreen(); };
+  const go = async () => {
+    const u = $("#l_user").value.trim().toLowerCase(), pw = $("#l_pw").value; const rec = file.users.find(x => x.u === u);
+    $("#l_go").disabled = true; $("#a_err").textContent = "";
+    try {
+      if (!rec) { await pwKey(pw, rnd(16), PBKDF2_ITER); throw 0; }
+      keyRaw = await open(await pwKey(pw, unb64(rec.salt), rec.iter), rec.wrap);
+      D = JSON.parse(dec.decode(await open(await aesKey(keyRaw), file.box))); me = rec; startSession();
+      if (rec.mustChange) return forceChange();
+      enter();
+    } catch (e) { $("#a_err").textContent = "Incorrect username or password."; $("#l_go").disabled = false; }
+  };
+  $("#l_go").onclick = go; $("#l_pw").onkeydown = e => { if (e.key === "Enter") go(); }; $("#l_user").focus();
+}
+function forceChange() {
+  D.sites = D.sites || []; D.sheets = D.sheets || []; snapBase();
+  $("#authbox").innerHTML = HEAD + `<h2 style="margin-top:18px">Choose your own password</h2>
+    <p class="mut small">You signed in with a temporary password. Set a new one to continue.</p>
+    <div class="f"><label for="c_pw">New password (10+ characters)</label><input id="c_pw" type="password"></div>
+    <div class="f"><label for="c_pw2">Confirm</label><input id="c_pw2" type="password"></div><div class="err" id="a_err"></div>
+    <button class="btn pri" id="c_go" style="width:100%">Save password</button>`;
+  $("#c_go").onclick = async () => {
+    const pw = $("#c_pw").value; if (pw.length < 10) return $("#a_err").textContent = "Password must be at least 10 characters.";
+    if (pw !== $("#c_pw2").value) return $("#a_err").textContent = "Passwords do not match.";
+    $("#c_go").disabled = true;
+    await setPassword(me, pw, false); const code = await makeRecovery(me); enter(); await save("Password changed for " + me.u); showCode(code);
+  };
+}
+function forgotScreen() {
+  const admins = file.users.filter(x => x.role === "admin").map(x => x.name);
+  $("#authbox").innerHTML = HEAD + `<h2 style="margin-top:18px">Forgot your password?</h2>
+    <p class="mut small">Enter your username and the recovery code you were given when you first set your password, then choose a new password.</p>
+    <div class="f"><label for="f_user">Username</label><input id="f_user" autocapitalize="none"></div>
+    <div class="f"><label for="f_code">Recovery code</label><input id="f_code" autocapitalize="characters" autocomplete="off" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"></div>
+    <div class="f"><label for="f_pw">New password (10+ characters)</label><input id="f_pw" type="password" autocomplete="new-password"></div>
+    <div class="f"><label for="f_pw2">Confirm new password</label><input id="f_pw2" type="password" autocomplete="new-password"></div>
+    <div class="err" id="a_err"></div><button class="btn pri" id="f_go" style="width:100%">Set new password</button>
+    <p class="mut small" style="margin-top:14px"><b>No recovery code?</b> Ask an administrator${admins.length ? " (" + esc(admins.join(", ")) + ")" : ""} to reset your password in Settings. They will give you a temporary password.</p>
+    <p class="small" style="margin:10px 0 0"><a id="f_back" style="cursor:pointer">Back to sign in</a></p>`;
+  $("#f_user").value = forgotScreen.u || ""; $("#f_back").onclick = () => location.reload();
+  $("#f_go").onclick = async () => {
+    const u = $("#f_user").value.trim().toLowerCase(), code = normCode($("#f_code").value), pw = $("#f_pw").value, err = $("#a_err"); const rec = file.users.find(x => x.u === u);
+    if (pw.length < 10) return err.textContent = "Password must be at least 10 characters."; if (pw !== $("#f_pw2").value) return err.textContent = "Passwords do not match.";
+    $("#f_go").disabled = true; err.textContent = "";
+    try {
+      if (!rec || !rec.rwrap) { await pwKey(code, rnd(16), PBKDF2_ITER); throw 0; }
+      keyRaw = await open(await pwKey(code, unb64(rec.rsalt), PBKDF2_ITER), rec.rwrap);
+      D = JSON.parse(dec.decode(await open(await aesKey(keyRaw), file.box))); me = rec;
+    } catch (e) { err.textContent = "That username and recovery code do not match."; $("#f_go").disabled = false; return; }
+    D.sites = D.sites || []; D.sheets = D.sheets || []; snapBase();
+    await setPassword(me, pw, false); startSession(); enter(); await save("Password reset with recovery code for " + me.u); toast("Password changed");
+  };
+}
+async function setPassword(rec, pw, mustChange) { const n = await makeUser(rec.u, rec.name, rec.role, pw, keyRaw, mustChange); Object.assign(rec, n); touched.users.add(rec.u); }
+function startSession() { sessionStorage.setItem("kls_sess", JSON.stringify({u:me.u, k:b64(keyRaw)})); }
+function signOut() { sessionStorage.removeItem("kls_sess"); location.reload(); }
+function enter() {
+  D.sites = D.sites || []; D.sheets = D.sheets || []; D.ghToken = D.ghToken || "";
+  if (!unsynced) snapBase();
+  $("#auth").style.display = "none"; $("#app").style.display = "block"; render(); refresh(true);
+}
+const isAdmin = () => me.role === "admin";
+
+/* ===================== Shell ===================== */
+const VIEWS = [["new","New load sheet"],["history","History"],["sites","Address book"],["users","My account"],["settings","Settings"]];
+function render() {
+  $("#nav").innerHTML = VIEWS.filter(v => v[0] !== "settings" || isAdmin()).map(v => `<a data-v="${v[0]}" class="${view === v[0] ? "on" : ""}">${v[1]}${v[0] === "history" ? ` <span class="mut">(${D.sheets.length})</span>` : v[0] === "sites" ? ` <span class="mut">(${D.sites.length})</span>` : ""}</a>`).join("");
+  $("#nav").onclick = e => { const a = e.target.closest("a[data-v]"); if (a) { view = a.dataset.v; formErr = ""; render(); window.scrollTo(0, 0); if (view === "history" || view === "sites") refresh(); } };
+  $("#who").innerHTML = `<b>${esc(me.name)}</b><br><span class="mut">${isAdmin() ? "Administrator" : "User"}</span><br><a id="so" style="cursor:pointer">Sign out</a>`; $("#so").onclick = signOut;
+  const st = unsynced ? ["warn","Saved in this browser only"] : ["ok","Saved to GitHub"];
+  const title = VIEWS.find(v => v[0] === view)[1];
+  const top = `<div class="top"><div><h1>${title}</h1><div class="mut small">${file.savedAt ? "Last saved " + stamp(file.savedAt) + " by " + esc(file.savedBy) : ""}</div></div><div class="sp"></div>
+    <span class="pill ${st[0]}" id="savestate">${st[1]}</span>${unsynced ? '<button class="btn sm" id="dlbtn">Download data file</button>' : ""}</div>
+    ${unsynced ? `<div class="banner">${D.ghToken ? "The last save did not reach GitHub, so other people cannot see it yet. It will be sent with your next save." : "This tool is not connected to GitHub yet, so load sheets and addresses are only kept in this browser and other people cannot sign in." + (isAdmin() ? " Open Settings and add a GitHub token." : " Ask an administrator to finish the setup.")}</div>` : ""}`;
+  const body = {new:vNew, history:vHistory, sites:vSites, users:vUsers, settings:vSettings}[view]();
+  const main = $("#main"); main.onchange = main.onclick = main.oninput = null;
+  main.innerHTML = top + body;
+  if ($("#dlbtn")) $("#dlbtn").onclick = downloadFile;
+  ({new:bNew, history:bHistory, sites:bSites, users:bUsers, settings:bSettings}[view])();
+}
+
+/* ===================== New load sheet ===================== */
+function formatRate(raw) {
+  const t = String(raw || "").trim(); if (!t) return "";
+  const n = Number(t.replace(/[$,\s]/g, ""));
+  if (!isNaN(n) && /^[$\d,.\s]+$/.test(t)) return "$" + n.toLocaleString("en-AU", {minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2}) + " + GST";
+  return t;
+}
+function toJob(f, podOnly) {
+  const stop = s => ({company:s.company.trim(), title:(s.title || "").trim() || undefined, suburb:s.suburb.trim(), address:s.address.trim(), contact:(s.contact || "").trim() || undefined, date:s.date, time:s.time.trim()});
+  return {pickups:f.pickups.map(stop), deliveries:f.deliveries.map(stop), vehicle:f.vehicle.trim(), carrier:f.carrier.trim(), rate:formatRate(f.rate),
+    quantity:f.quantity.trim() || undefined, reference:f.reference.trim() || undefined, instructions:lines(f.instructions), highlight:!!f.highlight, podOnly:!!podOnly};
+}
+function fromJob(job) {
+  const stop = s => ({siteId:"", company:s.company || "", title:s.title || "", suburb:s.suburb || "", address:s.address || "", contact:s.contact || "", date:s.date || "", time:s.time || ""});
+  return {pickups:(job.pickups || []).map(stop), deliveries:(job.deliveries || []).map(stop), vehicle:job.vehicle || "", carrier:job.carrier || "", rate:job.rate || "",
+    quantity:job.quantity || "", reference:job.reference || "", instructions:(job.instructions || []).join("\n"), highlight:!!job.highlight};
+}
+/** Things worth a second look before the sheet goes to a carrier. None of them stop the download. */
+function checkList(f) {
+  const out = []; const firstPick = f.pickups.map(p => p.date).filter(Boolean).sort()[0];
+  f.pickups.forEach((p, i) => { const n = f.pickups.length > 1 ? " " + (i + 1) : "";
+    if (!p.date) out.push(`Pick up${n} has no date.`); if (!p.time.trim()) out.push(`Pick up${n} has no time.`); if (!p.address.trim()) out.push(`Pick up${n} has no street address.`); });
+  f.deliveries.forEach((d, i) => { const n = f.deliveries.length > 1 ? " " + (i + 1) : "";
+    if (!d.date) out.push(`Delivery${n} has no date.`);
+    else if (firstPick && d.date < firstPick) out.push(`Delivery${n} is dated before the pick up.`);
+    else if (firstPick && d.date === firstPick) out.push(`Delivery${n} is on the same day as the pick up — check that is right.`);
+    if (!d.time.trim()) out.push(`Delivery${n} has no time.`); if (!d.address.trim()) out.push(`Delivery${n} has no street address.`); });
+  if (!f.carrier.trim()) out.push("No carrier entered."); if (!f.rate.trim()) out.push("No rate entered.");
+  f.pickups.concat(f.deliveries).forEach(s => { const site = D.sites.find(x => x.id === s.siteId); if (site && /not confirmed/i.test(site.notes || "")) out.push(`${site.company}: ${site.notes}`); });
+  return out;
+}
+const carriersUsed = () => Array.from(new Set(D.sheets.map(s => s.job && s.job.carrier).filter(Boolean))).sort();
+
+function stopCard(kind, s, i) {
+  const many = F[kind].length > 1, label = kind === "pickups" ? "Pick up" : "Delivery", id = `${kind}-${i}`, site = D.sites.find(x => x.id === s.siteId);
+  const fld = (k, l, ph, extra) => `<div ${extra && extra.span ? 'class="span2"' : ""}><label for="${id}-${k}">${l}</label><input id="${id}-${k}" data-kind="${kind}" data-i="${i}" data-k="${k}" value="${esc(s[k])}" placeholder="${esc(ph || "")}" ${extra && extra.attr || ""}></div>`;
+  return `<div class="card"><div class="row" style="margin-bottom:12px"><h2 style="margin:0"><span class="n">●</span>${label}${many ? " " + (i + 1) : ""}</h2><span class="sp"></span>
+      <button class="link" data-act="savestop" data-kind="${kind}" data-i="${i}" ${!s.siteId && s.company.trim() && s.address.trim() ? "" : "hidden"}>Save to address book</button>
+      ${many ? `<button class="link danger" data-act="rmstop" data-kind="${kind}" data-i="${i}">Remove</button>` : ""}</div>
+    <div style="margin-bottom:12px"><label for="${id}-site">Address book</label><select id="${id}-site" data-site data-kind="${kind}" data-i="${i}"><option value="">Type the details in, or choose a saved site…</option>
+      ${D.sites.map(x => `<option value="${esc(x.id)}" ${x.id === s.siteId ? "selected" : ""}>${esc(x.company)}${x.suburb ? " — " + esc(x.suburb) : ""}</option>`).join("")}</select>
+      ${site && site.notes ? `<div class="note ${/not confirmed/i.test(site.notes) ? "warn" : ""}">${esc(site.notes)}</div>` : ""}</div>
+    <div class="grid g2">
+      ${fld("company", "Company", "ABC Manufacturing")}${fld("title", "Short name for the title (optional)", "ABC")}
+      ${fld("address", "Address", "12 Example Road, Dandenong South VIC 3175", {span:true})}
+      ${fld("suburb", "Suburb", "Dandenong South")}${fld("contact", "Contact (optional)", "Sam — 0400 000 000")}
+      ${fld("date", "Date", "", {attr:'type="date"'})}${fld("time", "Time or window", "3:00 PM, or 7:00 AM – 3:00 PM", {attr:'list="dl-times"'})}
+    </div></div>`;
+}
+function sideHtml() {
+  const job = toJob(F), checks = checkList(F), named = job.pickups[0].company || job.deliveries[0].company;
+  return `<h2>Generate</h2><p class="mut small" style="word-break:break-word">${named ? esc(LoadSheetPdf.loadSheetFileName(job)) : "Fill in the pick up and delivery to see the file name."}</p>
+    ${formErr ? `<div class="errbox">${esc(formErr)}</div>` : ""}
+    ${checks.length ? `<div class="checks"><b>Check before sending</b><ul>${checks.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>` : ""}
+    <button class="btn pri wide" data-act="gen">Download load order + POD</button>
+    <button class="btn wide" data-act="pod" style="margin-top:8px">POD page only</button>
+    <div style="text-align:center;margin-top:10px"><button class="link" data-act="clear">Clear the form</button></div>
+    <p class="mut small" style="margin:12px 0 0">The carrier rate prints on the load order only. POD pages never show the rate or the carrier.</p>`;
+}
+function chipsHtml() {
+  const have = lines(F.instructions);
+  return `<span class="mut small">Add:</span>` + STANDARD.map(([l, t], i) => `<button data-act="std" data-n="${i}" class="${have.includes(t) ? "on" : ""}" ${have.includes(t) ? "disabled" : ""}>${have.includes(t) ? "✓" : "+"} ${l}</button>`).join("");
+}
+function vNew() {
+  return `<datalist id="dl-times">${TIMES.map(t => `<option value="${t}">`).join("")}</datalist><datalist id="dl-vehicles">${VEHICLES.map(t => `<option value="${t}">`).join("")}</datalist>
+    <datalist id="dl-carriers">${carriersUsed().map(t => `<option value="${esc(t)}">`).join("")}</datalist>
+    <div class="cols"><div>
+      ${F.pickups.map((s, i) => stopCard("pickups", s, i)).join("")}
+      <p><button class="link" data-act="add" data-kind="pickups">+ Add another pick up</button></p>
+      ${F.deliveries.map((s, i) => stopCard("deliveries", s, i)).join("")}
+      <p><button class="link" data-act="add" data-kind="deliveries">+ Add another delivery (each delivery gets its own POD page)</button></p>
+      <div class="card"><h2>Load, carrier and rate</h2><div class="grid g2">
+        <div><label for="f-quantity">Quantity (optional)</label><input id="f-quantity" data-f="quantity" value="${esc(F.quantity)}" placeholder="22 PLT — 18,500 KG"></div>
+        <div><label for="f-reference">Reference (optional)</label><input id="f-reference" data-f="reference" value="${esc(F.reference)}" placeholder="PO 123456"></div>
+        <div><label for="f-vehicle">Vehicle</label><input id="f-vehicle" data-f="vehicle" list="dl-vehicles" value="${esc(F.vehicle)}" placeholder="B-Double 4.6m — 180m3"></div>
+        <div><label for="f-carrier">Carrier</label><input id="f-carrier" data-f="carrier" list="dl-carriers" value="${esc(F.carrier)}" placeholder="Carrier name"></div>
+        <div><label for="f-rate">Carrier rate, excluding GST</label><input id="f-rate" data-f="rate" value="${esc(F.rate)}" placeholder="3400"><div class="note" id="ratenote">${F.rate.trim() ? "Prints as " + esc(formatRate(F.rate)) : ""}</div></div>
+      </div></div>
+      <div class="card"><div class="row" style="margin-bottom:12px"><h2 style="margin:0">Driver instructions</h2><span class="sp"></span>
+        <label style="margin:0;display:flex;gap:8px;align-items:center;cursor:pointer;color:var(--txt)"><input type="checkbox" id="f-highlight" ${F.highlight ? "checked" : ""}> Highlight so they stand out to the driver</label></div>
+        <textarea id="f-instructions" data-f="instructions" aria-label="Driver instructions, one per line" rows="6" placeholder="One instruction per line. A saved site adds its standing instructions here when you choose it.">${esc(F.instructions)}</textarea>
+        <div class="chips" id="chips" style="margin-top:10px">${chipsHtml()}</div></div>
+    </div><div class="card sticky" id="side">${sideHtml()}</div></div>`;
+}
+function refreshSide() { const s = $("#side"); if (s) s.innerHTML = sideHtml(); const c = $("#chips"); if (c) c.innerHTML = chipsHtml(); const r = $("#ratenote"); if (r) r.textContent = F.rate.trim() ? "Prints as " + formatRate(F.rate) : ""; }
+function bNew() {
+  const main = $("#main");
+  main.oninput = e => { const d = e.target.dataset;
+    if (d.k) { const s = F[d.kind][+d.i]; s[d.k] = e.target.value; const b = main.querySelector(`[data-act="savestop"][data-kind="${d.kind}"][data-i="${d.i}"]`); if (b) b.hidden = !!s.siteId || !s.company.trim() || !s.address.trim(); } else if (d.f) { F[d.f] = e.target.value; } else if (e.target.id === "f-highlight") { F.highlight = e.target.checked; } else return;
+    formErr = ""; refreshSide(); };
+  main.onchange = e => { const d = e.target.dataset;
+    if ("site" in d) { chooseSite(d.kind, +d.i, e.target.value); render(); }
+  };
+  main.onclick = async e => { const b = e.target.closest("[data-act]"); if (!b) return; const d = b.dataset;
+    if (d.act === "add") { F[d.kind].push(emptyStop()); render(); }
+    if (d.act === "rmstop") { F[d.kind].splice(+d.i, 1); render(); }
+    if (d.act === "std") { const t = STANDARD[+d.n][1]; if (!lines(F.instructions).includes(t)) { F.instructions = lines(F.instructions).concat(t).join("\n"); $("#f-instructions").value = F.instructions; refreshSide(); } }
+    if (d.act === "clear") { F = emptyForm(); formErr = ""; render(); }
+    if (d.act === "savestop") { const s = F[d.kind][+d.i]; const site = {id:uid(), company:s.company.trim(), short:(s.title || "").trim(), suburb:s.suburb.trim(), address:s.address.trim(), contact:(s.contact || "").trim(), instructions:"", notes:"", at:now(), by:me.name};
+      D.sites.push(site); D.sites.sort((a, c) => a.company.localeCompare(c.company)); s.siteId = site.id; await save("Site added: " + site.company); toast("Site saved to the address book"); }
+    if (d.act === "gen" || d.act === "pod") generate(d.act === "pod");
+  };
+}
+function chooseSite(kind, i, siteId) {
+  const s = F[kind][i], site = D.sites.find(x => x.id === siteId);
+  if (!site) { s.siteId = ""; return; }
+  Object.assign(s, {siteId, company:site.company, title:site.short || "", suburb:site.suburb || "", address:site.address, contact:site.contact || ""});
+  const have = lines(F.instructions); F.instructions = have.concat(lines(site.instructions).filter(l => !have.includes(l))).join("\n");
+}
+const pdfLogo = () => { try { return unb64(PDF_LOGO); } catch (e) { return null; } };
+function downloadPdf(bytes, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes], {type:"application/pdf"})); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+async function generate(podOnly) {
+  const job = toJob(F, podOnly), problems = LoadSheetPdf.validateLoadSheet(job);
+  if (problems.length) { formErr = problems.join(" "); return refreshSide(); }
+  formErr = "";
+  try {
+    const name = LoadSheetPdf.loadSheetFileName(job);
+    downloadPdf(await LoadSheetPdf.buildLoadSheetPdf(job, pdfLogo()), name);
+    D.sheets.unshift({id:uid(), at:now(), by:me.name || me.u, title:LoadSheetPdf.routeTitle(job), file:name, job});
+    D.sheets = D.sheets.slice(0, HISTORY_MAX);
+    await save((podOnly ? "POD: " : "Load sheet: ") + name.replace(/\.pdf$/, ""));
+    if (!unsynced) toast("Downloaded and saved to history");
+  } catch (e) { formErr = "Could not build the PDF: " + (e && e.message || e); refreshSide(); }
+}
+
+/* ===================== History ===================== */
+function historyRows() {
+  const q = histQ.trim().toLowerCase();
+  const rows = D.sheets.filter(s => !q || [s.title, s.file, s.by, s.job && s.job.carrier, s.job && s.job.reference].some(v => String(v || "").toLowerCase().includes(q)));
+  if (!rows.length) return `<tr><td colspan="5" class="mut" style="text-align:center;padding:36px 8px">${D.sheets.length ? "Nothing matches that search." : "No load sheets yet. Every sheet you download is saved here."}</td></tr>`;
+  return rows.map(s => `<tr data-id="${esc(s.id)}"><td><b>${esc(s.title)}</b><div class="mut small">${s.job && s.job.podOnly ? "POD only · " : ""}${esc(s.job && s.job.reference || "No reference")}</div></td>
+    <td style="white-space:nowrap">${shortDate(s.job && s.job.pickups && s.job.pickups[0] && s.job.pickups[0].date)}</td><td>${esc(s.job && s.job.carrier || "—")}</td>
+    <td class="mut small" style="white-space:nowrap">${stamp(s.at)}<br>${esc(s.by)}</td>
+    <td class="right" style="white-space:nowrap"><button class="btn sm" data-act="dl">Download</button> <button class="btn sm" data-act="copy">Copy to new</button> <button class="btn sm danger" data-act="del">Remove</button></td></tr>`).join("");
+}
+function vHistory() {
+  return `<div class="card"><input id="hq" aria-label="Search history" placeholder="Search by route, carrier, reference or who made it…" value="${esc(histQ)}" style="margin-bottom:12px">
+    <div class="scroll"><table class="t"><thead><tr><th>Load</th><th>Pick up</th><th>Carrier</th><th>Created</th><th></th></tr></thead><tbody id="hrows">${historyRows()}</tbody></table></div>
+    <p class="mut small" style="margin:12px 0 0">The most recent ${HISTORY_MAX} load sheets are kept.</p></div>`;
+}
+function bHistory() {
+  $("#hq").oninput = e => { histQ = e.target.value; $("#hrows").innerHTML = historyRows(); };
+  $("#main").onclick = async e => { const b = e.target.closest("[data-act]"); if (!b) return; const s = D.sheets.find(x => x.id === b.closest("tr").dataset.id); if (!s) return;
+    if (b.dataset.act === "dl") { try { downloadPdf(await LoadSheetPdf.buildLoadSheetPdf(s.job, pdfLogo()), s.file || LoadSheetPdf.loadSheetFileName(s.job)); } catch (x) { toast("Could not rebuild that PDF"); } }
+    if (b.dataset.act === "copy") { F = fromJob(s.job); formErr = ""; view = "new"; render(); window.scrollTo(0, 0); toast("Copied into a new load sheet — update the dates and reference"); }
+    if (b.dataset.act === "del") { if (!confirm("Remove this load sheet from history?")) return; D.sheets = D.sheets.filter(x => x !== s); touched.sheetsGone.add(s.id); await save("Load sheet removed from history"); }
+  };
+}
+
+/* ===================== Address book ===================== */
+function siteRows() {
+  const q = siteQ.trim().toLowerCase();
+  const rows = D.sites.filter(s => !q || [s.company, s.short, s.suburb, s.address, s.contact].some(v => String(v || "").toLowerCase().includes(q)));
+  if (!rows.length) return `<tr><td colspan="5" class="mut" style="text-align:center;padding:36px 8px">${D.sites.length ? "Nothing matches that search." : "The address book is empty. Add a site, or save one from a load sheet."}</td></tr>`;
+  return rows.map(s => `<tr data-id="${esc(s.id)}"><td><b>${esc(s.company)}</b><div class="mut small">${[s.short && "Title: " + esc(s.short), esc(s.suburb)].filter(Boolean).join(" · ")}</div></td>
+    <td>${esc(s.address)}${s.notes ? `<div class="note ${/not confirmed/i.test(s.notes) ? "warn" : ""}">${esc(s.notes)}</div>` : ""}</td><td>${esc(s.contact || "—")}</td>
+    <td class="small" style="max-width:320px">${lines(s.instructions).length ? "<ul>" + lines(s.instructions).map(l => `<li>${esc(l)}</li>`).join("") + "</ul>" : "—"}</td>
+    <td class="right" style="white-space:nowrap"><button class="btn sm" data-act="edit">Edit</button> <button class="btn sm danger" data-act="del">Remove</button></td></tr>`).join("");
+}
+function vSites() {
+  const e = siteEdit, f = (k, l, extra) => `<div ${extra === "span" ? 'class="span2"' : ""}><label for="se-${k}">${l}</label><input id="se-${k}" data-se="${k}" value="${esc(e[k])}"></div>`;
+  return `${e ? `<div class="card"><h2>${e.id ? "Edit site" : "Add site"}</h2><div class="grid g2">
+      ${f("company", "Company")}${f("short", "Short name for the title (optional)")}${f("address", "Address", "span")}${f("suburb", "Suburb")}${f("contact", "Contact (optional)")}
+      <div class="span2"><label for="se-instructions">Standing driver instructions — one per line, added to every load sheet that uses this site</label><textarea id="se-instructions" data-se="instructions" rows="3">${esc(e.instructions)}</textarea></div>
+      <div class="span2"><label for="se-notes">Internal notes — hours, caveats. Never printed on a load sheet</label><input id="se-notes" data-se="notes" value="${esc(e.notes)}"></div></div>
+      <div class="row" style="margin-top:14px"><button class="btn pri" id="se-save">Save site</button><button class="btn" id="se-cancel">Cancel</button><span class="err" id="se-err" style="margin:0"></span></div></div>` : ""}
+    <div class="card"><div class="row" style="margin-bottom:12px"><input id="sq" aria-label="Search the address book" placeholder="Search by company, suburb, address or contact…" value="${esc(siteQ)}" style="flex:1;min-width:220px"><button class="btn pri" id="se-add">+ Add site</button><button class="btn" id="se-import">Import</button><button class="btn" id="se-export" ${D.sites.length ? "" : "disabled"}>Export</button><input type="file" id="se-file" accept=".json,application/json" hidden></div>
+    <div class="scroll"><table class="t"><thead><tr><th>Site</th><th>Address</th><th>Contact</th><th>Standing instructions</th><th></th></tr></thead><tbody id="srows">${siteRows()}</tbody></table></div>
+    <p class="mut small" style="margin:12px 0 0">Import adds the sites from an address book file (the kind Export makes) and skips any that are already here. The address book is stored encrypted and is only readable after signing in.</p></div>`;
+}
+function bSites() {
+  $("#sq").oninput = e => { siteQ = e.target.value; $("#srows").innerHTML = siteRows(); };
+  $("#se-export").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(D.sites.map(({company, short, suburb, address, contact, instructions, notes}) => ({company, short, suburb, address, contact, instructions, notes})), null, 1)], {type:"application/json"})); a.download = "kubic-load-sheet-sites.json"; a.click(); };
+  $("#se-import").onclick = () => $("#se-file").click();
+  $("#se-file").onchange = async e => { const f = e.target.files[0]; if (!f) return;
+    let list; try { list = JSON.parse(await f.text()); if (!Array.isArray(list)) throw 0; } catch (x) { return toast("That file is not an address book export"); }
+    const key = s => (String(s.company || "") + "|" + String(s.address || "")).toLowerCase().replace(/\s+/g, " ").trim(); const have = new Set(D.sites.map(key)); let n = 0; const t = now();
+    for (const s of list) { if (!s || !String(s.company || "").trim() || !String(s.address || "").trim() || have.has(key(s))) continue; have.add(key(s)); n++;
+      D.sites.push({id:uid(), company:String(s.company).trim(), short:String(s.short || "").trim(), suburb:String(s.suburb || "").trim(), address:String(s.address).trim(), contact:String(s.contact || "").trim(), instructions:lines(s.instructions).join("\n"), notes:String(s.notes || "").trim(), at:t, by:me.name || me.u}); }
+    if (!n) return toast("Nothing new to import — those sites are already in the address book");
+    D.sites.sort((a, b) => a.company.localeCompare(b.company)); await save("Sites imported"); toast(n + (n === 1 ? " site" : " sites") + " imported"); };
+  $("#se-add").onclick = () => { siteEdit = {id:null, company:"", short:"", suburb:"", address:"", contact:"", instructions:"", notes:""}; render(); window.scrollTo(0, 0); };
+  $("#main").oninput = e => { if (siteEdit && e.target.dataset.se) siteEdit[e.target.dataset.se] = e.target.value; };
+  if (siteEdit) {
+    $("#se-cancel").onclick = () => { siteEdit = null; render(); };
+    $("#se-save").onclick = async () => { const e = siteEdit;
+      if (!e.company.trim() || !e.address.trim()) return $("#se-err").textContent = "A site needs a company and an address.";
+      const rec = {id:e.id || uid(), company:e.company.trim(), short:e.short.trim(), suburb:e.suburb.trim(), address:e.address.trim(), contact:e.contact.trim(), instructions:lines(e.instructions).join("\n"), notes:e.notes.trim(), at:now(), by:me.name || me.u};
+      const i = D.sites.findIndex(x => x.id === rec.id); if (i >= 0) D.sites[i] = rec; else D.sites.push(rec);
+      D.sites.sort((a, b) => a.company.localeCompare(b.company)); siteEdit = null;
+      await save((i >= 0 ? "Site updated: " : "Site added: ") + rec.company); if (!unsynced) toast(i >= 0 ? "Site updated" : "Site added"); };
+  }
+  $("#main").onclick = async e => { const b = e.target.closest("tr [data-act]"); if (!b) return; const s = D.sites.find(x => x.id === b.closest("tr").dataset.id); if (!s) return;
+    if (b.dataset.act === "edit") { siteEdit = Object.assign({}, s); render(); window.scrollTo(0, 0); }
+    if (b.dataset.act === "del") { if (!confirm("Remove " + s.company + " from the address book?")) return; D.sites = D.sites.filter(x => x !== s); touched.sitesGone.add(s.id); await save("Site removed: " + s.company); }
+  };
+}
+
+/* ===================== My account ===================== */
+const ROLE = {admin:"Administrator — everything, including users and settings", editor:"User — create load sheets and edit the address book"};
+function vUsers() {
+  return `<div class="card"><h2>My password</h2><div class="grid g3"><div><label for="mp1">New password (10+ characters)</label><input type="password" id="mp1"></div><div><label for="mp2">Confirm</label><input type="password" id="mp2"></div><div style="align-self:end"><button class="btn" id="mpgo">Change password</button></div></div>
+    <div class="row" style="margin-top:16px"><button class="btn" id="rcnew">Create a new recovery code</button><span class="mut small">${me.rwrap ? "You have a recovery code. A new one cancels it." : "You have no recovery code yet — create one so you can reset a forgotten password yourself."}</span></div>
+    <p class="mut small" style="margin:14px 0 0">Signed in as <b style="color:var(--txt)">${esc(me.u)}</b> · ${ROLE[me.role] || me.role}</p></div>`;
+}
+function bUsers() {
+  $("#mpgo").onclick = async () => { const p = $("#mp1").value; if (p.length < 10) return toast("Password must be at least 10 characters"); if (p !== $("#mp2").value) return toast("Passwords do not match"); await setPassword(me, p, false); await save("Password changed for " + me.u); if (!unsynced) toast("Password changed"); };
+  $("#rcnew").onclick = async () => { const code = await makeRecovery(me); await save("Recovery code created for " + me.u); showCode(code); };
+}
+
+/* ===================== Settings ===================== */
+const tempPw = () => "Kubic-" + Array.from(rnd(6), b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
+function usersCard() {
+  return `<div class="card"><h2>Users</h2><p class="mut">These logins belong to this tool only. An <b style="color:var(--txt)">Administrator</b> can also add and remove users and change these settings. A <b style="color:var(--txt)">User</b> can create load sheets and edit the address book.</p>
+  ${unsynced || !D.ghToken ? '<div class="banner">Other people cannot sign in yet. Logins are only shared once this tool is saving to GitHub — the status at the top right must read “Saved to GitHub”. Fix the GitHub token above first.</div>' : ""}
+  <div class="scroll"><table class="t"><thead><tr><th>Name</th><th>Username</th><th>Access</th><th></th></tr></thead><tbody>
+  ${file.users.map(u => `<tr data-u="${esc(u.u)}"><td><b>${esc(u.name)}</b>${u.u === me.u ? ' <span class="pill">you</span>' : ""}${u.mustChange ? ' <span class="pill warn">temporary password — not signed in yet</span>' : ""}</td><td>${esc(u.u)}</td>
+    <td><select data-role aria-label="Access for ${esc(u.name)}" style="width:auto" ${u.u === me.u ? "disabled" : ""}>${["admin","editor"].map(r => `<option value="${r}" ${u.role === r ? "selected" : ""}>${ROLE[r]}</option>`).join("")}</select></td>
+    <td class="right">${u.u === me.u ? "" : '<button class="btn sm" data-reset>Reset password</button> <button class="btn sm danger" data-delu>Remove</button>'}</td></tr>`).join("")}
+  </tbody></table></div>
+  <div class="timing"><b>Add a user</b><div class="grid g4" style="margin-top:10px"><div><label for="nu_name">Name</label><input id="nu_name" placeholder="e.g. Emma Smith"></div><div><label for="nu_user">Username (what they type to sign in)</label><input id="nu_user" autocapitalize="none" placeholder="e.g. emma"></div>
+    <div><label for="nu_role">Access</label><select id="nu_role"><option value="editor">${ROLE.editor}</option><option value="admin">${ROLE.admin}</option></select></div><div><label for="nu_pw">Temporary password</label><input id="nu_pw"></div></div>
+  <div class="row" style="margin-top:12px"><button class="btn pri" id="nu_go">Add user</button><span class="mut small">Send them the link, their username and this temporary password. They choose their own password the first time they sign in.</span></div></div>
+  <div id="nu_done"></div></div>`;
+}
+function handover(name, u, pw) {   // details to pass on, shown once
+  const link = location.origin + location.pathname, txt = `Kubic Load Sheets\nLink: ${link}\nUsername: ${u}\nTemporary password: ${pw}\nYou will be asked to choose your own password the first time you sign in.`;
+  const el = $("#nu_done"); if (!el) return; el.innerHTML = `<div class="rate" style="margin-top:14px;border-color:var(--ok)"><b>Login ready for ${esc(name)}</b><pre style="margin:8px 0;white-space:pre-wrap;font:13px ui-monospace,Menlo,Consolas,monospace">${esc(txt)}</pre><button class="btn sm" id="nu_copy">Copy these details</button> <span class="mut small">The temporary password is not shown again.</span></div>`;
+  $("#nu_copy").onclick = async () => { try { await navigator.clipboard.writeText(txt); toast("Copied"); } catch (e) { toast("Select the text and copy it by hand"); } };
+}
+function vSettings() {
+  return `<div class="card"><h2>Sharing through GitHub</h2><p class="mut">Everything — logins, the address book and the load sheet history — is stored, encrypted, in one file in your GitHub repository. With a token saved here, every signed-in person's changes are committed straight to GitHub. Without one, changes stay in this browser.</p>
+    <div class="grid g4"><div><label for="r_owner">Owner</label><input id="r_owner" data-r="owner" value="${esc(repo.owner)}"></div><div><label for="r_repo">Repository</label><input id="r_repo" data-r="repo" value="${esc(repo.repo)}"></div><div><label for="r_branch">Branch</label><input id="r_branch" data-r="branch" value="${esc(repo.branch)}"></div><div><label for="r_path">Data file</label><input id="r_path" data-r="path" value="${esc(repo.path)}"></div></div>
+    <div style="margin-top:12px"><label for="tok">GitHub token</label><div class="row"><input type="password" id="tok" value="${esc(D.ghToken)}" placeholder="github_pat_… or ghp_…" style="flex:1" autocomplete="off"><button class="btn sm" id="tokshow">Show</button></div></div>
+    <div class="row" style="margin-top:12px"><button class="btn pri" id="toktest">Test and save token</button><span class="pill ${!unsynced && D.ghToken ? "ok" : "warn"}">${!unsynced && D.ghToken ? "Connected — saving to GitHub" : "Not connected"}</span></div>
+    ${tokMsg ? `<div class="rate" style="margin-top:12px;border-color:${tokMsg.ok ? "var(--ok)" : "var(--bad)"}"><b style="color:${tokMsg.ok ? "var(--ok)" : "var(--bad)"}">${tokMsg.ok ? "Working" : "Not working"}</b><div style="margin-top:4px">${tokMsg.text}</div>${tokMsg.gh ? `<div class="mut small" style="margin-top:6px">GitHub's reply: ${esc(tokMsg.gh)}</div>` : ""}</div>` : ""}
+    <details style="margin-top:14px" ${!unsynced && D.ghToken ? "" : "open"}><summary style="cursor:pointer;color:var(--acc)">How to make a token that works</summary>
+      <div class="grid g2" style="margin-top:10px;align-items:start"><div class="rate"><b>Easiest: a classic token</b><ol style="margin:8px 0 0;padding-left:18px"><li>Open <a href="https://github.com/settings/tokens/new?scopes=public_repo&description=Kubic%20load%20sheets" target="_blank" rel="noopener">this GitHub page</a> while signed in as ${esc(repo.owner)}.</li><li>Leave the <b>public_repo</b> box ticked. Tick nothing else.</li><li>Set an expiry, click <b>Generate token</b>, and copy it (starts <code>ghp_</code>).</li><li>Paste it above and click Test and save token.</li></ol></div>
+      <div class="rate"><b>Tighter: a fine-grained token</b><ol style="margin:8px 0 0;padding-left:18px"><li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">this GitHub page</a>.</li><li><b>Repository access</b>: “Only select repositories”, then pick <b>${esc(repo.repo)}</b>.</li><li><b>Permissions → Repository permissions → Contents</b>: set to <b>Read and write</b>.</li><li>Generate, copy (starts <code>github_pat_</code>), paste above and test.</li></ol><div class="mut small" style="margin-top:6px">Both steps 2 and 3 are needed. The token you already use for the fuel levy tool also works here if it covers this repository.</div></div></div></details></div>
+  ${usersCard()}
+  <div class="card"><h2>Backup</h2><div class="row"><button class="btn" id="dl2">Download encrypted data file</button></div></div>`;
+}
+function bSettings() {
+  $("#nu_pw").value = tempPw();
+  $("#nu_go").onclick = async () => { const u = $("#nu_user").value.trim().toLowerCase(), n = $("#nu_name").value.trim(), pw = $("#nu_pw").value, role = $("#nu_role").value;
+    if (!u || !n) return toast("Enter a name and username"); if (!/^[a-z0-9._-]+$/.test(u)) return toast("Username can only use letters, numbers, dot, dash and underscore"); if (file.users.some(x => x.u === u)) return toast("That username is taken"); if (pw.length < 8) return toast("Temporary password is too short");
+    file.users.push(await makeUser(u, n, role, pw, keyRaw, true)); touched.users.add(u); touched.usersGone.delete(u); await save("User added: " + u); handover(n, u, pw); };
+  $("#main").onclick = (async e => { const tr = e.target.closest("tr[data-u]"); if (!tr) return; const u = file.users.find(x => x.u === tr.dataset.u); if (!u) return;
+    if ("reset" in e.target.dataset) { const pw = tempPw(); if (!confirm("Reset the password for " + u.name + "? Their current password stops working.")) return; await setPassword(u, pw, true); delete u.rwrap; delete u.rsalt; await save("Password reset for " + u.u); handover(u.name, u.u, pw); }
+    if ("delu" in e.target.dataset) { if (!confirm("Remove " + u.name + "? They will no longer be able to sign in.")) return; file.users = file.users.filter(x => x !== u); touched.usersGone.add(u.u); touched.users.delete(u.u); await save("User removed: " + u.u); } });
+  $("#main").onchange = (async e => { const r = e.target.dataset.r;
+    if ("role" in e.target.dataset) { const u = file.users.find(x => x.u === e.target.closest("tr").dataset.u); u.role = e.target.value; touched.users.add(u.u); return save("Access changed for " + u.u); }
+    if (r) { repo[r] = e.target.value.trim(); localStorage.setItem("kls_repo", JSON.stringify(repo)); fileSha = null; toast("Data location updated for this browser"); } });
+  $("#dl2").onclick = downloadFile;
+  $("#tokshow").onclick = () => { const i = $("#tok"); i.type = i.type === "password" ? "text" : "password"; $("#tokshow").textContent = i.type === "password" ? "Show" : "Hide"; };
+  $("#toktest").onclick = async () => { const t = $("#tok").value.replace(/\s+/g, ""); const fix = `On GitHub, edit the token so that <b>Repository access</b> includes <b>${esc(repo.repo)}</b> and <b>Contents</b> is set to <b>Read and write</b> — or use the classic token steps below. Then press Test and save token again; the same token keeps working once its permissions are fixed.`;
+    touched.token = true;
+    if (!t) { D.ghToken = ""; tokMsg = null; return save(); }
+    if (!/^(github_pat_|ghp_|gho_|ghu_)[A-Za-z0-9_]{20,}$/.test(t)) { tokMsg = {ok:false, text:"That does not look like a complete GitHub token. It should start with <b>github_pat_</b> or <b>ghp_</b> and have no spaces. GitHub shows a token only once, when it is created — if you did not copy it then, use <b>Regenerate token</b> on GitHub and paste the new value."}; return render(); }
+    $("#toktest").disabled = true; $("#toktest").textContent = "Testing…";
+    let who = null, st = 0, gh = "";
+    try { const r = await fetch("https://api.github.com/user", {headers:{Authorization:"Bearer " + t, Accept:"application/vnd.github+json"}}); st = r.status; const j = await r.json().catch(() => ({})); if (r.ok) who = j.login; else gh = j.message || ""; }
+    catch (e) { tokMsg = {ok:false, text:"This browser could not reach GitHub at all. Check the internet connection, or whether a work firewall or ad-blocker is blocking api.github.com."}; return render(); }
+    if (st === 401) { tokMsg = {ok:false, gh, text:"GitHub does not recognise this token. It was mis-copied, has expired, or was deleted or regenerated since. Use <b>Regenerate token</b> on GitHub and paste the new value."}; return render(); }
+    D.ghToken = t; await save("GitHub connection set up");
+    if (!unsynced) tokMsg = {ok:true, text:`Saved to <b>${esc(repo.owner)}/${esc(repo.repo)}</b>${who ? " as " + esc(who) : ""}. Everyone who signs in now shares the same address book and history.`};
+    else { const e = saveErr || {}; tokMsg = {ok:false, gh:e.gh, text:e.status === 403 || e.status === 404 ? `The token is genuine${who ? " (it belongs to " + esc(who) + ")" : ""}, but GitHub will not let it write to <b>${esc(repo.owner)}/${esc(repo.repo)}</b>. ` + fix : e.status ? "GitHub refused the save (error " + e.status + "). " + fix : "The token looks fine but the save could not reach GitHub. Try again."}; }
+    render(); };
+}
+
+boot();
+</script>
+</body>
+</html>
