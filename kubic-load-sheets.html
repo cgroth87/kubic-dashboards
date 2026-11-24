@@ -159,6 +159,7 @@ const BLACK = rgb(0, 0, 0);
 const FOOTER = "KUBIC TRANSPORT  |  11 Leader Street, Truganina VIC 3029  |  bdm@kubic.com.au  |  www.kubic.com.au";
 const TERMS = [
   ["Requirements:", " Please communicate any delays after 30mins waiting. Please ensure you check the freight weight and do not overload, correctly restrain your load with correct distribution over the axles, always wear PPE, safe driving procedures to be adhered to and fatigue management plan to be completed."],
+  ["Fatigue & schedule:", " This job has been scheduled to be completed within legal work and rest hours. Do not speed or drive while fatigued to meet a timeslot. If the schedule cannot be met safely, stop and call Kubic so the delivery can be re-timed."],
   ["Futiles & Fees:", " Load Rate is agreed to upon receival of this Kubic Load order. Kubic Transport will not be liable for extra fees, demurrage, surcharges or futiles, unless explicitly authorized by Kubic Transport Management."],
   ["Payment terms:", " 30 Days from received invoice and complete signed PODs including pallet dockets. If no paperwork is provided to the carrier, then the driver should ask to have a Runsheet signed/Manual docket as a POD."],
   ["", "PLEASE QUOTE THE ABOVE KUBIC LOAD ORDER ON INVOICE. No payments will be made unless a signed POD and all accompanying paperwork is provided."],
@@ -487,7 +488,7 @@ const snapBase = () => { base = {sites:new Set(D.sites.map(s => s.id)), sheets:n
 const clearTouched = () => { touched.users.clear(); touched.usersGone.clear(); touched.sitesGone.clear(); touched.sheetsGone.clear(); touched.token = false; };
 
 const emptyStop = () => ({siteId:"", company:"", title:"", suburb:"", address:"", contact:"", date:"", time:""});
-const emptyForm = () => ({pickups:[emptyStop()], deliveries:[emptyStop()], vehicle:"", carrier:"", rate:"", quantity:"", reference:"", instructions:"", highlight:true});
+const emptyForm = () => ({pickups:[emptyStop()], deliveries:[emptyStop()], vehicle:"", carrier:"", rate:"", quantity:"", reference:"", instructions:"", highlight:true, compliance:false, schedule:false});
 let F = emptyForm();            // the load sheet being built
 let formErr = "";
 let siteEdit = null;            // null | {id|null, ...fields}
@@ -711,12 +712,12 @@ function formatRate(raw) {
 function toJob(f, podOnly) {
   const stop = s => ({company:s.company.trim(), title:(s.title || "").trim() || undefined, suburb:s.suburb.trim(), address:s.address.trim(), contact:(s.contact || "").trim() || undefined, date:s.date, time:s.time.trim()});
   return {pickups:f.pickups.map(stop), deliveries:f.deliveries.map(stop), vehicle:f.vehicle.trim(), carrier:f.carrier.trim(), rate:formatRate(f.rate),
-    quantity:f.quantity.trim() || undefined, reference:f.reference.trim() || undefined, instructions:lines(f.instructions), highlight:!!f.highlight, podOnly:!!podOnly};
+    quantity:f.quantity.trim() || undefined, reference:f.reference.trim() || undefined, instructions:lines(f.instructions), highlight:!!f.highlight, podOnly:!!podOnly, checks:{compliance:!!f.compliance, schedule:!!f.schedule}};
 }
 function fromJob(job) {
   const stop = s => ({siteId:"", company:s.company || "", title:s.title || "", suburb:s.suburb || "", address:s.address || "", contact:s.contact || "", date:s.date || "", time:s.time || ""});
   return {pickups:(job.pickups || []).map(stop), deliveries:(job.deliveries || []).map(stop), vehicle:job.vehicle || "", carrier:job.carrier || "", rate:job.rate || "",
-    quantity:job.quantity || "", reference:job.reference || "", instructions:(job.instructions || []).join("\n"), highlight:!!job.highlight};
+    quantity:job.quantity || "", reference:job.reference || "", instructions:(job.instructions || []).join("\n"), highlight:!!job.highlight, compliance:false, schedule:false};
 }
 /** Things worth a second look before the sheet goes to a carrier. None of them stop the download. */
 function checkList(f) {
@@ -729,8 +730,20 @@ function checkList(f) {
     else if (firstPick && d.date === firstPick) out.push(`Delivery${n} is on the same day as the pick up — check that is right.`);
     if (!d.time.trim()) out.push(`Delivery${n} has no time.`); if (!d.address.trim()) out.push(`Delivery${n} has no street address.`); });
   if (!f.carrier.trim()) out.push("No carrier entered."); if (!f.rate.trim()) out.push("No rate entered.");
+  if (!f.compliance) out.push("Carrier compliance not confirmed. Check the carrier's insurance and questionnaire are current in the Compliance Portal before booking (QMS-023).");
+  if (!f.schedule) out.push("Schedule not confirmed. Check the job can be done within legal work and rest hours, including loading and waiting time (QMS-023).");
   f.pickups.concat(f.deliveries).forEach(s => { const site = D.sites.find(x => x.id === s.siteId); if (site && /not confirmed/i.test(site.notes || "")) out.push(`${site.company}: ${site.notes}`); });
   return out;
+}
+/** One row per carrier: loads, first and last pick up date, and loads where the booking checks were not confirmed. */
+function carriersCsv() {
+  const m = new Map();
+  D.sheets.forEach(s => { const j = s.job; if (!j || !j.carrier || j.podOnly) return; const d = (j.pickups || []).map(p => p.date).filter(Boolean).sort()[0] || String(s.at || "").slice(0, 10);
+    const r = m.get(j.carrier.toLowerCase()) || {name:j.carrier, loads:0, first:d, last:d, unchecked:0}; r.loads++; if (d && (!r.first || d < r.first)) r.first = d; if (d && (!r.last || d > r.last)) r.last = d;
+    if (j.checks && !(j.checks.compliance && j.checks.schedule)) r.unchecked++; m.set(j.carrier.toLowerCase(), r); });
+  if (!m.size) return "";
+  const q = v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+  return ["carrier,loads,first_pick_up,last_pick_up,loads_checks_not_confirmed"].concat(Array.from(m.values()).sort((a, b) => a.name.localeCompare(b.name)).map(r => [r.name, r.loads, r.first, r.last, r.unchecked].map(q).join(","))).join("\r\n");
 }
 const carriersUsed = () => Array.from(new Set(D.sheets.map(s => s.job && s.job.carrier).filter(Boolean))).sort();
 
@@ -778,6 +791,11 @@ function vNew() {
         <div><label for="f-vehicle">Vehicle</label><input id="f-vehicle" data-f="vehicle" list="dl-vehicles" value="${esc(F.vehicle)}" placeholder="B-Double 4.6m — 180m3"></div>
         <div><label for="f-carrier">Carrier</label><input id="f-carrier" data-f="carrier" list="dl-carriers" value="${esc(F.carrier)}" placeholder="Carrier name"></div>
         <div><label for="f-rate">Carrier rate, excluding GST</label><input id="f-rate" data-f="rate" value="${esc(F.rate)}" placeholder="3400"><div class="note" id="ratenote">${F.rate.trim() ? "Prints as " + esc(formatRate(F.rate)) : ""}</div></div>
+      </div>
+      <div style="margin-top:14px;display:grid;gap:8px">
+        <label style="margin:0;display:flex;gap:8px;align-items:flex-start;cursor:pointer;color:var(--txt)"><input type="checkbox" id="f-compliance" ${F.compliance ? "checked" : ""} style="margin-top:3px"> <span>Carrier's insurance and questionnaire are current in the Compliance Portal</span></label>
+        <label style="margin:0;display:flex;gap:8px;align-items:flex-start;cursor:pointer;color:var(--txt)"><input type="checkbox" id="f-schedule" ${F.schedule ? "checked" : ""} style="margin-top:3px"> <span>The pick up and delivery times can be met within legal work and rest hours, including loading and waiting time</span></label>
+        <div class="note">Required before a load is booked (QMS-023). Your answers are saved with the load sheet.</div>
       </div></div>
       <div class="card"><div class="row" style="margin-bottom:12px"><h2 style="margin:0">Driver instructions</h2><span class="sp"></span>
         <label style="margin:0;display:flex;gap:8px;align-items:center;cursor:pointer;color:var(--txt)"><input type="checkbox" id="f-highlight" ${F.highlight ? "checked" : ""}> Highlight so they stand out to the driver</label></div>
@@ -789,7 +807,7 @@ function refreshSide() { const s = $("#side"); if (s) s.innerHTML = sideHtml(); 
 function bNew() {
   const main = $("#main");
   main.oninput = e => { const d = e.target.dataset;
-    if (d.k) { const s = F[d.kind][+d.i]; s[d.k] = e.target.value; const b = main.querySelector(`[data-act="savestop"][data-kind="${d.kind}"][data-i="${d.i}"]`); if (b) b.hidden = !!s.siteId || !s.company.trim() || !s.address.trim(); } else if (d.f) { F[d.f] = e.target.value; } else if (e.target.id === "f-highlight") { F.highlight = e.target.checked; } else return;
+    if (d.k) { const s = F[d.kind][+d.i]; s[d.k] = e.target.value; const b = main.querySelector(`[data-act="savestop"][data-kind="${d.kind}"][data-i="${d.i}"]`); if (b) b.hidden = !!s.siteId || !s.company.trim() || !s.address.trim(); } else if (d.f) { F[d.f] = e.target.value; } else if (e.target.id === "f-highlight") { F.highlight = e.target.checked; } else if (e.target.id === "f-compliance") { F.compliance = e.target.checked; } else if (e.target.id === "f-schedule") { F.schedule = e.target.checked; } else return;
     formErr = ""; refreshSide(); };
   main.onchange = e => { const d = e.target.dataset;
     if ("site" in d) { chooseSite(d.kind, +d.i, e.target.value); render(); }
@@ -831,7 +849,7 @@ function historyRows() {
   const q = histQ.trim().toLowerCase();
   const rows = D.sheets.filter(s => !q || [s.title, s.file, s.by, s.job && s.job.carrier, s.job && s.job.reference].some(v => String(v || "").toLowerCase().includes(q)));
   if (!rows.length) return `<tr><td colspan="5" class="mut" style="text-align:center;padding:36px 8px">${D.sheets.length ? "Nothing matches that search." : "No load sheets yet. Every sheet you download is saved here."}</td></tr>`;
-  return rows.map(s => `<tr data-id="${esc(s.id)}"><td><b>${esc(s.title)}</b><div class="mut small">${s.job && s.job.podOnly ? "POD only · " : ""}${esc(s.job && s.job.reference || "No reference")}</div></td>
+  return rows.map(s => `<tr data-id="${esc(s.id)}"><td><b>${esc(s.title)}</b><div class="mut small">${s.job && s.job.podOnly ? "POD only · " : ""}${esc(s.job && s.job.reference || "No reference")}${s.job && s.job.checks ? (s.job.checks.compliance && s.job.checks.schedule ? " · checks confirmed" : " · <span style=\"color:var(--warn,#e0a030)\">checks not confirmed</span>") : ""}</div></td>
     <td style="white-space:nowrap">${shortDate(s.job && s.job.pickups && s.job.pickups[0] && s.job.pickups[0].date)}</td><td>${esc(s.job && s.job.carrier || "—")}</td>
     <td class="mut small" style="white-space:nowrap">${stamp(s.at)}<br>${esc(s.by)}</td>
     <td class="right" style="white-space:nowrap"><button class="btn sm" data-act="dl">Download</button> <button class="btn sm" data-act="copy">Copy to new</button> <button class="btn sm danger" data-act="del">Remove</button></td></tr>`).join("");
@@ -839,10 +857,13 @@ function historyRows() {
 function vHistory() {
   return `<div class="card"><input id="hq" aria-label="Search history" placeholder="Search by route, carrier, reference or who made it…" value="${esc(histQ)}" style="margin-bottom:12px">
     <div class="scroll"><table class="t"><thead><tr><th>Load</th><th>Pick up</th><th>Carrier</th><th>Created</th><th></th></tr></thead><tbody id="hrows">${historyRows()}</tbody></table></div>
-    <p class="mut small" style="margin:12px 0 0">The most recent ${HISTORY_MAX} load sheets are kept.</p></div>`;
+    <div class="row" style="margin-top:12px"><p class="mut small" style="margin:0">The most recent ${HISTORY_MAX} load sheets are kept.</p><span class="sp"></span><button class="btn sm" id="hcsv">Carriers used (CSV)</button></div>
+    <p class="mut small" style="margin:8px 0 0">The CSV lists each carrier with its number of loads and last pick up date. Import it on the Monthly Report page of the Compliance Portal.</p></div>`;
 }
 function bHistory() {
   $("#hq").oninput = e => { histQ = e.target.value; $("#hrows").innerHTML = historyRows(); };
+  $("#hcsv").onclick = () => { const csv = carriersCsv(); if (!csv) return toast("No carriers in the history yet");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], {type:"text/csv"})); a.download = "kubic-carriers-used-" + new Date().toISOString().slice(0, 10) + ".csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
   $("#main").onclick = async e => { const b = e.target.closest("[data-act]"); if (!b) return; const s = D.sheets.find(x => x.id === b.closest("tr").dataset.id); if (!s) return;
     if (b.dataset.act === "dl") { try { downloadPdf(await LoadSheetPdf.buildLoadSheetPdf(s.job, pdfLogo()), s.file || LoadSheetPdf.loadSheetFileName(s.job)); } catch (x) { toast("Could not rebuild that PDF"); } }
     if (b.dataset.act === "copy") { F = fromJob(s.job); formErr = ""; view = "new"; render(); window.scrollTo(0, 0); toast("Copied into a new load sheet — update the dates and reference"); }
