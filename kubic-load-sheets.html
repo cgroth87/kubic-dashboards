@@ -410,7 +410,7 @@ function validateLoadSheet(job) {
   if (!job.vehicle.trim()) problems.push("Choose a vehicle type.");
   return problems;
 }
-async function buildLoadSheetPdf(job, logoPng) {
+async function buildLoadSheetPdf(job, logoPng, guidePdfs) {
   const doc = await PDFDocument.create();
   const regular = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -455,6 +455,10 @@ async function buildLoadSheetPdf(job, logoPng) {
       ] }
     ], title);
     drawTerms(ctx, y, title);
+    for (const bytes of guidePdfs || []) {   // load restraint guides attached to the sites on this sheet
+      const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      (await doc.copyPages(src, src.getPageIndices())).forEach((pg) => doc.addPage(pg));
+    }
   }
   for (const drop of allDrops) {
     const title = `PROOF OF DELIVERY \u2014 ${multiDrop ? `DROP ${drop.n} OF ${allDrops.length} \u2014 ` : ""}${route}`;
@@ -468,7 +472,39 @@ async function buildLoadSheetPdf(job, logoPng) {
   return doc.save();
 }
 
-return { buildLoadSheetPdf, formatLongDate, loadSheetFileName, routeTitle, validateLoadSheet, vehicleShort };
+/** Turn an uploaded PDF (optionally only some pages) or a set of JPG/PNG pictures into one guide PDF. */
+async function buildGuidePdf(files, pageSpec) {
+  const out = await PDFDocument.create();
+  for (const f of files) {
+    const isPdf = /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name);
+    if (isPdf) {
+      const src = await PDFDocument.load(f.bytes, { ignoreEncryption: true });
+      const n = src.getPageCount();
+      let idx = src.getPageIndices();
+      const spec = String(pageSpec || "").trim();
+      if (spec) {
+        idx = [];
+        for (const part of spec.split(",")) {
+          const m = /^\s*(\d+)\s*(?:-\s*(\d+)\s*)?$/.exec(part);
+          if (!m) throw new Error("Pages should look like 2-7 or 2,4,6.");
+          const a = +m[1], b = m[2] ? +m[2] : a;
+          if (a < 1 || b < a || b > n) throw new Error(`That file has ${n} page${n === 1 ? "" : "s"} \u2014 check the page numbers.`);
+          for (let i = a; i <= b; i++) idx.push(i - 1);
+        }
+      }
+      (await out.copyPages(src, idx)).forEach((pg) => out.addPage(pg));
+    } else {
+      const img = /png$/i.test(f.type) || /\.png$/i.test(f.name) ? await out.embedPng(f.bytes) : await out.embedJpg(f.bytes);
+      const page = out.addPage([W, H]);
+      const m = 28, k = Math.min((W - 2 * m) / img.width, (H - 2 * m) / img.height);
+      page.drawImage(img, { x: (W - img.width * k) / 2, y: (H - img.height * k) / 2, width: img.width * k, height: img.height * k });
+    }
+  }
+  if (!out.getPageCount()) throw new Error("No pages to attach.");
+  return { bytes: await out.save(), pages: out.getPageCount() };
+}
+
+return { buildLoadSheetPdf, buildGuidePdf, formatLongDate, loadSheetFileName, routeTitle, validateLoadSheet, vehicleShort };
 })();
 
 /* ===================== State ===================== */
@@ -482,19 +518,21 @@ let me = null;        // user record
 let D = null;         // decrypted payload {sites, sheets, ghToken}
 let unsynced = false, view = "new";
 // What this browser has changed since it last matched GitHub — used to merge with other people's saves.
-const touched = {users:new Set(), usersGone:new Set(), sitesGone:new Set(), sheetsGone:new Set(), token:false};
-let base = {sites:new Set(), sheets:new Set()};   // ids that existed when we last matched GitHub
-const snapBase = () => { base = {sites:new Set(D.sites.map(s => s.id)), sheets:new Set(D.sheets.map(s => s.id))}; };
-const clearTouched = () => { touched.users.clear(); touched.usersGone.clear(); touched.sitesGone.clear(); touched.sheetsGone.clear(); touched.token = false; };
+const touched = {users:new Set(), usersGone:new Set(), sitesGone:new Set(), sheetsGone:new Set(), guidesGone:new Set(), token:false};
+let base = {sites:new Set(), sheets:new Set(), guides:new Set()};   // ids that existed when we last matched GitHub
+const guides = () => D.guides || (D.guides = []);   // load restraint guides: [{id, name, pages, size, at, by}] — the pages themselves live in their own encrypted files
+const snapBase = () => { base = {sites:new Set(D.sites.map(s => s.id)), sheets:new Set(D.sheets.map(s => s.id)), guides:new Set(guides().map(g => g.id))}; };
+const clearTouched = () => { touched.users.clear(); touched.usersGone.clear(); touched.sitesGone.clear(); touched.sheetsGone.clear(); touched.guidesGone.clear(); touched.token = false; };
 
 const emptyStop = () => ({siteId:"", company:"", title:"", suburb:"", address:"", contact:"", date:"", time:""});
-const emptyForm = () => ({pickups:[emptyStop()], deliveries:[emptyStop()], vehicle:"", carrier:"", rate:"", quantity:"", reference:"", instructions:"", highlight:true, compliance:false, schedule:false});
+const emptyForm = () => ({pickups:[emptyStop()], deliveries:[emptyStop()], vehicle:"", carrier:"", rate:"", quantity:"", reference:"", instructions:"", highlight:true, compliance:false, schedule:false, noGuides:false, extraGuides:[]});
 let F = emptyForm();            // the load sheet being built
 let formErr = "";
 let siteEdit = null;            // null | {id|null, ...fields}
+let guideBusy = "", guideErr = "";   // upload progress / problem shown in the site editor
 let histQ = "", siteQ = "";
 
-const seedData = () => ({sites: [], sheets: [], ghToken: ""});
+const seedData = () => ({sites: [], sheets: [], guides: [], ghToken: ""});
 
 /* ===================== GitHub storage ===================== */
 const apiUrl = () => `https://api.github.com/repos/${repo.owner}/${repo.repo}/contents/${repo.path}`;
@@ -531,6 +569,7 @@ async function mergeRemote(remote) {
   };
   D.sites = fold(D.sites, RD.sites, base.sites, touched.sitesGone).sort((a, b) => a.company.localeCompare(b.company));
   D.sheets = fold(D.sheets, RD.sheets, base.sheets, touched.sheetsGone).sort((a, b) => (b.at || "").localeCompare(a.at || "")).slice(0, HISTORY_MAX);
+  D.guides = fold(guides(), RD.guides, base.guides, touched.guidesGone).sort((a, b) => a.name.localeCompare(b.name));
   if (!touched.token) D.ghToken = RD.ghToken || D.ghToken;
   const users = new Map((remote.users || []).filter(u => !touched.usersGone.has(u.u)).map(u => [u.u, u]));
   for (const u of file.users) if (touched.users.has(u.u)) users.set(u.u, u);
@@ -584,6 +623,46 @@ async function refresh(force) {
   }, () => {}));
 }
 function downloadFile() { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 1)], {type:"application/json"})); a.download = repo.path.split("/").pop(); a.click(); }
+
+/* ===================== Load restraint guides (each one is its own encrypted file beside the data file) ===================== */
+const GUIDE_MAX = 6 * 1024 * 1024;
+const guideCache = new Map();   // id -> Uint8Array (PDF)
+const guidePath = id => repo.path.replace(/[^/]*$/, "") + "load-sheets-guides/" + id + ".json";
+const guideUrl = id => `https://api.github.com/repos/${repo.owner}/${repo.repo}/contents/${guidePath(id)}`;
+async function putGuide(id, bytes) {
+  if (!D.ghToken) throw new Error("Add the GitHub token in Settings first — guides are stored in the shared data.");
+  const boxed = await seal(await aesKey(keyRaw), bytes);
+  const r = await fetch(guideUrl(id), {method:"PUT", headers:{Accept:"application/vnd.github+json", Authorization:"Bearer " + D.ghToken, "Content-Type":"application/json"},
+    body:JSON.stringify({message:"Load sheets data updated", content:b64(enc.encode(JSON.stringify({v:1, iv:boxed.iv, ct:boxed.ct}))), branch:repo.branch})});
+  if (!r.ok) throw new Error(r.status === 401 || r.status === 403 || r.status === 404 ? "GitHub refused the upload — an administrator needs to check the token in Settings." : "Could not upload the guide (GitHub " + r.status + ").");
+  guideCache.set(id, bytes);
+}
+async function getGuide(id) {
+  if (guideCache.has(id)) return guideCache.get(id);
+  let boxed = null;
+  if (D.ghToken) { try { const r = await fetch(guideUrl(id) + "?ref=" + encodeURIComponent(repo.branch), {headers:{Accept:"application/vnd.github.raw+json", Authorization:"Bearer " + D.ghToken}, cache:"no-store"}); if (r.ok) boxed = await r.json(); } catch (e) {} }
+  if (!boxed) { try { const r = await fetch(guidePath(id) + "?t=" + Date.now(), {cache:"no-store"}); if (r.ok) boxed = await r.json(); } catch (e) {} }
+  if (!boxed || !boxed.ct) throw new Error("missing");
+  const bytes = await open(await aesKey(keyRaw), boxed); guideCache.set(id, bytes); return bytes;
+}
+async function dropGuideFile(id) {   // best effort: the list entry is what matters
+  guideCache.delete(id); if (!D.ghToken) return;
+  try { const h = {Accept:"application/vnd.github+json", Authorization:"Bearer " + D.ghToken}; const r = await fetch(guideUrl(id) + "?ref=" + encodeURIComponent(repo.branch), {headers:h, cache:"no-store"}); if (!r.ok) return;
+    await fetch(guideUrl(id), {method:"DELETE", headers:Object.assign({"Content-Type":"application/json"}, h), body:JSON.stringify({message:"Load sheets data updated", sha:(await r.json()).sha, branch:repo.branch})}); } catch (e) {}
+}
+const siteGuideIds = site => (site && site.guides || []).filter(id => guides().some(g => g.id === id));
+/** Guides that will be attached to the sheet being built: from the chosen sites, plus any carried over from a copied sheet. */
+function formGuides(f) {
+  const ids = []; const add = id => { if (!ids.includes(id) && guides().some(g => g.id === id)) ids.push(id); };
+  f.pickups.concat(f.deliveries).forEach(s => siteGuideIds(D.sites.find(x => x.id === s.siteId)).forEach(add)); (f.extraGuides || []).forEach(add);
+  return ids.map(id => guides().find(g => g.id === id));
+}
+async function guideBytes(ids) {
+  const out = [];
+  for (const id of ids || []) { const g = guides().find(x => x.id === id); if (!g) continue;
+    try { out.push(await getGuide(id)); } catch (e) { throw new Error(`the load restraint guide "${g.name}" could not be loaded. Check your connection, or tick "Leave the restraint guides off this sheet".`); } }
+  return out;
+}
 
 /* ===================== Auth ===================== */
 async function boot() {
@@ -712,12 +791,12 @@ function formatRate(raw) {
 function toJob(f, podOnly) {
   const stop = s => ({company:s.company.trim(), title:(s.title || "").trim() || undefined, suburb:s.suburb.trim(), address:s.address.trim(), contact:(s.contact || "").trim() || undefined, date:s.date, time:s.time.trim()});
   return {pickups:f.pickups.map(stop), deliveries:f.deliveries.map(stop), vehicle:f.vehicle.trim(), carrier:f.carrier.trim(), rate:formatRate(f.rate),
-    quantity:f.quantity.trim() || undefined, reference:f.reference.trim() || undefined, instructions:lines(f.instructions), highlight:!!f.highlight, podOnly:!!podOnly, checks:{compliance:!!f.compliance, schedule:!!f.schedule}};
+    quantity:f.quantity.trim() || undefined, reference:f.reference.trim() || undefined, instructions:lines(f.instructions), highlight:!!f.highlight, podOnly:!!podOnly, checks:{compliance:!!f.compliance, schedule:!!f.schedule}, guides:f.noGuides || podOnly ? undefined : formGuides(f).map(g => g.id)};
 }
 function fromJob(job) {
   const stop = s => ({siteId:"", company:s.company || "", title:s.title || "", suburb:s.suburb || "", address:s.address || "", contact:s.contact || "", date:s.date || "", time:s.time || ""});
   return {pickups:(job.pickups || []).map(stop), deliveries:(job.deliveries || []).map(stop), vehicle:job.vehicle || "", carrier:job.carrier || "", rate:job.rate || "",
-    quantity:job.quantity || "", reference:job.reference || "", instructions:(job.instructions || []).join("\n"), highlight:!!job.highlight, compliance:false, schedule:false};
+    quantity:job.quantity || "", reference:job.reference || "", instructions:(job.instructions || []).join("\n"), highlight:!!job.highlight, compliance:false, schedule:false, noGuides:false, extraGuides:(job.guides || []).slice()};
 }
 /** Things worth a second look before the sheet goes to a carrier. None of them stop the download. */
 function checkList(f) {
@@ -764,10 +843,13 @@ function stopCard(kind, s, i) {
     </div></div>`;
 }
 function sideHtml() {
-  const job = toJob(F), checks = checkList(F), named = job.pickups[0].company || job.deliveries[0].company;
+  const job = toJob(F), checks = checkList(F), named = job.pickups[0].company || job.deliveries[0].company, fg = formGuides(F);
   return `<h2>Generate</h2><p class="mut small" style="word-break:break-word">${named ? esc(LoadSheetPdf.loadSheetFileName(job)) : "Fill in the pick up and delivery to see the file name."}</p>
     ${formErr ? `<div class="errbox">${esc(formErr)}</div>` : ""}
     ${checks.length ? `<div class="checks"><b>Check before sending</b><ul>${checks.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>` : ""}
+    ${fg.length ? `<div class="checks" style="border-color:var(--line,#3a3a5c)"><b>Load restraint guides</b><ul>${fg.map(g => `<li>${esc(g.name)} <span class="mut">(${g.pages} page${g.pages === 1 ? "" : "s"})</span></li>`).join("")}</ul>
+      <label style="margin:6px 0 0;display:flex;gap:8px;align-items:flex-start;cursor:pointer;color:var(--txt)"><input type="checkbox" id="f-noguides" ${F.noGuides ? "checked" : ""} style="margin-top:3px"> <span>Leave the restraint guides off this sheet</span></label>
+      <div class="note">${F.noGuides ? "Not attached to this sheet." : "Added after the load order, before the POD."}</div></div>` : ""}
     <button class="btn pri wide" data-act="gen">Download load order + POD</button>
     <button class="btn wide" data-act="pod" style="margin-top:8px">POD page only</button>
     <div style="text-align:center;margin-top:10px"><button class="link" data-act="clear">Clear the form</button></div>
@@ -807,7 +889,7 @@ function refreshSide() { const s = $("#side"); if (s) s.innerHTML = sideHtml(); 
 function bNew() {
   const main = $("#main");
   main.oninput = e => { const d = e.target.dataset;
-    if (d.k) { const s = F[d.kind][+d.i]; s[d.k] = e.target.value; const b = main.querySelector(`[data-act="savestop"][data-kind="${d.kind}"][data-i="${d.i}"]`); if (b) b.hidden = !!s.siteId || !s.company.trim() || !s.address.trim(); } else if (d.f) { F[d.f] = e.target.value; } else if (e.target.id === "f-highlight") { F.highlight = e.target.checked; } else if (e.target.id === "f-compliance") { F.compliance = e.target.checked; } else if (e.target.id === "f-schedule") { F.schedule = e.target.checked; } else return;
+    if (d.k) { const s = F[d.kind][+d.i]; s[d.k] = e.target.value; const b = main.querySelector(`[data-act="savestop"][data-kind="${d.kind}"][data-i="${d.i}"]`); if (b) b.hidden = !!s.siteId || !s.company.trim() || !s.address.trim(); } else if (d.f) { F[d.f] = e.target.value; } else if (e.target.id === "f-highlight") { F.highlight = e.target.checked; } else if (e.target.id === "f-compliance") { F.compliance = e.target.checked; } else if (e.target.id === "f-schedule") { F.schedule = e.target.checked; } else if (e.target.id === "f-noguides") { F.noGuides = e.target.checked; } else return;
     formErr = ""; refreshSide(); };
   main.onchange = e => { const d = e.target.dataset;
     if ("site" in d) { chooseSite(d.kind, +d.i, e.target.value); render(); }
@@ -836,7 +918,7 @@ async function generate(podOnly) {
   formErr = "";
   try {
     const name = LoadSheetPdf.loadSheetFileName(job);
-    downloadPdf(await LoadSheetPdf.buildLoadSheetPdf(job, pdfLogo()), name);
+    downloadPdf(await LoadSheetPdf.buildLoadSheetPdf(job, pdfLogo(), await guideBytes(job.guides)), name);
     D.sheets.unshift({id:uid(), at:now(), by:me.name || me.u, title:LoadSheetPdf.routeTitle(job), file:name, job});
     D.sheets = D.sheets.slice(0, HISTORY_MAX);
     await save((podOnly ? "POD: " : "Load sheet: ") + name.replace(/\.pdf$/, ""));
@@ -865,7 +947,7 @@ function bHistory() {
   $("#hcsv").onclick = () => { const csv = carriersCsv(); if (!csv) return toast("No carriers in the history yet");
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], {type:"text/csv"})); a.download = "kubic-carriers-used-" + new Date().toISOString().slice(0, 10) + ".csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
   $("#main").onclick = async e => { const b = e.target.closest("[data-act]"); if (!b) return; const s = D.sheets.find(x => x.id === b.closest("tr").dataset.id); if (!s) return;
-    if (b.dataset.act === "dl") { try { downloadPdf(await LoadSheetPdf.buildLoadSheetPdf(s.job, pdfLogo()), s.file || LoadSheetPdf.loadSheetFileName(s.job)); } catch (x) { toast("Could not rebuild that PDF"); } }
+    if (b.dataset.act === "dl") { try { downloadPdf(await LoadSheetPdf.buildLoadSheetPdf(s.job, pdfLogo(), await guideBytes(s.job.guides)), s.file || LoadSheetPdf.loadSheetFileName(s.job)); } catch (x) { toast(/restraint guide/.test(x && x.message || "") ? "Could not rebuild that PDF: " + x.message : "Could not rebuild that PDF"); } }
     if (b.dataset.act === "copy") { F = fromJob(s.job); formErr = ""; view = "new"; render(); window.scrollTo(0, 0); toast("Copied into a new load sheet — update the dates and reference"); }
     if (b.dataset.act === "del") { if (!confirm("Remove this load sheet from history?")) return; D.sheets = D.sheets.filter(x => x !== s); touched.sheetsGone.add(s.id); await save("Load sheet removed from history"); }
   };
@@ -878,7 +960,7 @@ function siteRows() {
   if (!rows.length) return `<tr><td colspan="5" class="mut" style="text-align:center;padding:36px 8px">${D.sites.length ? "Nothing matches that search." : "The address book is empty. Add a site, or save one from a load sheet."}</td></tr>`;
   return rows.map(s => `<tr data-id="${esc(s.id)}"><td><b>${esc(s.company)}</b><div class="mut small">${[s.short && "Title: " + esc(s.short), esc(s.suburb)].filter(Boolean).join(" · ")}</div></td>
     <td>${esc(s.address)}${s.notes ? `<div class="note ${/not confirmed/i.test(s.notes) ? "warn" : ""}">${esc(s.notes)}</div>` : ""}</td><td>${esc(s.contact || "—")}</td>
-    <td class="small" style="max-width:320px">${lines(s.instructions).length ? "<ul>" + lines(s.instructions).map(l => `<li>${esc(l)}</li>`).join("") + "</ul>" : "—"}</td>
+    <td class="small" style="max-width:320px">${lines(s.instructions).length ? "<ul>" + lines(s.instructions).map(l => `<li>${esc(l)}</li>`).join("") + "</ul>" : siteGuideIds(s).length ? "" : "—"}${siteGuideIds(s).map(id => `<div class="note">Restraint guide: ${esc(guides().find(g => g.id === id).name)}</div>`).join("")}</td>
     <td class="right" style="white-space:nowrap"><button class="btn sm" data-act="edit">Edit</button> <button class="btn sm danger" data-act="del">Remove</button></td></tr>`).join("");
 }
 function vSites() {
@@ -886,11 +968,25 @@ function vSites() {
   return `${e ? `<div class="card"><h2>${e.id ? "Edit site" : "Add site"}</h2><div class="grid g2">
       ${f("company", "Company")}${f("short", "Short name for the title (optional)")}${f("address", "Address", "span")}${f("suburb", "Suburb")}${f("contact", "Contact (optional)")}
       <div class="span2"><label for="se-instructions">Standing driver instructions — one per line, added to every load sheet that uses this site</label><textarea id="se-instructions" data-se="instructions" rows="3">${esc(e.instructions)}</textarea></div>
-      <div class="span2"><label for="se-notes">Internal notes — hours, caveats. Never printed on a load sheet</label><input id="se-notes" data-se="notes" value="${esc(e.notes)}"></div></div>
+      <div class="span2"><label for="se-notes">Internal notes — hours, caveats. Never printed on a load sheet</label><input id="se-notes" data-se="notes" value="${esc(e.notes)}"></div>
+      <div class="span2"><label>Load restraint guides — the pages are added to every load sheet that uses this site</label>
+        ${guides().length ? `<div style="display:grid;gap:6px;margin-bottom:10px">${guides().map(g => `<label style="margin:0;display:flex;gap:8px;align-items:center;cursor:pointer;color:var(--txt)"><input type="checkbox" data-guide="${esc(g.id)}" ${(e.guides || []).includes(g.id) ? "checked" : ""}> ${esc(g.name)} <span class="mut small">(${g.pages} page${g.pages === 1 ? "" : "s"})</span></label>`).join("")}</div>` : `<div class="note" style="margin:0 0 10px">No guides uploaded yet.</div>`}
+        <div class="grid g2" style="align-items:end">
+          <div><label for="gu-name">Upload a new guide — name</label><input id="gu-name" placeholder="Customer load restraint guideline"></div>
+          <div><label for="gu-pages">Pages to use from a PDF (blank = all)</label><input id="gu-pages" placeholder="2-7"></div>
+          <div class="span2 row"><input type="file" id="gu-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple style="flex:1;min-width:220px"><button class="btn" id="gu-add" ${guideBusy ? "disabled" : ""}>${guideBusy ? esc(guideBusy) : "Upload guide"}</button></div>
+        </div>
+        <div class="note">A PDF, or one or more JPG/PNG pictures. To reuse the guide pages from an old load sheet PDF, choose that PDF and enter just the guide pages, for example 2-7. Guides are stored encrypted, like the address book.</div>
+        <span class="err" id="gu-err" style="margin:0">${esc(guideErr)}</span></div></div>
       <div class="row" style="margin-top:14px"><button class="btn pri" id="se-save">Save site</button><button class="btn" id="se-cancel">Cancel</button><span class="err" id="se-err" style="margin:0"></span></div></div>` : ""}
     <div class="card"><div class="row" style="margin-bottom:12px"><input id="sq" aria-label="Search the address book" placeholder="Search by company, suburb, address or contact…" value="${esc(siteQ)}" style="flex:1;min-width:220px"><button class="btn pri" id="se-add">+ Add site</button><button class="btn" id="se-import">Import</button><button class="btn" id="se-export" ${D.sites.length ? "" : "disabled"}>Export</button><input type="file" id="se-file" accept=".json,application/json" hidden></div>
     <div class="scroll"><table class="t"><thead><tr><th>Site</th><th>Address</th><th>Contact</th><th>Standing instructions</th><th></th></tr></thead><tbody id="srows">${siteRows()}</tbody></table></div>
-    <p class="mut small" style="margin:12px 0 0">Import adds the sites from an address book file (the kind Export makes) and skips any that are already here. The address book is stored encrypted and is only readable after signing in.</p></div>`;
+    <p class="mut small" style="margin:12px 0 0">Import adds the sites from an address book file (the kind Export makes) and skips any that are already here. The address book is stored encrypted and is only readable after signing in.</p></div>
+    <div class="card"><h2>Load restraint guides</h2>
+    ${guides().length ? `<div class="scroll"><table class="t"><thead><tr><th>Guide</th><th>Pages</th><th>Used by</th><th>Added</th><th></th></tr></thead><tbody id="grows">${guides().map(g => { const used = D.sites.filter(x => (x.guides || []).includes(g.id));
+      return `<tr data-gid="${esc(g.id)}"><td><b>${esc(g.name)}</b></td><td>${g.pages}</td><td class="small">${used.length ? esc(used.map(x => x.company + (x.suburb ? " — " + x.suburb : "")).join("; ")) : `<span class="mut">No sites yet</span>`}</td><td class="mut small" style="white-space:nowrap">${stamp(g.at)}<br>${esc(g.by)}</td>
+        <td class="right" style="white-space:nowrap"><button class="btn sm" data-gact="view">Download</button> <button class="btn sm danger" data-gact="del">Remove</button></td></tr>`; }).join("")}</tbody></table></div>` : `<p class="mut" style="margin:0">None yet. Edit a site and upload its guide there; the same guide can then be ticked on any other site.</p>`}
+    <p class="mut small" style="margin:12px 0 0">A guide attached to a site is added to every load order for that site, after the terms and before the POD pages. It can be left off a single sheet on the New load sheet screen.</p></div>`;
 }
 function bSites() {
   $("#sq").oninput = e => { siteQ = e.target.value; $("#srows").innerHTML = siteRows(); };
@@ -903,19 +999,47 @@ function bSites() {
       D.sites.push({id:uid(), company:String(s.company).trim(), short:String(s.short || "").trim(), suburb:String(s.suburb || "").trim(), address:String(s.address).trim(), contact:String(s.contact || "").trim(), instructions:lines(s.instructions).join("\n"), notes:String(s.notes || "").trim(), at:t, by:me.name || me.u}); }
     if (!n) return toast("Nothing new to import — those sites are already in the address book");
     D.sites.sort((a, b) => a.company.localeCompare(b.company)); await save("Sites imported"); toast(n + (n === 1 ? " site" : " sites") + " imported"); };
-  $("#se-add").onclick = () => { siteEdit = {id:null, company:"", short:"", suburb:"", address:"", contact:"", instructions:"", notes:""}; render(); window.scrollTo(0, 0); };
+  $("#se-add").onclick = () => { siteEdit = {id:null, company:"", short:"", suburb:"", address:"", contact:"", instructions:"", notes:"", guides:[]}; guideErr = ""; render(); window.scrollTo(0, 0); };
   $("#main").oninput = e => { if (siteEdit && e.target.dataset.se) siteEdit[e.target.dataset.se] = e.target.value; };
+  $("#main").onchange = e => { const id = e.target.dataset && e.target.dataset.guide; if (!siteEdit || !id) return; const g = new Set(siteEdit.guides || []); if (e.target.checked) g.add(id); else g.delete(id); siteEdit.guides = Array.from(g); };
   if (siteEdit) {
-    $("#se-cancel").onclick = () => { siteEdit = null; render(); };
+    $("#se-cancel").onclick = () => { siteEdit = null; guideErr = ""; render(); };
+    $("#gu-add").onclick = async () => {
+      const files = Array.from($("#gu-file").files || []), name = $("#gu-name").value.trim(), spec = $("#gu-pages").value;
+      const fail = m => { guideErr = m; guideBusy = ""; render(); };
+      if (!files.length) return fail("Choose a PDF or picture to upload.");
+      if (!name) return fail("Give the guide a name, for example the customer and document.");
+      if (guides().some(g => g.name.toLowerCase() === name.toLowerCase())) return fail("A guide with that name already exists — tick it above, or use a different name.");
+      guideErr = ""; guideBusy = "Uploading…"; render();
+      try {
+        const built = await LoadSheetPdf.buildGuidePdf(await Promise.all(files.map(async f => ({name:f.name, type:f.type, bytes:new Uint8Array(await f.arrayBuffer())}))), spec);
+        if (built.bytes.length > GUIDE_MAX) throw new Error("That guide is " + (built.bytes.length / 1048576).toFixed(1) + " MB — the limit is 6 MB. Use fewer pages or smaller pictures.");
+        const g = {id:uid(), name, pages:built.pages, size:built.bytes.length, at:now(), by:me.name || me.u};
+        await putGuide(g.id, built.bytes);
+        guides().push(g); guides().sort((a, b) => a.name.localeCompare(b.name));
+        if (siteEdit) siteEdit.guides = (siteEdit.guides || []).concat(g.id);
+        guideBusy = ""; await save("Guide added"); toast("Guide uploaded — save the site to keep it attached");
+      } catch (x) { fail(/encrypted|Failed to parse|No PDF header|Invalid|SOI not found|not a PNG/i.test(x && x.message || "") ? "That file could not be read as a PDF, JPG or PNG." : (x && x.message) || "Could not upload the guide."); }
+    };
     $("#se-save").onclick = async () => { const e = siteEdit;
       if (!e.company.trim() || !e.address.trim()) return $("#se-err").textContent = "A site needs a company and an address.";
-      const rec = {id:e.id || uid(), company:e.company.trim(), short:e.short.trim(), suburb:e.suburb.trim(), address:e.address.trim(), contact:e.contact.trim(), instructions:lines(e.instructions).join("\n"), notes:e.notes.trim(), at:now(), by:me.name || me.u};
+      const rec = {id:e.id || uid(), company:e.company.trim(), short:e.short.trim(), suburb:e.suburb.trim(), address:e.address.trim(), contact:e.contact.trim(), instructions:lines(e.instructions).join("\n"), notes:e.notes.trim(), guides:(e.guides || []).filter(id => guides().some(g => g.id === id)), at:now(), by:me.name || me.u};
       const i = D.sites.findIndex(x => x.id === rec.id); if (i >= 0) D.sites[i] = rec; else D.sites.push(rec);
-      D.sites.sort((a, b) => a.company.localeCompare(b.company)); siteEdit = null;
+      D.sites.sort((a, b) => a.company.localeCompare(b.company)); siteEdit = null; guideErr = "";
       await save((i >= 0 ? "Site updated: " : "Site added: ") + rec.company); if (!unsynced) toast(i >= 0 ? "Site updated" : "Site added"); };
   }
-  $("#main").onclick = async e => { const b = e.target.closest("tr [data-act]"); if (!b) return; const s = D.sites.find(x => x.id === b.closest("tr").dataset.id); if (!s) return;
-    if (b.dataset.act === "edit") { siteEdit = Object.assign({}, s); render(); window.scrollTo(0, 0); }
+  $("#main").onclick = async e => {
+    const gb = e.target.closest("tr [data-gact]");
+    if (gb) { const g = guides().find(x => x.id === gb.closest("tr").dataset.gid); if (!g) return;
+      if (gb.dataset.gact === "view") { try { downloadPdf(await getGuide(g.id), g.name.replace(/[\\/:*?"<>|]+/g, " ").trim() + ".pdf"); } catch (x) { toast("Could not load that guide — check your connection"); } }
+      if (gb.dataset.gact === "del") { const used = D.sites.filter(x => (x.guides || []).includes(g.id)).length;
+        if (!confirm("Remove the guide \"" + g.name + "\"?" + (used ? " It will come off " + used + (used === 1 ? " site." : " sites.") : ""))) return;
+        const t = now(); D.sites.forEach(x => { if ((x.guides || []).includes(g.id)) { x.guides = x.guides.filter(id => id !== g.id); x.at = t; } });
+        if (siteEdit) siteEdit.guides = (siteEdit.guides || []).filter(id => id !== g.id);
+        D.guides = guides().filter(x => x !== g); touched.guidesGone.add(g.id); await dropGuideFile(g.id); await save("Guide removed"); }
+      return; }
+    const b = e.target.closest("tr [data-act]"); if (!b) return; const s = D.sites.find(x => x.id === b.closest("tr").dataset.id); if (!s) return;
+    if (b.dataset.act === "edit") { siteEdit = Object.assign({}, s, {guides:(s.guides || []).slice()}); guideErr = ""; render(); window.scrollTo(0, 0); }
     if (b.dataset.act === "del") { if (!confirm("Remove " + s.company + " from the address book?")) return; D.sites = D.sites.filter(x => x !== s); touched.sitesGone.add(s.id); await save("Site removed: " + s.company); }
   };
 }
