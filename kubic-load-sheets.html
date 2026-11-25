@@ -764,21 +764,21 @@ function enter() {
 const isAdmin = () => me.role === "admin";
 
 /* ===================== Shell ===================== */
-const VIEWS = [["new","New load sheet"],["history","History"],["sites","Address book"],["users","My account"],["settings","Settings"]];
+const VIEWS = [["new","New load sheet"],["history","History"],["sites","Address book"],["guides","Load restraint guides"],["users","My account"],["settings","Settings"]];
 function render() {
-  $("#nav").innerHTML = VIEWS.filter(v => v[0] !== "settings" || isAdmin()).map(v => `<a data-v="${v[0]}" class="${view === v[0] ? "on" : ""}">${v[1]}${v[0] === "history" ? ` <span class="mut">(${D.sheets.length})</span>` : v[0] === "sites" ? ` <span class="mut">(${D.sites.length})</span>` : ""}</a>`).join("");
-  $("#nav").onclick = e => { const a = e.target.closest("a[data-v]"); if (a) { view = a.dataset.v; formErr = ""; render(); window.scrollTo(0, 0); if (view === "history" || view === "sites") refresh(); } };
+  $("#nav").innerHTML = VIEWS.filter(v => v[0] !== "settings" || isAdmin()).map(v => `<a data-v="${v[0]}" class="${view === v[0] ? "on" : ""}">${v[1]}${v[0] === "history" ? ` <span class="mut">(${D.sheets.length})</span>` : v[0] === "sites" ? ` <span class="mut">(${D.sites.length})</span>` : v[0] === "guides" ? ` <span class="mut">(${guides().length})</span>` : ""}</a>`).join("");
+  $("#nav").onclick = e => { const a = e.target.closest("a[data-v]"); if (a) { view = a.dataset.v; formErr = ""; render(); window.scrollTo(0, 0); guideErr = ""; if (view === "history" || view === "sites" || view === "guides") refresh(); } };
   $("#who").innerHTML = `<b>${esc(me.name)}</b><br><span class="mut">${isAdmin() ? "Administrator" : "User"}</span><br><a id="so" style="cursor:pointer">Sign out</a>`; $("#so").onclick = signOut;
   const st = unsynced ? ["warn","Saved in this browser only"] : ["ok","Saved to GitHub"];
   const title = VIEWS.find(v => v[0] === view)[1];
   const top = `<div class="top"><div><h1>${title}</h1><div class="mut small">${file.savedAt ? "Last saved " + stamp(file.savedAt) + " by " + esc(file.savedBy) : ""}</div></div><div class="sp"></div>
     <span class="pill ${st[0]}" id="savestate">${st[1]}</span>${unsynced ? '<button class="btn sm" id="dlbtn">Download data file</button>' : ""}</div>
     ${unsynced ? `<div class="banner">${D.ghToken ? "The last save did not reach GitHub, so other people cannot see it yet. It will be sent with your next save." : "This tool is not connected to GitHub yet, so load sheets and addresses are only kept in this browser and other people cannot sign in." + (isAdmin() ? " Open Settings and add a GitHub token." : " Ask an administrator to finish the setup.")}</div>` : ""}`;
-  const body = {new:vNew, history:vHistory, sites:vSites, users:vUsers, settings:vSettings}[view]();
+  const body = {new:vNew, history:vHistory, sites:vSites, guides:vGuides, users:vUsers, settings:vSettings}[view]();
   const main = $("#main"); main.onchange = main.onclick = main.oninput = null;
   main.innerHTML = top + body;
   if ($("#dlbtn")) $("#dlbtn").onclick = downloadFile;
-  ({new:bNew, history:bHistory, sites:bSites, users:bUsers, settings:bSettings}[view])();
+  ({new:bNew, history:bHistory, sites:bSites, guides:bGuides, users:bUsers, settings:bSettings}[view])();
 }
 
 /* ===================== New load sheet ===================== */
@@ -981,12 +981,7 @@ function vSites() {
       <div class="row" style="margin-top:14px"><button class="btn pri" id="se-save">Save site</button><button class="btn" id="se-cancel">Cancel</button><span class="err" id="se-err" style="margin:0"></span></div></div>` : ""}
     <div class="card"><div class="row" style="margin-bottom:12px"><input id="sq" aria-label="Search the address book" placeholder="Search by company, suburb, address or contact…" value="${esc(siteQ)}" style="flex:1;min-width:220px"><button class="btn pri" id="se-add">+ Add site</button><button class="btn" id="se-import">Import</button><button class="btn" id="se-export" ${D.sites.length ? "" : "disabled"}>Export</button><input type="file" id="se-file" accept=".json,application/json" hidden></div>
     <div class="scroll"><table class="t"><thead><tr><th>Site</th><th>Address</th><th>Contact</th><th>Standing instructions</th><th></th></tr></thead><tbody id="srows">${siteRows()}</tbody></table></div>
-    <p class="mut small" style="margin:12px 0 0">Import adds the sites from an address book file (the kind Export makes) and skips any that are already here. The address book is stored encrypted and is only readable after signing in.</p></div>
-    <div class="card"><h2>Load restraint guides</h2>
-    ${guides().length ? `<div class="scroll"><table class="t"><thead><tr><th>Guide</th><th>Pages</th><th>Used by</th><th>Added</th><th></th></tr></thead><tbody id="grows">${guides().map(g => { const used = D.sites.filter(x => (x.guides || []).includes(g.id));
-      return `<tr data-gid="${esc(g.id)}"><td><b>${esc(g.name)}</b></td><td>${g.pages}</td><td class="small">${used.length ? esc(used.map(x => x.company + (x.suburb ? " — " + x.suburb : "")).join("; ")) : `<span class="mut">No sites yet</span>`}</td><td class="mut small" style="white-space:nowrap">${stamp(g.at)}<br>${esc(g.by)}</td>
-        <td class="right" style="white-space:nowrap"><button class="btn sm" data-gact="view">Download</button> <button class="btn sm danger" data-gact="del">Remove</button></td></tr>`; }).join("")}</tbody></table></div>` : `<p class="mut" style="margin:0">None yet. Edit a site and upload its guide there; the same guide can then be ticked on any other site.</p>`}
-    <p class="mut small" style="margin:12px 0 0">A guide attached to a site is added to every load order for that site, after the terms and before the POD pages. It can be left off a single sheet on the New load sheet screen.</p></div>`;
+    <p class="mut small" style="margin:12px 0 0">Import adds the sites from an address book file (the kind Export makes) and skips any that are already here. The address book is stored encrypted and is only readable after signing in. Load restraint guides have their own tab.</p></div>`;
 }
 function bSites() {
   $("#sq").oninput = e => { siteQ = e.target.value; $("#srows").innerHTML = siteRows(); };
@@ -1004,7 +999,24 @@ function bSites() {
   $("#main").onchange = e => { const id = e.target.dataset && e.target.dataset.guide; if (!siteEdit || !id) return; const g = new Set(siteEdit.guides || []); if (e.target.checked) g.add(id); else g.delete(id); siteEdit.guides = Array.from(g); };
   if (siteEdit) {
     $("#se-cancel").onclick = () => { siteEdit = null; guideErr = ""; render(); };
-    $("#gu-add").onclick = async () => {
+    bindGuideUpload();
+    $("#se-save").onclick = async () => { const e = siteEdit;
+      if (!e.company.trim() || !e.address.trim()) return $("#se-err").textContent = "A site needs a company and an address.";
+      const rec = {id:e.id || uid(), company:e.company.trim(), short:e.short.trim(), suburb:e.suburb.trim(), address:e.address.trim(), contact:e.contact.trim(), instructions:lines(e.instructions).join("\n"), notes:e.notes.trim(), guides:(e.guides || []).filter(id => guides().some(g => g.id === id)), at:now(), by:me.name || me.u};
+      const i = D.sites.findIndex(x => x.id === rec.id); if (i >= 0) D.sites[i] = rec; else D.sites.push(rec);
+      D.sites.sort((a, b) => a.company.localeCompare(b.company)); siteEdit = null; guideErr = "";
+      await save((i >= 0 ? "Site updated: " : "Site added: ") + rec.company); if (!unsynced) toast(i >= 0 ? "Site updated" : "Site added"); };
+  }
+  $("#main").onclick = async e => {
+    const b = e.target.closest("tr [data-act]"); if (!b) return; const s = D.sites.find(x => x.id === b.closest("tr").dataset.id); if (!s) return;
+    if (b.dataset.act === "edit") { siteEdit = Object.assign({}, s, {guides:(s.guides || []).slice()}); guideErr = ""; render(); window.scrollTo(0, 0); }
+    if (b.dataset.act === "del") { if (!confirm("Remove " + s.company + " from the address book?")) return; D.sites = D.sites.filter(x => x !== s); touched.sitesGone.add(s.id); await save("Site removed: " + s.company); }
+  };
+}
+
+/* ===================== Load restraint guides tab ===================== */
+function bindGuideUpload() {
+  $("#gu-add").onclick = async () => {
       const files = Array.from($("#gu-file").files || []), name = $("#gu-name").value.trim(), spec = $("#gu-pages").value;
       const fail = m => { guideErr = m; guideBusy = ""; render(); };
       if (!files.length) return fail("Choose a PDF or picture to upload.");
@@ -1018,16 +1030,25 @@ function bSites() {
         await putGuide(g.id, built.bytes);
         guides().push(g); guides().sort((a, b) => a.name.localeCompare(b.name));
         if (siteEdit) siteEdit.guides = (siteEdit.guides || []).concat(g.id);
-        guideBusy = ""; await save("Guide added"); toast("Guide uploaded — save the site to keep it attached");
+        guideBusy = ""; await save("Guide added"); toast(siteEdit ? "Guide uploaded — save the site to keep it attached" : "Guide uploaded — tick it on each site that uses it, under Address book");
       } catch (x) { fail(/encrypted|Failed to parse|No PDF header|Invalid|SOI not found|not a PNG/i.test(x && x.message || "") ? "That file could not be read as a PDF, JPG or PNG." : (x && x.message) || "Could not upload the guide."); }
     };
-    $("#se-save").onclick = async () => { const e = siteEdit;
-      if (!e.company.trim() || !e.address.trim()) return $("#se-err").textContent = "A site needs a company and an address.";
-      const rec = {id:e.id || uid(), company:e.company.trim(), short:e.short.trim(), suburb:e.suburb.trim(), address:e.address.trim(), contact:e.contact.trim(), instructions:lines(e.instructions).join("\n"), notes:e.notes.trim(), guides:(e.guides || []).filter(id => guides().some(g => g.id === id)), at:now(), by:me.name || me.u};
-      const i = D.sites.findIndex(x => x.id === rec.id); if (i >= 0) D.sites[i] = rec; else D.sites.push(rec);
-      D.sites.sort((a, b) => a.company.localeCompare(b.company)); siteEdit = null; guideErr = "";
-      await save((i >= 0 ? "Site updated: " : "Site added: ") + rec.company); if (!unsynced) toast(i >= 0 ? "Site updated" : "Site added"); };
-  }
+}
+function vGuides() {
+  return `<div class="card"><h2>Upload a guide</h2><div class="grid g2" style="align-items:end">
+      <div><label for="gu-name">Guide name</label><input id="gu-name" placeholder="Customer load restraint guideline"></div>
+      <div><label for="gu-pages">Pages to use from a PDF (blank = all)</label><input id="gu-pages" placeholder="2-7"></div>
+      <div class="span2 row"><input type="file" id="gu-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple style="flex:1;min-width:220px"><button class="btn pri" id="gu-add" ${guideBusy ? "disabled" : ""}>${guideBusy ? esc(guideBusy) : "Upload guide"}</button></div></div>
+    <div class="note">A PDF, or one or more JPG/PNG pictures. To reuse the guide pages from an old load sheet PDF, choose that PDF and enter just the guide pages, for example 2-7. After uploading, open Address book, edit each site that loads this product and tick the guide. Guides are stored encrypted, like the address book.</div>
+    <span class="err" id="gu-err" style="margin:0">${esc(guideErr)}</span></div>
+    <div class="card"><h2>Guides on file</h2>
+    ${guides().length ? `<div class="scroll"><table class="t"><thead><tr><th>Guide</th><th>Pages</th><th>Used by</th><th>Added</th><th></th></tr></thead><tbody id="grows">${guides().map(g => { const used = D.sites.filter(x => (x.guides || []).includes(g.id));
+      return `<tr data-gid="${esc(g.id)}"><td><b>${esc(g.name)}</b></td><td>${g.pages}</td><td class="small">${used.length ? esc(used.map(x => x.company + (x.suburb ? " — " + x.suburb : "")).join("; ")) : `<span class="mut">No sites yet</span>`}</td><td class="mut small" style="white-space:nowrap">${stamp(g.at)}<br>${esc(g.by)}</td>
+        <td class="right" style="white-space:nowrap"><button class="btn sm" data-gact="view">Download</button> <button class="btn sm danger" data-gact="del">Remove</button></td></tr>`; }).join("")}</tbody></table></div>` : `<p class="mut" style="margin:0">None yet. Upload one above, then tick it on each site that uses it under Address book.</p>`}
+    <p class="mut small" style="margin:12px 0 0">A guide attached to a site is added to every load order for that site, after the terms and before the POD pages. It can be left off a single sheet on the New load sheet screen.</p></div>`;
+}
+function bGuides() {
+  bindGuideUpload();
   $("#main").onclick = async e => {
     const gb = e.target.closest("tr [data-gact]");
     if (gb) { const g = guides().find(x => x.id === gb.closest("tr").dataset.gid); if (!g) return;
@@ -1038,9 +1059,6 @@ function bSites() {
         if (siteEdit) siteEdit.guides = (siteEdit.guides || []).filter(id => id !== g.id);
         D.guides = guides().filter(x => x !== g); touched.guidesGone.add(g.id); await dropGuideFile(g.id); await save("Guide removed"); }
       return; }
-    const b = e.target.closest("tr [data-act]"); if (!b) return; const s = D.sites.find(x => x.id === b.closest("tr").dataset.id); if (!s) return;
-    if (b.dataset.act === "edit") { siteEdit = Object.assign({}, s, {guides:(s.guides || []).slice()}); guideErr = ""; render(); window.scrollTo(0, 0); }
-    if (b.dataset.act === "del") { if (!confirm("Remove " + s.company + " from the address book?")) return; D.sites = D.sites.filter(x => x !== s); touched.sitesGone.add(s.id); await save("Site removed: " + s.company); }
   };
 }
 
